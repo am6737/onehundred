@@ -1,0 +1,781 @@
+import React, { useState } from 'react';
+import {
+  View, Text, TouchableOpacity, ScrollView, FlatList,
+  StyleSheet, Dimensions,
+} from 'react-native';
+import { useTheme, TONE } from '../theme/tokens';
+import {
+  MEMORIES, KIDS, FAMILY, getKid, kidLabel, memoriesForKid, PERSPECTIVES,
+} from '../data';
+import { Icon, PhotoSlot, KidAvatar } from '../components/Icons';
+import { LayerHeader, Sheet, Chip, PrimaryButton } from '../components/common';
+
+const { width: SCREEN_W } = Dimensions.get('window');
+
+/* ════════════════════════════════════════════════════════════
+   Helpers
+   ════════════════════════════════════════════════════════════ */
+
+/** Sequence number of a memory (1-indexed by completion order, oldest = 1). */
+function memSeq(m) {
+  const i = MEMORIES.findIndex(x => x.id === m.id);
+  return i < 0 ? MEMORIES.length + 1 : MEMORIES.length - i;
+}
+
+/** Pretty date for the share card — replace relative words with a full date. */
+function shareDate(d) {
+  if (d === '今天' || d === '刚刚' || !d) {
+    const now = new Date();
+    return `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日`;
+  }
+  return d;
+}
+
+/** Number of photos in a memory (shots can be an array or a number). */
+function shotCount(m) {
+  if (Array.isArray(m.shots)) return m.shots.length;
+  if (typeof m.shots === 'number') return m.shots;
+  return 0;
+}
+
+/** Normalise type — the data layer may use 'audio' where the prototype expects 'voice'. */
+function normalType(type) {
+  if (type === 'audio') return 'voice';
+  return type || 'photo';
+}
+
+/** Filter memories by kid id or show all. */
+function bookFilter(memories, f) {
+  if (f === 'everything') return memories;
+  return memories.filter(m => m.kid === f);
+}
+
+/** Label for who participated. */
+function whoTag(kid) {
+  return kid === 'all' ? '全家' : (getKid(kid)?.name || '孩子');
+}
+
+/* ════════════════════════════════════════════════════════════
+   TypeBadge — pill overlay on hero photo (voice / video / photo)
+   ════════════════════════════════════════════════════════════ */
+
+function TypeBadge({ type = 'voice', dur }) {
+  const { theme } = useTheme();
+  const isVoice = type === 'voice';
+  const isVideo = type === 'video';
+  const icon = isVoice
+    ? Icon.play('#FFFDF7', 11)
+    : isVideo
+      ? Icon.video('#FFFDF7', 13)
+      : Icon.camera('#FFFDF7', 13);
+  const label = isVoice
+    ? (dur || '语音')
+    : isVideo
+      ? (dur || '视频')
+      : '照片';
+
+  return (
+    <View style={badgeStyles.container}>
+      <View style={[badgeStyles.iconWrap, { backgroundColor: theme.accent }]}>
+        {icon}
+      </View>
+      <Text style={[badgeStyles.label, {
+        fontFamily: theme.fonts.body,
+        color: theme.ink,
+      }]}>{label}</Text>
+    </View>
+  );
+}
+
+const badgeStyles = StyleSheet.create({
+  container: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 7,
+    paddingLeft: 7,
+    paddingRight: 13,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,253,247,0.93)',
+    shadowColor: '#3A332B',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 9,
+    elevation: 4,
+  },
+  iconWrap: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  label: {
+    fontSize: 13,
+  },
+});
+
+/* ════════════════════════════════════════════════════════════
+   ShareSheet — bottom sheet with share card preview
+   ════════════════════════════════════════════════════════════ */
+
+function ShareSheet({ m, visible, onClose }) {
+  const { theme } = useTheme();
+  const t = TONE[m.tone] || TONE.orange;
+  const perspective = PERSPECTIVES[m.perspective];
+
+  return (
+    <Sheet visible={visible} onClose={onClose} title="这一页，分享出去">
+      {/* Share card preview */}
+      <View style={{
+        borderRadius: 24, overflow: 'hidden',
+        backgroundColor: theme.paper,
+        borderWidth: 1, borderColor: theme.line,
+        shadowColor: '#3A332B',
+        shadowOffset: { width: 0, height: 18 },
+        shadowOpacity: 0.22,
+        shadowRadius: 20,
+        elevation: 6,
+        marginBottom: 18,
+      }}>
+        <PhotoSlot tone={m.tone} radius={0} label="照片" style={{ height: 200, aspectRatio: undefined }} />
+        <View style={{ padding: 18, paddingHorizontal: 20, paddingBottom: 20 }}>
+          <View style={{
+            alignSelf: 'flex-start',
+            backgroundColor: t.soft,
+            paddingHorizontal: 10,
+            paddingVertical: 4,
+            borderRadius: 999,
+          }}>
+            <Text style={{
+              fontFamily: theme.fonts.head, fontSize: 12, color: t.ink,
+            }}>
+              {'第 '}{memSeq(m)}{' 件事 · '}{perspective ? perspective.long : ''}
+            </Text>
+          </View>
+          <Text style={{
+            marginTop: 12,
+            fontFamily: theme.fonts.hand, fontSize: 19, lineHeight: 34,
+            color: theme.ink,
+          }}>
+            {'「'}{m.caption}{'」'}
+          </Text>
+          <View style={{ marginTop: 14, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Text style={{
+              fontFamily: theme.fonts.body, fontSize: 12, color: theme.inkSoft,
+            }}>
+              {m.kid === 'all' ? '我们一家' : `${getKid(m.kid)?.name || '孩子'}与我`}
+              {' · '}{shareDate(m.date)}{' · 一百件事'}
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Action buttons */}
+      <View style={{ flexDirection: 'row', gap: 12 }}>
+        <TouchableOpacity
+          onPress={onClose}
+          activeOpacity={0.8}
+          style={{
+            flex: 1, padding: 14, borderRadius: 999,
+            backgroundColor: theme.paper,
+            borderWidth: 1, borderColor: theme.line,
+            alignItems: 'center',
+          }}
+        >
+          <Text style={{
+            fontFamily: theme.fonts.head, fontSize: 15, color: theme.ink,
+          }}>保存到相册</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={onClose}
+          activeOpacity={0.8}
+          style={{
+            flex: 1, padding: 14, borderRadius: 999,
+            backgroundColor: theme.accent,
+            alignItems: 'center',
+          }}
+        >
+          <Text style={{
+            fontFamily: theme.fonts.head, fontSize: 15, color: '#FFFDF7',
+          }}>分享给家人</Text>
+        </TouchableOpacity>
+      </View>
+    </Sheet>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════
+   MemoryPage — single memory detail view
+   ════════════════════════════════════════════════════════════ */
+
+export function MemoryPage({ route, navigation }) {
+  const m = route?.params?.memory;
+  const { theme } = useTheme();
+  const t = TONE[m?.tone] || TONE.orange;
+  const [shareVisible, setShareVisible] = useState(false);
+  const [openText, setOpenText] = useState(false);
+
+  if (!m) return null;
+
+  const type = normalType(m.type);
+  const hasTranscript = (type === 'voice' || type === 'video') && m.transcript && m.transcript.trim();
+  const longText = hasTranscript && m.transcript.trim().length > 56;
+  const shots = shotCount(m);
+  const perspective = PERSPECTIVES[m.perspective];
+
+  return (
+    <View style={{ flex: 1, backgroundColor: theme.paper }}>
+      <LayerHeader title="" onBack={() => navigation.goBack()} />
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingBottom: 50 }}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* ── Hero photo ── */}
+        <View style={{ paddingHorizontal: 20 }}>
+          <View style={{
+            borderRadius: 28, overflow: 'hidden',
+            shadowColor: '#3A332B',
+            shadowOffset: { width: 0, height: 20 },
+            shadowOpacity: 0.22,
+            shadowRadius: 22,
+            elevation: 8,
+          }}>
+            <PhotoSlot tone={m.tone} radius={28} label="照片" style={{ height: 300, aspectRatio: undefined }} />
+            {/* Type badge overlay */}
+            {(type === 'voice' || type === 'video') && (
+              <View style={{ position: 'absolute', left: 16, bottom: 16 }}>
+                <TypeBadge type={type} dur={m.dur} />
+              </View>
+            )}
+            {/* Multi-shot count overlay */}
+            {shots > 1 && (
+              <View style={{
+                position: 'absolute', right: 16, bottom: 16,
+                flexDirection: 'row', alignItems: 'center', gap: 6,
+                paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999,
+                backgroundColor: 'rgba(255,253,247,0.93)',
+                shadowColor: '#3A332B',
+                shadowOffset: { width: 0, height: 8 },
+                shadowOpacity: 0.25,
+                shadowRadius: 9,
+                elevation: 4,
+              }}>
+                {Icon.camera(t.deep, 14)}
+                <Text style={{
+                  fontFamily: theme.fonts.body, fontSize: 13, color: theme.ink,
+                }}>{shots} 张</Text>
+              </View>
+            )}
+          </View>
+
+          {/* Thumbnail strip for multi-shot */}
+          {shots > 1 && (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={{ marginTop: 10 }}
+              contentContainerStyle={{ gap: 8 }}
+            >
+              {Array.from({ length: shots }).map((_, i) => (
+                <View key={i} style={{ position: 'relative' }}>
+                  <PhotoSlot
+                    tone={m.tone}
+                    radius={13}
+                    label=""
+                    style={{
+                      width: 66, height: 66, aspectRatio: undefined,
+                      ...(i === 0
+                        ? { shadowColor: theme.accent, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.4, shadowRadius: 1, elevation: 2 }
+                        : {}),
+                      borderWidth: i === 0 ? 2 : 1,
+                      borderColor: i === 0 ? theme.accent : theme.line,
+                    }}
+                  />
+                  {i === 0 && (
+                    <View style={{
+                      position: 'absolute', top: 4, left: 4,
+                      backgroundColor: theme.accent,
+                      paddingHorizontal: 6, paddingVertical: 2, borderRadius: 999,
+                    }}>
+                      <Text style={{
+                        fontFamily: theme.fonts.head, fontSize: 9.5, color: '#FFFDF7',
+                      }}>封面</Text>
+                    </View>
+                  )}
+                </View>
+              ))}
+            </ScrollView>
+          )}
+        </View>
+
+        {/* ── Page body ── */}
+        <View style={{ paddingHorizontal: 28, paddingTop: 24 }}>
+          {/* Sequence badge + perspective */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <View style={{
+              backgroundColor: t.soft, paddingHorizontal: 11, paddingVertical: 5,
+              borderRadius: 999,
+            }}>
+              <Text style={{
+                fontFamily: theme.fonts.head, fontSize: 13, color: t.ink,
+              }}>{'第 '}{memSeq(m)}{' 件事'}</Text>
+            </View>
+            <Text style={{
+              fontFamily: theme.fonts.body, fontSize: 13, color: theme.inkSoft,
+            }}>{perspective ? perspective.long : ''}</Text>
+          </View>
+
+          {/* Title */}
+          <Text style={{
+            marginTop: 16,
+            fontFamily: theme.fonts.head, fontSize: 28, lineHeight: 39,
+            color: theme.ink,
+          }}>{m.title}</Text>
+
+          {/* Decorative quote + handwritten caption */}
+          <View style={{ position: 'relative', marginTop: 22, paddingTop: 8 }}>
+            <Text style={{
+              position: 'absolute', top: -14, left: -6,
+              fontFamily: theme.fonts.head, fontSize: 64,
+              color: t.soft, lineHeight: 64,
+            }}>{'“'}</Text>
+            <Text style={{
+              fontFamily: theme.fonts.hand, fontSize: 24, lineHeight: 47,
+              color: theme.ink,
+            }}>{m.caption}</Text>
+          </View>
+
+          {/* Date and place */}
+          <View style={{
+            marginTop: 28, flexDirection: 'row', alignItems: 'center', gap: 10,
+          }}>
+            <Text style={{
+              fontFamily: theme.fonts.body, fontSize: 14, color: theme.inkSoft,
+            }}>{m.date}</Text>
+            <Text style={{
+              fontFamily: theme.fonts.body, fontSize: 14, color: theme.inkSoft, opacity: 0.4,
+            }}>{'·'}</Text>
+            <Text style={{
+              fontFamily: theme.fonts.body, fontSize: 14, color: theme.inkSoft,
+            }}>{m.place}</Text>
+          </View>
+
+          {/* ── Transcript accordion ── */}
+          {hasTranscript && (
+            <View style={{
+              marginTop: 20, borderRadius: 20,
+              backgroundColor: theme.cream,
+              borderWidth: 1, borderColor: theme.line,
+              overflow: 'hidden',
+            }}>
+              {/* Header */}
+              <View style={{
+                flexDirection: 'row', alignItems: 'center', gap: 8,
+                paddingHorizontal: 16, paddingTop: 14, paddingBottom: 10,
+              }}>
+                <View style={{
+                  width: 26, height: 26, borderRadius: 13,
+                  backgroundColor: t.soft,
+                  justifyContent: 'center', alignItems: 'center',
+                }}>
+                  {Icon.pen(t.ink, 14)}
+                </View>
+                <Text style={{
+                  fontFamily: theme.fonts.head, fontSize: 14.5, color: theme.ink,
+                }}>录音文字</Text>
+                <Text style={{
+                  marginLeft: 'auto',
+                  fontFamily: theme.fonts.body, fontSize: 11.5, color: theme.inkSoft,
+                }}>自动转写</Text>
+              </View>
+
+              {/* Body */}
+              <Text
+                numberOfLines={longText && !openText ? 2 : undefined}
+                style={{
+                  paddingHorizontal: 16, paddingBottom: 16,
+                  fontFamily: theme.fonts.body, fontSize: 14.5, lineHeight: 27.5,
+                  color: theme.inkSoft,
+                }}
+              >
+                {m.transcript}
+              </Text>
+
+              {/* Expand/collapse toggle */}
+              {longText && (
+                <TouchableOpacity
+                  onPress={() => setOpenText(o => !o)}
+                  style={{
+                    borderTopWidth: 1, borderTopColor: theme.line,
+                    paddingVertical: 10,
+                    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+                    gap: 5,
+                  }}
+                >
+                  <Text style={{
+                    fontFamily: theme.fonts.body, fontSize: 13, color: theme.accent,
+                  }}>{openText ? '收起' : '看全文'}</Text>
+                  <View style={{
+                    transform: [{ rotate: openText ? '180deg' : '0deg' }],
+                  }}>
+                    {Icon.chevDown(theme.accent, 15)}
+                  </View>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
+
+          {/* ── Share button ── */}
+          <PrimaryButton
+            label="做成一张卡片"
+            icon={Icon.share('#FFFDF7', 18)}
+            onPress={() => setShareVisible(true)}
+            style={{
+              marginTop: 24,
+              shadowColor: theme.accent,
+              shadowOffset: { width: 0, height: 10 },
+              shadowOpacity: 0.35,
+              shadowRadius: 12,
+              elevation: 6,
+            }}
+          />
+        </View>
+      </ScrollView>
+
+      {/* Share sheet */}
+      <ShareSheet m={m} visible={shareVisible} onClose={() => setShareVisible(false)} />
+    </View>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════
+   KidFilterChips — filter row for the memory book
+   ════════════════════════════════════════════════════════════ */
+
+export function KidFilterChips({ value, onChange }) {
+  const { theme } = useTheme();
+  const chips = [
+    { k: 'everything', label: '全部' },
+    ...KIDS.map(k => ({ k: k.id, label: k.name })),
+    { k: 'all', label: '全家一起' },
+  ];
+
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={{ gap: 8, paddingVertical: 3 }}
+    >
+      {chips.map(c => {
+        const on = value === c.k;
+        return (
+          <TouchableOpacity
+            key={c.k}
+            onPress={() => onChange(c.k)}
+            activeOpacity={0.7}
+            style={{
+              paddingHorizontal: 15, paddingVertical: 8, borderRadius: 999,
+              backgroundColor: on ? theme.accent : theme.paper,
+              borderWidth: 1,
+              borderColor: on ? theme.accent : theme.line,
+              ...(on ? {
+                shadowColor: theme.accent,
+                shadowOffset: { width: 0, height: 8 },
+                shadowOpacity: 0.3,
+                shadowRadius: 9,
+                elevation: 4,
+              } : {}),
+            }}
+          >
+            <Text style={{
+              fontFamily: theme.fonts.head, fontSize: 14,
+              color: on ? '#FFFDF7' : theme.inkSoft,
+            }}>{c.label}</Text>
+          </TouchableOpacity>
+        );
+      })}
+    </ScrollView>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════
+   MemoryThreadItem — one card on the timeline
+   ════════════════════════════════════════════════════════════ */
+
+function MemoryThreadItem({ m, onOpen, showWho }) {
+  const { theme } = useTheme();
+  const t = TONE[m.tone] || TONE.orange;
+  const type = normalType(m.type);
+  const shots = shotCount(m);
+
+  return (
+    <View style={{ position: 'relative', paddingLeft: 34, paddingBottom: 26 }}>
+      {/* Vertical timeline line */}
+      <View style={{
+        position: 'absolute', left: 8, top: 9, bottom: 0, width: 2,
+        backgroundColor: theme.line,
+        opacity: 0.7,
+      }} />
+
+      {/* Timeline node dot */}
+      <View style={{
+        position: 'absolute', left: 0, top: 5,
+        width: 18, height: 18, borderRadius: 9,
+        backgroundColor: theme.cream,
+        justifyContent: 'center', alignItems: 'center',
+      }}>
+        <View style={{
+          width: 11, height: 11, borderRadius: 5.5,
+          backgroundColor: t.deep,
+          shadowColor: t.soft,
+          shadowOffset: { width: 0, height: 0 },
+          shadowOpacity: 1,
+          shadowRadius: 3,
+          elevation: 2,
+        }} />
+      </View>
+
+      {/* Date and place header */}
+      <View style={{
+        flexDirection: 'row', alignItems: 'baseline', gap: 8,
+        marginBottom: 10,
+      }}>
+        <Text style={{
+          fontFamily: theme.fonts.head, fontSize: 15, color: theme.ink,
+        }}>{m.date}</Text>
+        <Text style={{
+          fontFamily: theme.fonts.body, fontSize: 12.5, color: theme.inkSoft,
+        }}>{m.place}</Text>
+      </View>
+
+      {/* Memory card */}
+      <TouchableOpacity
+        onPress={() => onOpen(m)}
+        activeOpacity={0.8}
+        style={{
+          flexDirection: 'row', alignItems: 'stretch',
+          borderRadius: 22, overflow: 'hidden',
+          backgroundColor: theme.paper,
+          borderWidth: 1, borderColor: theme.line,
+          shadowColor: '#3A332B',
+          shadowOffset: { width: 0, height: 12 },
+          shadowOpacity: 0.18,
+          shadowRadius: 14,
+          elevation: 4,
+        }}
+      >
+        {/* Left photo thumbnail */}
+        <View style={{ width: 96, position: 'relative' }}>
+          <PhotoSlot
+            tone={m.tone}
+            radius={0}
+            label=""
+            style={{ height: '100%', minHeight: 118, aspectRatio: undefined }}
+          />
+          {(type === 'voice' || type === 'video') && (
+            <View style={{
+              position: 'absolute', left: 8, bottom: 8,
+              width: 26, height: 26, borderRadius: 13,
+              backgroundColor: 'rgba(255,253,247,0.92)',
+              justifyContent: 'center', alignItems: 'center',
+            }}>
+              {type === 'video' ? Icon.video(t.deep, 13) : Icon.play(t.deep, 12)}
+            </View>
+          )}
+          {type === 'photo' && shots > 1 && (
+            <View style={{
+              position: 'absolute', left: 8, bottom: 8,
+              flexDirection: 'row', alignItems: 'center', gap: 3,
+              paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999,
+              backgroundColor: 'rgba(255,253,247,0.92)',
+            }}>
+              {Icon.camera(t.deep, 11)}
+              <Text style={{
+                fontFamily: theme.fonts.body, fontSize: 11, color: t.ink,
+              }}>{shots}</Text>
+            </View>
+          )}
+        </View>
+
+        {/* Right text content */}
+        <View style={{ flex: 1, padding: 14, paddingHorizontal: 16 }}>
+          <View style={{
+            flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap',
+          }}>
+            <View style={{
+              backgroundColor: t.soft,
+              paddingHorizontal: 9, paddingVertical: 3, borderRadius: 999,
+            }}>
+              <Text style={{
+                fontFamily: theme.fonts.head, fontSize: 11.5, color: t.ink,
+              }}>{'第 '}{memSeq(m)}{' 件'}</Text>
+            </View>
+            {showWho && (
+              <View style={{
+                flexDirection: 'row', alignItems: 'center', gap: 4,
+                backgroundColor: theme.sand,
+                paddingHorizontal: 9, paddingVertical: 3, borderRadius: 999,
+              }}>
+                {m.kid === 'all' ? Icon.users(theme.inkSoft, 12) : null}
+                <Text style={{
+                  fontFamily: theme.fonts.body, fontSize: 11, color: theme.inkSoft,
+                }}>{whoTag(m.kid)}</Text>
+              </View>
+            )}
+          </View>
+          <Text numberOfLines={1} style={{
+            marginTop: 9,
+            fontFamily: theme.fonts.head, fontSize: 16.5, lineHeight: 23,
+            color: theme.ink,
+          }}>{m.title}</Text>
+          <Text numberOfLines={2} style={{
+            marginTop: 5,
+            fontFamily: theme.fonts.body, fontSize: 13, lineHeight: 21,
+            color: theme.inkSoft,
+          }}>{m.caption}</Text>
+        </View>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════
+   MemoryBook — timeline of all memories
+   ════════════════════════════════════════════════════════════ */
+
+export function MemoryBook({ route, navigation }) {
+  const kidId = route?.params?.kidId || 'all';
+  const { theme } = useTheme();
+  const [filter, setFilter] = useState(kidId === 'all' ? 'everything' : kidId);
+  const list = bookFilter(MEMORIES, filter);
+
+  const lead = filter === 'everything'
+    ? '你们一家一起走过的'
+    : filter === 'all'
+      ? '你们全家一起走过的'
+      : `你和${getKid(filter)?.name || '孩子'}一起走过的`;
+
+  const handleOpenMemory = (m) => {
+    navigation.navigate('MemoryPage', { memory: m });
+  };
+
+  const renderItem = ({ item, index }) => (
+    <MemoryThreadItem
+      m={item}
+      onOpen={handleOpenMemory}
+      showWho={filter === 'everything' || filter === 'all'}
+    />
+  );
+
+  const ListHeader = () => (
+    <View>
+      {/* ── Top stats ── */}
+      <View style={{ marginHorizontal: 2, marginTop: 2, marginBottom: 4 }}>
+        <Text style={{
+          fontFamily: theme.fonts.body, fontSize: 13, color: theme.inkSoft,
+          letterSpacing: 1,
+        }}>{lead}</Text>
+        <View style={{
+          flexDirection: 'row', alignItems: 'baseline', gap: 9, marginTop: 8,
+        }}>
+          <Text style={{
+            fontFamily: theme.fonts.head, fontSize: 54, lineHeight: 54,
+            color: theme.accent,
+          }}>{list.length}</Text>
+          <Text style={{
+            fontFamily: theme.fonts.head, fontSize: 20, color: theme.ink,
+          }}>段回忆</Text>
+        </View>
+        <Text style={{
+          marginTop: 12,
+          fontFamily: theme.fonts.body, fontSize: 14.5, lineHeight: 25,
+          color: theme.inkSoft,
+        }}>
+          做过的事，按时间串成一条线。每一段，都被好好收着了。
+        </Text>
+      </View>
+
+      {/* ── Filter chips ── */}
+      <View style={{ marginTop: 16 }}>
+        <KidFilterChips value={filter} onChange={setFilter} />
+      </View>
+
+      {/* ── Timeline top marker ── */}
+      {list.length > 0 && (
+        <View style={{
+          position: 'relative', paddingLeft: 34, paddingBottom: 8, marginTop: 18,
+        }}>
+          <View style={{
+            position: 'absolute', left: 8, top: 15, bottom: 0, width: 2,
+            backgroundColor: theme.line, opacity: 0.7,
+          }} />
+          <View style={{
+            position: 'absolute', left: 3, top: 3,
+            width: 12, height: 12, borderRadius: 6,
+            backgroundColor: theme.cream,
+            borderWidth: 2, borderStyle: 'dashed',
+            borderColor: theme.line,
+          }} />
+          <Text style={{
+            fontFamily: theme.fonts.hand, fontSize: 16, color: theme.inkSoft,
+          }}>{'还在慢慢变长……'}</Text>
+        </View>
+      )}
+    </View>
+  );
+
+  const ListEmpty = () => (
+    <View style={{ alignItems: 'center', marginTop: 60 }}>
+      <Text style={{
+        fontFamily: theme.fonts.hand, fontSize: 18, color: theme.inkSoft,
+        lineHeight: 32, textAlign: 'center',
+      }}>
+        {'这里还空着，\n等你们一起填满它。'}
+      </Text>
+    </View>
+  );
+
+  const ListFooter = () => {
+    if (list.length === 0) return null;
+    return (
+      <View style={{
+        position: 'relative', paddingLeft: 34, marginTop: -14,
+      }}>
+        <View style={{
+          position: 'absolute', left: 1, top: 0,
+          width: 16, height: 16, borderRadius: 8,
+          backgroundColor: theme.accent,
+          shadowColor: theme.accent,
+          shadowOffset: { width: 0, height: 0 },
+          shadowOpacity: 0.3,
+          shadowRadius: 3,
+          elevation: 2,
+          justifyContent: 'center', alignItems: 'center',
+        }}>
+          {Icon.check('#FFFDF7', 10)}
+        </View>
+        <Text style={{
+          fontFamily: theme.fonts.hand, fontSize: 17, color: theme.inkSoft,
+        }}>一切，从这里开始</Text>
+      </View>
+    );
+  };
+
+  return (
+    <View style={{ flex: 1, backgroundColor: theme.cream }}>
+      <LayerHeader title="回忆册" onBack={() => navigation.goBack()} />
+      <FlatList
+        data={list}
+        keyExtractor={item => item.id}
+        renderItem={renderItem}
+        ListHeaderComponent={ListHeader}
+        ListEmptyComponent={ListEmpty}
+        ListFooterComponent={ListFooter}
+        contentContainerStyle={{ paddingHorizontal: 22, paddingBottom: 52, paddingTop: 4 }}
+        showsVerticalScrollIndicator={false}
+      />
+    </View>
+  );
+}
