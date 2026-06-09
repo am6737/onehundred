@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, TextInput } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/tokens';
-import { KIDS, FAMILY, ROLES, getKid } from '../data';
+import { ROLES } from '../data';
+import { useData } from '../data/DataProvider';
 import { Icon, KidAvatar } from '../components/Icons';
 import { LayerHeader, PrimaryButton, SecondaryButton, Sheet, Chip } from '../components/common';
 
@@ -21,9 +22,10 @@ function InvAvatar({ label, tone, size = 52, theme }) {
 }
 
 function KidCluster({ theme }) {
+  const { kids } = useData();
   return (
     <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 8, marginVertical: 16 }}>
-      {KIDS.map(k => (
+      {kids.map(k => (
         <KidAvatar key={k.id} name={k.name} tone={k.tone} size={48} />
       ))}
     </View>

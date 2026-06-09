@@ -4,14 +4,14 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme, TONE } from '../theme/tokens';
-import {
-  PERSPECTIVES, LEVELS, getKid, kidLabel, meName, frameLabel,
-} from '../data';
+import { PERSPECTIVES, meName } from '../data';
+import { useData } from '../data/DataProvider';
 import { Icon, PhotoSlot } from '../components/Icons';
 import { LayerHeader, Section, PrimaryButton, SecondaryButton } from '../components/common';
 
 export default function LevelDetail({ route, navigation }) {
   const { theme } = useTheme();
+  const { levels, getKid, kidLabel, frameLabel } = useData();
   const insets = useSafeAreaInsets();
   const { level, kidId, me } = route.params;
 
@@ -29,7 +29,7 @@ export default function LevelDetail({ route, navigation }) {
     <View style={[styles.container, { backgroundColor: theme.cream }]}>
       {/* Header */}
       <LayerHeader
-        title=""
+        title={perspective ? perspective.long : ''}
         onBack={() => navigation.goBack()}
       />
 
@@ -39,18 +39,6 @@ export default function LevelDetail({ route, navigation }) {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Perspective badge */}
-        {perspective && (
-          <View style={[styles.badge, { backgroundColor: t.soft }]}>
-            <Text style={[styles.badgeText, {
-              color: t.ink,
-              fontFamily: theme.fonts.head,
-            }]}>
-              {perspective.long}
-            </Text>
-          </View>
-        )}
-
         {/* Title */}
         <Text style={[styles.title, {
           color: theme.ink,

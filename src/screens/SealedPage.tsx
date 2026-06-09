@@ -2,7 +2,8 @@ import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme, TONE } from '../theme/tokens';
-import { LEVELS, PERSPECTIVES, getKid } from '../data';
+import { PERSPECTIVES } from '../data';
+import { useData } from '../data/DataProvider';
 import { Icon } from '../components/Icons';
 import { LayerHeader } from '../components/common';
 
@@ -20,6 +21,7 @@ function SealedSeal({ size = 46, theme }) {
 }
 
 function SealedCard({ level, index, theme }) {
+  const { getKid } = useData();
   const t = TONE[level.tone] || TONE.orange;
   return (
     <View style={{
@@ -85,9 +87,10 @@ function SealedCard({ level, index, theme }) {
 
 export default function SealedPage({ navigation, route }) {
   const { theme } = useTheme();
+  const { levels } = useData();
   const insets = useSafeAreaInsets();
   const kidId = route?.params?.kidId || 'all';
-  const sealed = LEVELS.filter(l => l.sealed && (kidId === 'all' || l.kid === kidId || l.kid === 'all' || !l.kid));
+  const sealed = levels.filter(l => l.sealed && (kidId === 'all' || l.kid === kidId || l.kid === 'all' || !l.kid));
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.cream }}>

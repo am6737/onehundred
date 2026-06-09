@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Dimensions, FlatList } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme, TONE } from '../theme/tokens';
-import { MEMORIES, KIDS, getKid, memoriesForKid } from '../data';
+import { useData } from '../data/DataProvider';
 import { Icon, PhotoSlot } from '../components/Icons';
 import { LayerHeader, PrimaryButton, SecondaryButton } from '../components/common';
 
@@ -84,7 +84,7 @@ function BookLeaf({ type, content, template, theme, index, total }) {
               backgroundColor: tone.soft,
             }}>
               <Text style={{ fontFamily: theme.fonts.head, fontSize: 11, color: tone.ink }}>
-                第 {index} 件
+                第 {parseInt(m.levelNum, 10) || index} 件
               </Text>
             </View>
             <Text style={{ fontFamily: theme.fonts.body, fontSize: 12, color: theme.inkSoft }}>
@@ -155,11 +155,12 @@ function buildBookPages(memories, kidNames) {
 
 export function BookFlip({ navigation, route }) {
   const { theme } = useTheme();
+  const { memories: allMemories, kids, getKid, memoriesForKid } = useData();
   const insets = useSafeAreaInsets();
   const kidId = route?.params?.kidId || 'all';
-  const memories = kidId === 'all' ? MEMORIES : memoriesForKid(kidId);
+  const memories = kidId === 'all' ? allMemories : memoriesForKid(kidId);
   const kidNames = kidId === 'all'
-    ? KIDS.map(k => k.name).join('和')
+    ? kids.map(k => k.name).join('和')
     : (getKid(kidId)?.name || '孩子');
 
   const [templateIdx, setTemplateIdx] = useState(0);

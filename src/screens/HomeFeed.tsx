@@ -3,16 +3,20 @@
 
 import React, { useState, useRef, useMemo, useEffect, useCallback } from 'react';
 import {
-  View, Text, TouchableOpacity, FlatList, Dimensions,
+  View, Text, TouchableOpacity, Dimensions,
   StyleSheet, TextInput, Pressable, Modal,
 } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  runOnJS,
+} from 'react-native-reanimated';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme, TONE } from '../theme/tokens';
-import {
-  PERSPECTIVES, LEVELS, KIDS, FAMILY, getKid, kidLabel, kidDone,
-  weightedShuffle, allLevels, addCustomLevel, memoriesForKid, meName,
-  kidAge, suitsNow, frameLabel,
-} from '../data';
+import { PERSPECTIVES, meName, kidAge, suitsNow } from '../data';
+import { useData } from '../data/DataProvider';
 import { Icon, PhotoSlot, KidAvatar } from '../components/Icons';
 import { SceneSlot, motifForLevel } from '../components/Motifs';
 import { Sheet, Chip, PrimaryButton, SecondaryButton } from '../components/common';
@@ -20,14 +24,19 @@ import { Bear } from '../components/Bear';
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 
+const SPRING_CONFIG = { damping: 20, stiffness: 300, overshootClamping: true };
+const SWIPE_VELOCITY = 500;
+const SWIPE_THRESHOLD_RATIO = 0.12;
+
 /* ════════════════════════════════════════════════════════════
    KidFace — avatar badge used inside the KidSwitcher
    ════════════════════════════════════════════════════════════ */
 
 function KidFace({ id, size = 30 }) {
+  const { kids, getKid } = useData();
   if (id === 'all') {
-    const a = getKid(KIDS[0].id);
-    const b = getKid((KIDS[1] || KIDS[0]).id);
+    const a = getKid(kids[0]?.id);
+    const b = getKid((kids[1] || kids[0])?.id);
     const s = size * 0.82;
     return (
       <View style={{ position: 'relative', width: size, height: size }}>
@@ -51,8 +60,9 @@ function KidFace({ id, size = 30 }) {
 
 function KidSwitcher({ kidId, onSelect }) {
   const { theme } = useTheme();
+  const { kids, getKid } = useData();
   const [open, setOpen] = useState(false);
-  const rows = [...KIDS.map(k => k.id), 'all'];
+  const rows = [...kids.map(k => k.id), 'all'];
 
   return (
     <View style={{ position: 'relative', width: 44, flexShrink: 0 }}>
@@ -230,6 +240,7 @@ function SuggestChip({ suggest, theme }) {
 
 function WelcomeCard({ kidId, done, empty, onScrollHint, onOpenBook, cardHeight }) {
   const { theme } = useTheme();
+  const { getKid } = useData();
   const isAll = kidId === 'all';
   const k = getKid(kidId);
   const who = isAll ? '孩子们' : (k ? k.name : '孩子');
@@ -330,6 +341,7 @@ function WelcomeCard({ kidId, done, empty, onScrollHint, onOpenBook, cardHeight 
 
 function LevelCard({ level, onOpen, onSkip, kidId, meLabel, cardHeight }) {
   const { theme } = useTheme();
+  const { frameLabel } = useData();
   const t = TONE[level.tone] || TONE.orange;
   const suits = suitsNow(level);
 
@@ -486,6 +498,7 @@ function LevelCard({ level, onOpen, onSkip, kidId, meLabel, cardHeight }) {
 
 function CustomLevelSheet({ visible, onClose, onCreated }) {
   const { theme } = useTheme();
+  const { addCustomLevel } = useData();
   const [title, setTitle] = useState('');
   const [persp, setPersp] = useState('together');
   const [suggest, setSuggest] = useState('photo');
@@ -667,27 +680,23 @@ function EndCard({ onBook, onReshuffle, onAddOwn, cardHeight }) {
 export default function HomeFeed({ navigation, onOpenDrawer, perspective, setPerspective, kidId, setKidId, me }) {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
-  const flatListRef = useRef(null);
+  const { kidDone, memoriesForKid, allLevels, weightedShuffle } = useData();
 
   const cardHeight = SCREEN_H;
   const meLabel = meName(me);
 
-  // Count done memories for current kid
   const empty = kidDone(kidId) === 0 && memoriesForKid(kidId).length === 0;
   const doneCount = empty ? 0 : kidDone(kidId);
 
-  // Shuffle key for re-ordering the feed
   const [shuffleKey, setShuffleKey] = useState(0);
   const [addOwnVisible, setAddOwnVisible] = useState(false);
 
-  // Build the pool of levels filtered by perspective
   const levels = useMemo(() => {
     let pool = allLevels().filter(l => l.perspective === perspective);
     if (!pool.length) pool = allLevels();
     return weightedShuffle(pool, kidId);
   }, [perspective, shuffleKey, kidId]);
 
-  // Build the data array for the FlatList
   const data = useMemo(() => {
     const items = [];
     if (empty) {
@@ -705,73 +714,113 @@ export default function HomeFeed({ navigation, onOpenDrawer, perspective, setPer
     return items;
   }, [levels, empty, perspective, shuffleKey]);
 
-  // Reset to top on perspective or kid change
+  /* ── pager state ── */
+  const translateY = useSharedValue(0);
+  const gestureCtx = useSharedValue(0);
+  const pageIndex = useSharedValue(0);
+  const dataLenSV = useSharedValue(data.length);
+  const [visiblePage, setVisiblePage] = useState(0);
+
   useEffect(() => {
-    if (flatListRef.current) {
-      flatListRef.current.scrollToOffset({ offset: 0, animated: false });
+    dataLenSV.value = data.length;
+    if (pageIndex.value >= data.length) {
+      const clamped = Math.max(0, data.length - 1);
+      pageIndex.value = clamped;
+      translateY.value = -clamped * cardHeight;
+      setVisiblePage(clamped);
     }
-  }, [perspective, kidId]);
+  }, [data.length, cardHeight]);
 
-  // Scroll by one card
-  const scrollByOne = useCallback(() => {
-    if (!flatListRef.current) return;
-    // We need to find current offset and scroll one card forward
-    flatListRef.current.scrollToOffset({
-      offset: (currentOffsetRef.current || 0) + cardHeight,
-      animated: true,
-    });
-  }, [cardHeight]);
+  const goToPage = useCallback((target, animated = true) => {
+    const page = Math.max(0, Math.min(data.length - 1, target));
+    pageIndex.value = page;
+    translateY.value = animated
+      ? withSpring(-page * cardHeight, SPRING_CONFIG)
+      : -page * cardHeight;
+    setVisiblePage(page);
+  }, [data.length, cardHeight]);
 
-  // Track the current scroll offset
-  const currentOffsetRef = useRef(0);
-  const handleScroll = useCallback((event) => {
-    currentOffsetRef.current = event.nativeEvent.contentOffset.y;
-  }, []);
+  const goNext = useCallback(() => {
+    goToPage(pageIndex.value + 1);
+  }, [goToPage]);
 
-  // Reshuffle: re-order + scroll to top
+  /* ── gesture ── */
+  const panGesture = useMemo(() =>
+    Gesture.Pan()
+      .activeOffsetY([-10, 10])
+      .onStart(() => {
+        'worklet';
+        gestureCtx.value = translateY.value;
+      })
+      .onUpdate((event) => {
+        'worklet';
+        const raw = gestureCtx.value + event.translationY;
+        const maxT = -(dataLenSV.value - 1) * cardHeight;
+        if (raw > 0) {
+          translateY.value = raw * 0.25;
+        } else if (raw < maxT) {
+          translateY.value = maxT + (raw - maxT) * 0.25;
+        } else {
+          translateY.value = raw;
+        }
+      })
+      .onEnd((event) => {
+        'worklet';
+        let target = pageIndex.value;
+        const threshold = cardHeight * SWIPE_THRESHOLD_RATIO;
+
+        if (Math.abs(event.velocityY) > SWIPE_VELOCITY) {
+          target += event.velocityY < 0 ? 1 : -1;
+        } else if (Math.abs(event.translationY) > threshold) {
+          target += event.translationY < 0 ? 1 : -1;
+        }
+
+        target = Math.max(0, Math.min(dataLenSV.value - 1, target));
+        pageIndex.value = target;
+        translateY.value = withSpring(-target * cardHeight, SPRING_CONFIG);
+        runOnJS(setVisiblePage)(target);
+      }),
+    [cardHeight],
+  );
+
+  const animatedContainerStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: translateY.value }],
+  }));
+
+  /* ── reset on context change ── */
+  useEffect(() => {
+    pageIndex.value = 0;
+    translateY.value = 0;
+    setVisiblePage(0);
+  }, [perspective, kidId, shuffleKey]);
+
+  /* ── actions ── */
   const reshuffle = useCallback(() => {
     setShuffleKey(k => k + 1);
-    setTimeout(() => {
-      if (flatListRef.current) {
-        flatListRef.current.scrollToOffset({ offset: 0, animated: true });
-      }
-    }, 50);
   }, []);
 
-  // Open a level (navigate to detail screen)
   const handleOpenLevel = useCallback((level) => {
-    if (navigation) {
-      navigation.navigate('LevelDetail', { level });
-    }
+    if (navigation) navigation.navigate('LevelDetail', { level });
   }, [navigation]);
 
-  // Open book (navigate to memory book)
   const handleOpenBook = useCallback(() => {
-    if (navigation) {
-      navigation.navigate('MemoryBook', { kidId });
-    }
+    if (navigation) navigation.navigate('MemoryBook', { kidId });
   }, [navigation, kidId]);
 
-  // Custom level created
   const handleCreated = useCallback(() => {
     setAddOwnVisible(false);
     setShuffleKey(k => k + 1);
-    setTimeout(() => {
-      if (flatListRef.current) {
-        flatListRef.current.scrollToOffset({ offset: 0, animated: true });
-      }
-    }, 50);
   }, []);
 
-  // Render each item
-  const renderItem = useCallback(({ item }) => {
+  /* ── render card content ── */
+  const renderCard = useCallback((item) => {
     if (item.type === 'welcome') {
       return (
         <WelcomeCard
           kidId={kidId}
           done={doneCount}
           empty={empty}
-          onScrollHint={scrollByOne}
+          onScrollHint={goNext}
           onOpenBook={handleOpenBook}
           cardHeight={cardHeight}
         />
@@ -787,43 +836,31 @@ export default function HomeFeed({ navigation, onOpenDrawer, perspective, setPer
         />
       );
     }
-    // level card
     return (
       <LevelCard
         level={item.level}
         onOpen={handleOpenLevel}
-        onSkip={scrollByOne}
+        onSkip={goNext}
         kidId={kidId}
         meLabel={meLabel}
         cardHeight={cardHeight}
       />
     );
-  }, [kidId, doneCount, empty, cardHeight, meLabel, scrollByOne, handleOpenLevel, handleOpenBook, reshuffle]);
-
-  const getItemLayout = useCallback((_, index) => ({
-    length: cardHeight,
-    offset: cardHeight * index,
-    index,
-  }), [cardHeight]);
-
-  const keyExtractor = useCallback((item) => item.key, []);
+  }, [kidId, doneCount, empty, cardHeight, meLabel, goNext, handleOpenLevel, handleOpenBook, reshuffle]);
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.cream }}>
-      <FlatList
-        ref={flatListRef}
-        data={data}
-        renderItem={renderItem}
-        keyExtractor={keyExtractor}
-        getItemLayout={getItemLayout}
-        pagingEnabled
-        snapToInterval={cardHeight}
-        decelerationRate="fast"
-        showsVerticalScrollIndicator={false}
-        onScroll={handleScroll}
-        scrollEventThrottle={16}
-        bounces={false}
-      />
+      <GestureDetector gesture={panGesture}>
+        <Animated.View style={{ flex: 1, overflow: 'hidden' }}>
+          <Animated.View style={animatedContainerStyle}>
+            {data.map((item, index) => (
+              <View key={item.key} style={{ height: cardHeight, width: SCREEN_W }}>
+                {Math.abs(index - visiblePage) <= 1 ? renderCard(item) : null}
+              </View>
+            ))}
+          </Animated.View>
+        </Animated.View>
+      </GestureDetector>
 
       <TopBar
         perspective={perspective}

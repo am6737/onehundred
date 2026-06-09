@@ -2,24 +2,19 @@ import React, { useState, useMemo } from 'react';
 import { View, Text, TouchableOpacity, Dimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/tokens';
-import {
-  MEMORIES, getKid, MASCOTS, getMascot, PET_BODY,
-  wardrobeState, memoriesForKid, yearReview,
-} from '../data';
+import { PET_BODY } from '../data';
+import { useData } from '../data/DataProvider';
 import { Icon } from '../components/Icons';
 import { Bear } from '../components/Bear';
 
 const { width: SW, height: SH } = Dimensions.get('window');
 
-function yearReviewData(kidId) {
-  return yearReview(kidId);
-}
-
 export default function YearReview({ navigation, route }) {
   const { theme } = useTheme();
+  const { getKid, getMascot, wardrobeState, yearReview } = useData();
   const insets = useSafeAreaInsets();
   const kidId = route?.params?.kidId || 'all';
-  const data = useMemo(() => yearReviewData(kidId), [kidId]);
+  const data = useMemo(() => yearReview(kidId), [kidId, yearReview]);
   const who = kidId === 'all' ? '一家人' : (getKid(kidId)?.name || '孩子');
   const mascot = kidId === 'all' ? { name: '团子', tone: 'orange' } : (getMascot(kidId) || { name: '团子', tone: 'orange' });
   const acc = wardrobeState(data.total).filter(w => w.got);

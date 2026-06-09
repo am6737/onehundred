@@ -12,24 +12,9 @@ import {
   StyleSheet,
 } from 'react-native';
 import { useTheme, TONE } from '../theme/tokens';
-import {
-  KIDS,
-  FAMILY,
-  getKid,
-  kidLabel,
-  kidDone,
-  memoriesForKid,
-  MEMORIES,
-  LEVELS,
-  meName,
-  meChar,
-  MASCOTS,
-  getMascot,
-  PET_BODY,
-  wardrobeState,
-  WARDROBE,
-} from '../data';
-import { Icon, KidAvatar } from '../components/Icons';
+import { meName, meChar, PET_BODY, durationSince } from '../data';
+import { useData } from '../data/DataProvider';
+import { Icon } from '../components/Icons';
 import { Bear } from '../components/Bear';
 
 const DRAWER_WIDTH = 310;
@@ -50,8 +35,8 @@ function heatColor(count, accent, cream) {
 
 /* ── helper: compute next unlock info from done count ── */
 
-function computeUnlockInfo(done) {
-  const sorted = [...WARDROBE].sort((a, b) => a.at - b.at);
+function computeUnlockInfo(done, wardrobe) {
+  const sorted = [...wardrobe].sort((a, b) => a.at - b.at);
   const unlocked = sorted.filter((w) => done >= w.at).length;
   const total = sorted.length;
   const next = sorted.find((w) => w.at > done) || null;
@@ -161,6 +146,7 @@ const rowStyles = StyleSheet.create({
 
 function MonthHeatmap({ onOpen, kidId = 'all' }) {
   const { theme } = useTheme();
+  const { memories, memoriesForKid } = useData();
 
   const { month, weekCells, byKey, recordedDays, weekDone } = useMemo(() => {
     const parse = (s) => {
@@ -174,7 +160,7 @@ function MonthHeatmap({ onOpen, kidId = 'all' }) {
     };
 
     const mems =
-      kidId === 'all' ? MEMORIES : memoriesForKid(kidId);
+      kidId === 'all' ? memories : memoriesForKid(kidId);
 
     const dated = mems
       .map((m) => {
@@ -411,6 +397,7 @@ const heatStyles = StyleSheet.create({
 
 export default function Drawer({ visible, onClose, onNavigate, kidId = 'all', me }) {
   const { theme } = useTheme();
+  const { kids, levels, memories, wardrobe, FAMILY, getKid, kidDone, memoriesForKid, getMascot, wardrobeState } = useData();
   const slideAnim = useRef(new Animated.Value(-DRAWER_WIDTH)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const [shouldRender, setShouldRender] = useState(false);
@@ -461,24 +448,24 @@ export default function Drawer({ visible, onClose, onNavigate, kidId = 'all', me
   const isAll = kidId === 'all';
   const focusName = isAll ? '孩子们' : (getKid(kidId)?.name || '孩子');
   const done = isAll
-    ? MEMORIES.length
+    ? memories.length
     : memoriesForKid(kidId).length;
   const total = 100;
   const empty = done === 0;
 
   // Together-for duration (from earliest kid)
   const togetherFor = useMemo(() => {
-    if (KIDS.length === 0) return '';
-    const earliest = KIDS.reduce((a, b) => {
+    if (kids.length === 0) return '';
+    const earliest = kids.reduce((a, b) => {
       const sinceA = a.since || '';
       const sinceB = b.since || '';
       return sinceA < sinceB ? a : b;
     });
-    return earliest.since || '';
+    return durationSince(earliest.since);
   }, []);
 
   // Sealed items
-  const sealedLevels = LEVELS.filter(
+  const sealedLevels = levels.filter(
     (l) => l.sealed && (isAll || l.kid === kidId || l.kid === 'all'),
   );
   const sealedCount = sealedLevels.length;
@@ -489,10 +476,10 @@ export default function Drawer({ visible, onClose, onNavigate, kidId = 'all', me
     : '还没有封存的东西';
 
   // Mascot info
-  const petKid = isAll ? (KIDS[0]?.id || 'duo') : kidId;
+  const petKid = isAll ? (kids[0]?.id || 'duo') : kidId;
   const mascot = getMascot(petKid);
   const mascotDone = memoriesForKid(petKid).length;
-  const unlockInfo = computeUnlockInfo(mascotDone);
+  const unlockInfo = computeUnlockInfo(mascotDone, wardrobe);
   const activeAccessories = wardrobeState(mascotDone)
     .filter((w) => w.got)
     .map((w) => w.id);
@@ -500,7 +487,7 @@ export default function Drawer({ visible, onClose, onNavigate, kidId = 'all', me
   if (!shouldRender) return null;
 
   return (
-    <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
+    <View style={[StyleSheet.absoluteFill, { zIndex: 100, elevation: 100 }]} pointerEvents="box-none">
       {/* Backdrop / scrim */}
       <Animated.View
         style={[
@@ -550,18 +537,6 @@ export default function Drawer({ visible, onClose, onNavigate, kidId = 'all', me
             {empty ? '从今天，慢慢开始' : `一起记录了 ${togetherFor}`}
           </Text>
 
-          {/* Family member avatars */}
-          <View style={drawerStyles.avatarRow}>
-            {KIDS.map((k) => (
-              <KidAvatar
-                key={k.id}
-                name={k.name}
-                tone={k.tone}
-                size={32}
-                ring={k.id === kidId}
-              />
-            ))}
-          </View>
         </View>
 
         {/* ── Scrollable content ── */}
@@ -768,7 +743,7 @@ export default function Drawer({ visible, onClose, onNavigate, kidId = 'all', me
 const drawerStyles = StyleSheet.create({
   scrim: {
     ...(StyleSheet.absoluteFill as any),
-    backgroundColor: 'rgba(40,34,26,0.3)',
+    backgroundColor: 'rgba(40,34,26,0.55)',
   },
   panel: {
     position: 'absolute',
@@ -796,11 +771,6 @@ const drawerStyles = StyleSheet.create({
   headerSub: {
     marginTop: 4,
     fontSize: 18,
-  },
-  avatarRow: {
-    flexDirection: 'row',
-    marginTop: 14,
-    gap: 10,
   },
   /* ─ scroll ─ */
   scrollArea: {

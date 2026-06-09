@@ -6,10 +6,8 @@ import {
   Dimensions, StyleSheet,
 } from 'react-native';
 import { useTheme, TONE } from '../theme/tokens';
-import {
-  KIDS, getKid, kidLabel, kidDone, getMascot, MASCOTS,
-  PET_BODY, wardrobeState, nextUnlock, WARDROBE, memoriesForKid,
-} from '../data';
+import { PET_BODY } from '../data';
+import { useData } from '../data/DataProvider';
 import { Icon } from '../components/Icons';
 import { Bear } from '../components/Bear';
 import { LayerHeader, Section, PrimaryButton, Card } from '../components/common';
@@ -638,9 +636,10 @@ const unlockStyles = StyleSheet.create({
 
 export default function MascotPage({ route, navigation }) {
   const { theme } = useTheme();
+  const { kids, getKid, kidDone, getMascot, wardrobeState, nextUnlock, wardrobe, memoriesForKid } = useData();
   const kidId = route?.params?.kidId;
 
-  const initial = (kidId && kidId !== 'all') ? kidId : KIDS[0].id;
+  const initial = (kidId && kidId !== 'all') ? kidId : kids[0]?.id;
   const [who, setWho] = useState(initial);
   const kid = getKid(who);
   const MAS = getMascot(who);
@@ -652,8 +651,8 @@ export default function MascotPage({ route, navigation }) {
   // Demo boost — allows simulating "do one more thing"
   const [boost, setBoost] = useState({});
   const done = kidDone(who) + (boost[who] || 0);
-  const wardrobe = wardrobeState(done);
-  const unlocked = wardrobe.filter(w => w.got);
+  const wardrobeItems = wardrobeState(done);
+  const unlocked = wardrobeItems.filter(w => w.got);
   const nuInfo = nextUnlock(done);
   const nu = nuInfo.next;
   const totalItems = nuInfo.total;
@@ -742,7 +741,7 @@ export default function MascotPage({ route, navigation }) {
   // Demo: add one more activity done
   const addOne = useCallback(() => {
     const newDone = done + 1;
-    const justGot = WARDROBE.find(w => w.at === newDone);
+    const justGot = wardrobe.find(w => w.at === newDone);
     setBoost(b => ({ ...b, [who]: (b[who] || 0) + 1 }));
     if (justGot) {
       setWorn(w => w.includes(justGot.id) ? w : [...w, justGot.id]);
@@ -801,7 +800,7 @@ export default function MascotPage({ route, navigation }) {
         showsVerticalScrollIndicator={false}
       >
         {/* ── Kid switcher (only when multiple kids) ── */}
-        {KIDS.length > 1 && (
+        {kids.length > 1 && (
           <View style={{
             flexDirection: 'row',
             gap: 10,
@@ -810,7 +809,7 @@ export default function MascotPage({ route, navigation }) {
             paddingTop: 2,
             paddingBottom: 10,
           }}>
-            {KIDS.map(k => {
+            {kids.map(k => {
               const on = who === k.id;
               const m = getMascot(k.id);
               const ww = wardrobeState(kidDone(k.id) + (boost[k.id] || 0))
@@ -1081,7 +1080,7 @@ export default function MascotPage({ route, navigation }) {
             flexWrap: 'wrap',
             gap: gridGap,
           }}>
-            {wardrobe.map(w => {
+            {wardrobeItems.map(w => {
               const on = wearing.includes(w.id);
               return (
                 <TouchableOpacity

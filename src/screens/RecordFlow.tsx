@@ -7,7 +7,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme, TONE, COLORS } from '../theme/tokens';
-import { PERSPECTIVES, getKid, kidLabel, meName, KIDS } from '../data';
+import { PERSPECTIVES, meName } from '../data';
+import { useData } from '../data/DataProvider';
 import { Icon, PhotoSlot } from '../components/Icons';
 import { LayerHeader, PrimaryButton, SecondaryButton, Chip, Sheet } from '../components/common';
 
@@ -710,7 +711,7 @@ export default function RecordFlow({ route, navigation }) {
                       color: theme.inkSoft,
                       marginLeft: 7,
                     }}>
-                      配一句话（想写就写，不写也行）
+                      配一句话
                     </Text>
                   </View>
                   <TextInput
@@ -744,7 +745,7 @@ export default function RecordFlow({ route, navigation }) {
                     color: theme.inkSoft,
                     marginLeft: 7,
                   }}>
-                    在哪儿？（想记就记，不记也行）
+                    在哪儿？
                   </Text>
                 </View>
                 <TextInput

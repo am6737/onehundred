@@ -4,9 +4,8 @@ import {
   StyleSheet, Dimensions,
 } from 'react-native';
 import { useTheme, TONE } from '../theme/tokens';
-import {
-  MEMORIES, KIDS, FAMILY, getKid, kidLabel, memoriesForKid, PERSPECTIVES,
-} from '../data';
+import { PERSPECTIVES } from '../data';
+import { useData } from '../data/DataProvider';
 import { Icon, PhotoSlot, KidAvatar } from '../components/Icons';
 import { LayerHeader, Sheet, Chip, PrimaryButton } from '../components/common';
 
@@ -16,10 +15,9 @@ const { width: SCREEN_W } = Dimensions.get('window');
    Helpers
    ════════════════════════════════════════════════════════════ */
 
-/** Sequence number of a memory (1-indexed by completion order, oldest = 1). */
+/** Activity number from the "100 things" list. */
 function memSeq(m) {
-  const i = MEMORIES.findIndex(x => x.id === m.id);
-  return i < 0 ? MEMORIES.length + 1 : MEMORIES.length - i;
+  return parseInt(m.levelNum, 10) || 0;
 }
 
 /** Pretty date for the share card — replace relative words with a full date. */
@@ -51,7 +49,7 @@ function bookFilter(memories, f) {
 }
 
 /** Label for who participated. */
-function whoTag(kid) {
+function whoTag(kid, getKid) {
   return kid === 'all' ? '全家' : (getKid(kid)?.name || '孩子');
 }
 
@@ -121,6 +119,7 @@ const badgeStyles = StyleSheet.create({
 
 function ShareSheet({ m, visible, onClose }) {
   const { theme } = useTheme();
+  const { getKid } = useData();
   const t = TONE[m.tone] || TONE.orange;
   const perspective = PERSPECTIVES[m.perspective];
 
@@ -226,7 +225,7 @@ export function MemoryPage({ route, navigation }) {
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.paper }}>
-      <LayerHeader title="" onBack={() => navigation.goBack()} />
+      <LayerHeader title={perspective ? perspective.long : ''} onBack={() => navigation.goBack()} />
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{ paddingBottom: 50 }}
@@ -312,19 +311,15 @@ export function MemoryPage({ route, navigation }) {
 
         {/* ── Page body ── */}
         <View style={{ paddingHorizontal: 28, paddingTop: 24 }}>
-          {/* Sequence badge + perspective */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <View style={{
-              backgroundColor: t.soft, paddingHorizontal: 11, paddingVertical: 5,
-              borderRadius: 999,
-            }}>
-              <Text style={{
-                fontFamily: theme.fonts.head, fontSize: 13, color: t.ink,
-              }}>{'第 '}{memSeq(m)}{' 件事'}</Text>
-            </View>
+          {/* Sequence badge */}
+          <View style={{
+            alignSelf: 'flex-start',
+            backgroundColor: t.soft, paddingHorizontal: 11, paddingVertical: 5,
+            borderRadius: 999,
+          }}>
             <Text style={{
-              fontFamily: theme.fonts.body, fontSize: 13, color: theme.inkSoft,
-            }}>{perspective ? perspective.long : ''}</Text>
+              fontFamily: theme.fonts.head, fontSize: 13, color: t.ink,
+            }}>{'第 '}{memSeq(m)}{' 件事'}</Text>
           </View>
 
           {/* Title */}
@@ -456,10 +451,11 @@ export function MemoryPage({ route, navigation }) {
 
 export function KidFilterChips({ value, onChange }) {
   const { theme } = useTheme();
+  const { kids } = useData();
   const chips = [
     { k: 'everything', label: '全部' },
-    ...KIDS.map(k => ({ k: k.id, label: k.name })),
-    { k: 'all', label: '全家一起' },
+    ...kids.map(k => ({ k: k.id, label: k.name })),
+    { k: 'all', label: '一起' },
   ];
 
   return (
@@ -506,12 +502,13 @@ export function KidFilterChips({ value, onChange }) {
 
 function MemoryThreadItem({ m, onOpen, showWho }) {
   const { theme } = useTheme();
+  const { getKid } = useData();
   const t = TONE[m.tone] || TONE.orange;
   const type = normalType(m.type);
   const shots = shotCount(m);
 
   return (
-    <View style={{ position: 'relative', paddingLeft: 34, paddingBottom: 26 }}>
+    <View style={{ position: 'relative', paddingLeft: 34, paddingBottom: 18 }}>
       {/* Vertical timeline line */}
       <View style={{
         position: 'absolute', left: 8, top: 9, bottom: 0, width: 2,
@@ -540,7 +537,7 @@ function MemoryThreadItem({ m, onOpen, showWho }) {
       {/* Date and place header */}
       <View style={{
         flexDirection: 'row', alignItems: 'baseline', gap: 8,
-        marginBottom: 10,
+        marginBottom: 8,
       }}>
         <Text style={{
           fontFamily: theme.fonts.head, fontSize: 15, color: theme.ink,
@@ -555,84 +552,81 @@ function MemoryThreadItem({ m, onOpen, showWho }) {
         onPress={() => onOpen(m)}
         activeOpacity={0.8}
         style={{
-          flexDirection: 'row', alignItems: 'stretch',
-          borderRadius: 22, overflow: 'hidden',
+          flexDirection: 'row',
+          borderRadius: 18, overflow: 'hidden',
           backgroundColor: theme.paper,
           borderWidth: 1, borderColor: theme.line,
           shadowColor: '#3A332B',
-          shadowOffset: { width: 0, height: 12 },
-          shadowOpacity: 0.18,
-          shadowRadius: 14,
-          elevation: 4,
+          shadowOffset: { width: 0, height: 8 },
+          shadowOpacity: 0.14,
+          shadowRadius: 10,
+          elevation: 3,
         }}
       >
-        {/* Left photo thumbnail */}
-        <View style={{ width: 96, position: 'relative' }}>
-          <PhotoSlot
-            tone={m.tone}
-            radius={0}
-            label=""
-            style={{ height: '100%', minHeight: 118, aspectRatio: undefined }}
-          />
+        {/* Left photo thumbnail — absolute fill avoids PhotoSlot aspectRatio inflating height */}
+        <View style={{ width: 80, minHeight: 92, position: 'relative' }}>
+          <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, overflow: 'hidden' }}>
+            <PhotoSlot tone={m.tone} radius={0} label="" style={{ width: '100%', height: '100%', aspectRatio: undefined }} />
+          </View>
           {(type === 'voice' || type === 'video') && (
             <View style={{
-              position: 'absolute', left: 8, bottom: 8,
-              width: 26, height: 26, borderRadius: 13,
+              position: 'absolute', left: 6, bottom: 6,
+              width: 22, height: 22, borderRadius: 11,
               backgroundColor: 'rgba(255,253,247,0.92)',
               justifyContent: 'center', alignItems: 'center',
             }}>
-              {type === 'video' ? Icon.video(t.deep, 13) : Icon.play(t.deep, 12)}
+              {type === 'video' ? Icon.video(t.deep, 11) : Icon.play(t.deep, 10)}
             </View>
           )}
           {type === 'photo' && shots > 1 && (
             <View style={{
-              position: 'absolute', left: 8, bottom: 8,
+              position: 'absolute', left: 6, bottom: 6,
               flexDirection: 'row', alignItems: 'center', gap: 3,
-              paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999,
+              paddingHorizontal: 6, paddingVertical: 2, borderRadius: 999,
               backgroundColor: 'rgba(255,253,247,0.92)',
             }}>
-              {Icon.camera(t.deep, 11)}
+              {Icon.camera(t.deep, 10)}
               <Text style={{
-                fontFamily: theme.fonts.body, fontSize: 11, color: t.ink,
+                fontFamily: theme.fonts.body, fontSize: 10, color: t.ink,
               }}>{shots}</Text>
             </View>
           )}
         </View>
 
         {/* Right text content */}
-        <View style={{ flex: 1, padding: 14, paddingHorizontal: 16 }}>
+        <View style={{ flex: 1, padding: 11, paddingHorizontal: 13 }}>
           <View style={{
             flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap',
           }}>
             <View style={{
               backgroundColor: t.soft,
-              paddingHorizontal: 9, paddingVertical: 3, borderRadius: 999,
+              paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999,
             }}>
               <Text style={{
-                fontFamily: theme.fonts.head, fontSize: 11.5, color: t.ink,
+                fontFamily: theme.fonts.head, fontSize: 11, color: t.ink,
               }}>{'第 '}{memSeq(m)}{' 件'}</Text>
             </View>
             {showWho && (
               <View style={{
                 flexDirection: 'row', alignItems: 'center', gap: 4,
                 backgroundColor: theme.sand,
-                paddingHorizontal: 9, paddingVertical: 3, borderRadius: 999,
+                paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999,
               }}>
-                {m.kid === 'all' ? Icon.users(theme.inkSoft, 12) : null}
+                {m.kid === 'all' ? Icon.users(theme.inkSoft, 11) : null}
                 <Text style={{
-                  fontFamily: theme.fonts.body, fontSize: 11, color: theme.inkSoft,
-                }}>{whoTag(m.kid)}</Text>
+                  fontFamily: theme.fonts.body, fontSize: 10.5, color: theme.inkSoft,
+                }}>{whoTag(m.kid, getKid)}</Text>
               </View>
             )}
           </View>
           <Text numberOfLines={1} style={{
-            marginTop: 9,
-            fontFamily: theme.fonts.head, fontSize: 16.5, lineHeight: 23,
+            marginTop: 6,
+            fontFamily: theme.fonts.head, fontSize: 15, lineHeight: 21,
             color: theme.ink,
           }}>{m.title}</Text>
           <Text numberOfLines={2} style={{
-            marginTop: 5,
-            fontFamily: theme.fonts.body, fontSize: 13, lineHeight: 21,
+            marginTop: 4,
+            fontFamily: theme.fonts.body, fontSize: 12.5, lineHeight: 19,
             color: theme.inkSoft,
           }}>{m.caption}</Text>
         </View>
@@ -648,17 +642,18 @@ function MemoryThreadItem({ m, onOpen, showWho }) {
 export function MemoryBook({ route, navigation }) {
   const kidId = route?.params?.kidId || 'all';
   const { theme } = useTheme();
+  const { memories, getKid } = useData();
   const [filter, setFilter] = useState(kidId === 'all' ? 'everything' : kidId);
-  const list = bookFilter(MEMORIES, filter);
+  const list = bookFilter(memories, filter);
 
   const lead = filter === 'everything'
     ? '你们一家一起走过的'
     : filter === 'all'
-      ? '你们全家一起走过的'
+      ? '你们一起走过的'
       : `你和${getKid(filter)?.name || '孩子'}一起走过的`;
 
   const handleOpenMemory = (m) => {
-    navigation.navigate('MemoryPage', { memory: m });
+    navigation.navigate('Memory', { memory: m });
   };
 
   const renderItem = ({ item, index }) => (
@@ -688,13 +683,6 @@ export function MemoryBook({ route, navigation }) {
             fontFamily: theme.fonts.head, fontSize: 20, color: theme.ink,
           }}>段回忆</Text>
         </View>
-        <Text style={{
-          marginTop: 12,
-          fontFamily: theme.fonts.body, fontSize: 14.5, lineHeight: 25,
-          color: theme.inkSoft,
-        }}>
-          做过的事，按时间串成一条线。每一段，都被好好收着了。
-        </Text>
       </View>
 
       {/* ── Filter chips ── */}

@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme, TONE } from '../theme/tokens';
-import { MEMORIES, KIDS, getKid } from '../data';
+import { useData } from '../data/DataProvider';
 import { Icon, PhotoSlot } from '../components/Icons';
 import { LayerHeader, Chip } from '../components/common';
 
@@ -37,13 +37,12 @@ function typeMeta(type) {
 }
 
 function memSeq(m) {
-  const kidMems = MEMORIES.filter(x => x.kid === m.kid);
-  const idx = kidMems.findIndex(x => x.id === m.id);
-  return idx + 1;
+  return parseInt(m.levelNum, 10) || 0;
 }
 
 export default function RecordsCalendar({ navigation, route }) {
   const { theme } = useTheme();
+  const { memories, kids, getKid } = useData();
   const insets = useSafeAreaInsets();
   const kidId = route?.params?.kidId || 'all';
   const initialMonth = route?.params?.initialMonth;
@@ -52,7 +51,7 @@ export default function RecordsCalendar({ navigation, route }) {
 
   const { byMonth, months } = useMemo(() => {
     const bm = {};
-    bookFilter(MEMORIES, filter).forEach(m => {
+    bookFilter(memories, filter).forEach(m => {
       const { mo, da } = parseMem(m.date);
       if (!mo || !da) return;
       if (!bm[mo]) bm[mo] = {};
@@ -101,7 +100,7 @@ export default function RecordsCalendar({ navigation, route }) {
 
   const filterOptions = [
     { id: 'everything', label: '全部' },
-    ...KIDS.map(k => ({ id: k.id, label: k.name })),
+    ...kids.map(k => ({ id: k.id, label: k.name })),
   ];
 
   return (
@@ -234,73 +233,78 @@ export default function RecordsCalendar({ navigation, route }) {
           </View>
         </View>
 
-        {/* Selected day memories */}
+        {/* Month memories grouped by day */}
         <View style={{ marginTop: 22 }}>
-          {day ? (
-            <>
-              <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8, marginBottom: 14, marginHorizontal: 2 }}>
-                <Text style={{ fontFamily: theme.fonts.head, fontSize: 18, color: theme.ink }}>
-                  {month} 月 {day} 日
-                </Text>
-                <Text style={{ fontFamily: theme.fonts.body, fontSize: 13, color: theme.inkSoft }}>
-                  这天做了 {selected.length} 件事
-                </Text>
-              </View>
-              {selected.map((m, i) => {
-                const t = TONE[m.tone] || TONE.orange;
-                const tm = typeMeta(m.type);
-                return (
-                  <TouchableOpacity
-                    key={m.id}
-                    onPress={() => navigation.navigate('Memory', { memory: m })}
-                    activeOpacity={0.8}
-                    style={{
-                      flexDirection: 'row', borderRadius: 22, overflow: 'hidden',
-                      backgroundColor: theme.paper, borderWidth: 1, borderColor: theme.line,
-                      marginBottom: 14,
-                    }}
-                  >
-                    <View style={{ width: 92 }}>
-                      <PhotoSlot tone={m.tone} radius={0} label="" style={{ height: '100%', minHeight: 110, aspectRatio: undefined }} />
-                      <View style={{
-                        position: 'absolute', left: 7, bottom: 7,
-                        flexDirection: 'row', alignItems: 'center', gap: 4,
-                        paddingHorizontal: 7, paddingVertical: 3, borderRadius: 999,
-                        backgroundColor: 'rgba(255,253,247,0.92)',
-                      }}>
-                        {tm.ic(t.deep, 12)}
-                        <Text style={{ fontFamily: theme.fonts.body, fontSize: 11, color: t.ink }}>
-                          {(m.type === 'voice' || m.type === 'audio' || m.type === 'video') ? m.dur : tm.txt}
-                        </Text>
-                      </View>
-                    </View>
-                    <View style={{ flex: 1, padding: 14, paddingLeft: 15 }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, flexWrap: 'wrap', marginBottom: 6 }}>
-                        <View style={{
-                          paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999,
-                          backgroundColor: t.soft,
-                        }}>
-                          <Text style={{ fontFamily: theme.fonts.head, fontSize: 11.5, color: t.ink }}>
-                            第 {memSeq(m)} 件
-                          </Text>
+          {monthDays > 0 ? (
+            Object.keys(monthMap).map(Number).sort((a, b) => b - a).map(d => {
+              const dayMemories = monthMap[d] || [];
+              return (
+                <View key={d}>
+                  <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8, marginBottom: 12, marginHorizontal: 2 }}>
+                    <Text style={{ fontFamily: theme.fonts.head, fontSize: 17, color: theme.ink }}>
+                      {month} 月 {d} 日
+                    </Text>
+                    <Text style={{ fontFamily: theme.fonts.body, fontSize: 13, color: theme.inkSoft }}>
+                      {dayMemories.length} 件事
+                    </Text>
+                  </View>
+                  {dayMemories.map((m) => {
+                    const t = TONE[m.tone] || TONE.orange;
+                    const tm = typeMeta(m.type);
+                    return (
+                      <TouchableOpacity
+                        key={m.id}
+                        onPress={() => navigation.navigate('Memory', { memory: m })}
+                        activeOpacity={0.8}
+                        style={{
+                          flexDirection: 'row', borderRadius: 20, overflow: 'hidden',
+                          backgroundColor: theme.paper, borderWidth: 1, borderColor: theme.line,
+                          marginBottom: 14, height: 100,
+                        }}
+                      >
+                        <View style={{ width: 100 }}>
+                          <PhotoSlot tone={m.tone} radius={0} label="" style={{ width: 100, height: 100, aspectRatio: undefined }} />
+                          <View style={{
+                            position: 'absolute', left: 7, bottom: 7,
+                            flexDirection: 'row', alignItems: 'center', gap: 4,
+                            paddingHorizontal: 7, paddingVertical: 3, borderRadius: 999,
+                            backgroundColor: 'rgba(255,253,247,0.92)',
+                          }}>
+                            {tm.ic(t.deep, 12)}
+                            <Text style={{ fontFamily: theme.fonts.body, fontSize: 11, color: t.ink }}>
+                              {(m.type === 'voice' || m.type === 'audio' || m.type === 'video') ? m.dur : tm.txt}
+                            </Text>
+                          </View>
                         </View>
-                        {m.place && (
-                          <Text style={{ fontFamily: theme.fonts.body, fontSize: 12, color: theme.inkSoft }}>
-                            {m.place}
-                          </Text>
-                        )}
-                      </View>
-                      <Text numberOfLines={1} style={{
-                        fontFamily: theme.fonts.head, fontSize: 16.5, lineHeight: 23, color: theme.ink,
-                      }}>{m.title}</Text>
-                      <Text numberOfLines={2} style={{
-                        marginTop: 5, fontFamily: theme.fonts.body, fontSize: 13, lineHeight: 21, color: theme.inkSoft,
-                      }}>{m.caption}</Text>
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
-            </>
+                        <View style={{ flex: 1, padding: 12, paddingLeft: 14, justifyContent: 'center' }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 4 }}>
+                            <View style={{
+                              paddingHorizontal: 7, paddingVertical: 2, borderRadius: 999,
+                              backgroundColor: t.soft,
+                            }}>
+                              <Text style={{ fontFamily: theme.fonts.head, fontSize: 11, color: t.ink }}>
+                                第 {memSeq(m)} 件
+                              </Text>
+                            </View>
+                            {m.place && (
+                              <Text style={{ fontFamily: theme.fonts.body, fontSize: 11.5, color: theme.inkSoft }}>
+                                {m.place}
+                              </Text>
+                            )}
+                          </View>
+                          <Text numberOfLines={1} style={{
+                            fontFamily: theme.fonts.head, fontSize: 15, lineHeight: 21, color: theme.ink,
+                          }}>{m.title}</Text>
+                          <Text numberOfLines={1} style={{
+                            marginTop: 3, fontFamily: theme.fonts.body, fontSize: 12.5, lineHeight: 18, color: theme.inkSoft,
+                          }}>{m.caption}</Text>
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              );
+            })
           ) : (
             <Text style={{
               textAlign: 'center', marginTop: 12,
