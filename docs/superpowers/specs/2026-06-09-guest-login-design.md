@@ -20,8 +20,10 @@ Add two functions:
 Enable anonymous sign-ins in `supabase-docker/.env`:
 
 ```
-GOTRUE_EXTERNAL_ANONYMOUS_USERS_ENABLED=true
+ENABLE_ANONYMOUS_USERS=true
 ```
+
+(docker-compose.yml maps this to `GOTRUE_EXTERNAL_ANONYMOUS_USERS_ENABLED` automatically.)
 
 ### Impact on existing code
 
