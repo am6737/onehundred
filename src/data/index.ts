@@ -210,6 +210,25 @@ export async function insertMemory({ kid, levelNum, perspective, type, dur, shot
   return mapMemory(data);
 }
 
+export async function insertKid({ name, y, m, tone = 'orange' }) {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) throw new Error('Not authenticated');
+  const id = 'k' + Date.now();
+  const { data, error } = await supabase.from('kids').insert({
+    id,
+    user_id: session.user.id,
+    name,
+    birth_year: y,
+    birth_month: m,
+    tone,
+    bear: '',
+    since: '',
+    accessories: ['scarf'],
+  }).select().single();
+  if (error) throw error;
+  return mapKid(data);
+}
+
 export async function fetchProfile() {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) return null;

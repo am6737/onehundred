@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import {
   fetchLevels, fetchKids, fetchMemories, fetchMascots,
   fetchWardrobe, fetchCustomLevels, fetchProfile, insertCustomLevel,
-  insertMemory, updateProfile,
+  insertMemory, insertKid, updateProfile,
   getKidFrom, kidLabelFrom, kidDoneFrom, memoriesForKidFrom,
   allLevelsFrom, getMascotFrom, wardrobeStateFrom, nextUnlockFrom,
   throwbackFrom, yearReviewFrom, levelWeightFrom, weightedShuffleFrom,
@@ -72,6 +72,12 @@ export function DataProvider({ children, userId }) {
     return lv;
   }, []);
 
+  const addKid = useCallback(async (input) => {
+    const kid = await insertKid(input);
+    setKids(prev => [...prev, kid]);
+    return kid;
+  }, []);
+
   const updateMe = useCallback(async (fields) => {
     await updateProfile(fields);
     setProfile(prev => prev ? { ...prev, ...fields } : prev);
@@ -83,7 +89,7 @@ export function DataProvider({ children, userId }) {
     getKid, kidLabel, kidDone, memoriesForKid, allLevels,
     getMascot, wardrobeState, nextUnlock, throwback, yearReview,
     frameLabel, levelWeight, weightedShuffle,
-    addMemory, addCustomLevel, updateMe,
+    addMemory, addKid, addCustomLevel, updateMe,
     FAMILY,
   };
 

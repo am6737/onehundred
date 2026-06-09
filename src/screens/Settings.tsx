@@ -1,17 +1,17 @@
 // screens/Settings.js — React Native implementation of the Settings screen.
 // Faithfully converted from the web prototype at screens_settings.jsx.
 
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   View, Text, TouchableOpacity, ScrollView, Switch,
   Modal, Pressable, TextInput, StyleSheet, Dimensions,
-  useColorScheme,
+  useColorScheme, Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme, COLORS } from '../theme/tokens';
 import { ROLES, DEFAULT_ME, meName, meChar, NOW_YM } from '../data';
 import { useData } from '../data/DataProvider';
-import { signOut } from '../lib/auth';
+import { signOut, isAnonymous, bindEmail } from '../lib/auth';
 import { Icon, KidAvatar } from '../components/Icons';
 import { LayerHeader, Sheet, Chip, PrimaryButton, SecondaryButton, Section } from '../components/common';
 
@@ -1266,7 +1266,7 @@ function AboutSheet({ onClose }) {
    ChangePhoneSheet
    ══════════════════════════════════════════════════════════ */
 
-function ChangePhoneSheet({ onClose }) {
+function ChangePhoneSheet({ anon, onClose }) {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
   const [phone, setPhone] = useState('');
@@ -1292,7 +1292,7 @@ function ChangePhoneSheet({ onClose }) {
     <Modal visible animationType="slide" onRequestClose={onClose}>
       <View style={{ flex: 1, backgroundColor: theme.cream }}>
         <LayerHeader
-          title="更换手机号"
+          title={anon ? '绑定手机号' : '更换手机号'}
           onBack={onClose}
           right={
             <TouchableOpacity
@@ -1320,15 +1320,17 @@ function ChangePhoneSheet({ onClose }) {
           </Text>
 
           {/* Current number */}
-          <View style={{
-            marginTop: 22, flexDirection: 'row', alignItems: 'center',
-            justifyContent: 'space-between',
-            paddingVertical: 15, paddingHorizontal: 18,
-            backgroundColor: theme.sand, borderRadius: 18,
-          }}>
-            <Text style={{ fontFamily: theme.fonts.body, fontSize: 15, color: theme.inkSoft }}>当前号码</Text>
-            <Text style={{ fontFamily: theme.fonts.body, fontSize: 15, color: theme.ink }}>138 **** 6688</Text>
-          </View>
+          {!anon ? (
+            <View style={{
+              marginTop: 22, flexDirection: 'row', alignItems: 'center',
+              justifyContent: 'space-between',
+              paddingVertical: 15, paddingHorizontal: 18,
+              backgroundColor: theme.sand, borderRadius: 18,
+            }}>
+              <Text style={{ fontFamily: theme.fonts.body, fontSize: 15, color: theme.inkSoft }}>当前号码</Text>
+              <Text style={{ fontFamily: theme.fonts.body, fontSize: 15, color: theme.ink }}>138 **** 6688</Text>
+            </View>
+          ) : null}
 
           {/* New phone */}
           <Text style={{
@@ -1571,13 +1573,113 @@ function DeleteAccountSheet({ onClose }) {
 }
 
 /* ══════════════════════════════════════════════════════════
+   BindEmailSheet
+   ══════════════════════════════════════════════════════════ */
+
+function BindEmailSheet({ onBound, onClose }) {
+  const { theme } = useTheme();
+  const insets = useSafeAreaInsets();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const canSave = email.includes('@') && password.length >= 6 && !loading;
+
+  const handleBind = async () => {
+    if (!canSave) return;
+    setLoading(true);
+    try {
+      await bindEmail(email, password);
+      onBound();
+      onClose();
+    } catch (e: any) {
+      Alert.alert('绑定失败', e.message || '请重试');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Modal visible animationType="slide" onRequestClose={onClose}>
+      <View style={{ flex: 1, backgroundColor: theme.cream }}>
+        <LayerHeader
+          title="绑定邮箱"
+          onBack={onClose}
+          right={
+            <TouchableOpacity
+              onPress={handleBind}
+              disabled={!canSave}
+              activeOpacity={0.7}
+              style={{
+                paddingVertical: 8, paddingHorizontal: 16, borderRadius: 999,
+                backgroundColor: canSave ? theme.accent : theme.sand,
+              }}
+            >
+              <Text style={{
+                fontFamily: theme.fonts.head, fontSize: 14,
+                color: canSave ? '#FFFDF7' : theme.inkSoft,
+              }}>{loading ? '绑定中...' : '绑定'}</Text>
+            </TouchableOpacity>
+          }
+        />
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 22, paddingBottom: 48 + insets.bottom }}>
+          <Text style={{
+            marginTop: 2, marginHorizontal: 4,
+            fontFamily: theme.fonts.body, fontSize: 14.5, lineHeight: 25, color: theme.inkSoft,
+          }}>
+            绑定邮箱后，你可以用邮箱和密码登录，回忆不会丢失。
+          </Text>
+
+          <Text style={{
+            marginTop: 22, paddingHorizontal: 4, paddingBottom: 8,
+            fontFamily: theme.fonts.head, fontSize: 14, color: theme.inkSoft,
+          }}>邮箱</Text>
+          <TextInput
+            value={email}
+            onChangeText={setEmail}
+            placeholder="请输入邮箱"
+            placeholderTextColor={theme.inkSoft}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            style={{
+              width: '100%', borderWidth: 1, borderColor: theme.line,
+              borderRadius: 18, paddingVertical: 15, paddingHorizontal: 16,
+              backgroundColor: theme.paper, color: theme.ink,
+              fontFamily: theme.fonts.body, fontSize: 16,
+            }}
+          />
+
+          <Text style={{
+            marginTop: 20, paddingHorizontal: 4, paddingBottom: 8,
+            fontFamily: theme.fonts.head, fontSize: 14, color: theme.inkSoft,
+          }}>密码</Text>
+          <TextInput
+            value={password}
+            onChangeText={setPassword}
+            placeholder="设置密码（至少 6 位）"
+            placeholderTextColor={theme.inkSoft}
+            secureTextEntry
+            style={{
+              width: '100%', borderWidth: 1, borderColor: theme.line,
+              borderRadius: 18, paddingVertical: 15, paddingHorizontal: 16,
+              backgroundColor: theme.paper, color: theme.ink,
+              fontFamily: theme.fonts.body, fontSize: 16,
+            }}
+          />
+        </ScrollView>
+      </View>
+    </Modal>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════
    AccountSecuritySheet
    ══════════════════════════════════════════════════════════ */
 
-function AccountSecuritySheet({ onClose }) {
+function AccountSecuritySheet({ anon, onAnonChanged, onClose }) {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
-  const [subSheet, setSubSheet] = useState(null); // 'changePhone' | 'deleteAccount'
+  const [subSheet, setSubSheet] = useState(null); // 'changePhone' | 'deleteAccount' | 'bindEmail'
   const [showLogout, setShowLogout] = useState(false);
   const [showUnbindWechat, setShowUnbindWechat] = useState(false);
 
@@ -1590,7 +1692,9 @@ function AccountSecuritySheet({ onClose }) {
             marginTop: 2, marginHorizontal: 4,
             fontFamily: theme.fonts.body, fontSize: 14.5, lineHeight: 25, color: theme.inkSoft,
           }}>
-            这些只关乎你怎么登进这个家。回忆和家人，都在前面那几栏里。
+            {anon
+              ? '你目前是游客身份。绑定手机号或邮箱后，回忆就不会丢失。'
+              : '这些只关乎你怎么登进这个家。回忆和家人，都在前面那几栏里。'}
           </Text>
 
           {/* Login methods */}
@@ -1598,16 +1702,25 @@ function AccountSecuritySheet({ onClose }) {
             <Row
               icon={Icon.phone(theme.accent, 19)}
               title="手机号"
-              value="138 **** 6688"
+              value={anon ? '未绑定' : '138 **** 6688'}
               onPress={() => setSubSheet('changePhone')}
             />
             <Row
               icon={Icon.users(theme.accent, 19)}
               title="微信"
-              value="已绑定"
-              onPress={() => setShowUnbindWechat(true)}
-              last
+              value={anon ? '未绑定' : '已绑定'}
+              onPress={anon ? undefined : () => setShowUnbindWechat(true)}
+              last={anon ? false : true}
             />
+            {anon ? (
+              <Row
+                icon={Icon.mail(theme.accent, 19)}
+                title="邮箱"
+                value="未绑定"
+                onPress={() => setSubSheet('bindEmail')}
+                last
+              />
+            ) : null}
           </SettingGroup>
 
           {/* Login status */}
@@ -1659,10 +1772,13 @@ function AccountSecuritySheet({ onClose }) {
 
       {/* Sub-sheets & dialogs */}
       {subSheet === 'changePhone' ? (
-        <ChangePhoneSheet onClose={() => setSubSheet(null)} />
+        <ChangePhoneSheet anon={anon} onClose={() => setSubSheet(null)} />
       ) : null}
       {subSheet === 'deleteAccount' ? (
         <DeleteAccountSheet onClose={() => setSubSheet(null)} />
+      ) : null}
+      {subSheet === 'bindEmail' ? (
+        <BindEmailSheet onBound={onAnonChanged} onClose={() => setSubSheet(null)} />
       ) : null}
 
       <ConfirmDialog
@@ -1722,6 +1838,8 @@ export default function Settings({ navigation, route }) {
   const [privacy, setPrivacy] = useState('只有家人');
   const [defView, setDefView] = useState('一起');
   const [rhythm, setRhythm] = useState('每两周');
+  const [anon, setAnon] = useState(false);
+  useEffect(() => { isAnonymous().then(setAnon); }, []);
 
   const editKid = kids.find(k => k.id === editId);
   const sealedCount = levels.filter(l => l.sealed).length;
@@ -1765,6 +1883,7 @@ export default function Settings({ navigation, route }) {
           <Row
             icon={Icon.shieldCheck(theme.accent, 20)}
             title="账户与安全"
+            value={anon ? '游客' : undefined}
             onPress={() => setSheet('account')}
             last
           />
@@ -1923,7 +2042,7 @@ export default function Settings({ navigation, route }) {
         <AboutSheet onClose={() => setSheet(null)} />
       ) : null}
       {sheet === 'account' ? (
-        <AccountSecuritySheet onClose={() => setSheet(null)} />
+        <AccountSecuritySheet anon={anon} onAnonChanged={() => isAnonymous().then(setAnon)} onClose={() => setSheet(null)} />
       ) : null}
     </View>
   );

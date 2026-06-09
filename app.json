@@ -21,7 +21,20 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-font"
+      "expo-font",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "允许「一百件事」访问你的照片，把这些珍贵的瞬间留下来。",
+          "cameraPermission": "允许「一百件事」使用相机，拍下这个值得记住的时刻。"
+        }
+      ],
+      [
+        "expo-av",
+        {
+          "microphonePermission": "允许「一百件事」使用麦克风，录下你想对孩子说的话。"
+        }
+      ]
     ]
   }
 }

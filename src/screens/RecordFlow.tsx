@@ -1,26 +1,33 @@
-// RecordFlow.js — multi-step recording flow: choose modality, capture, celebrate.
+// RecordFlow — multi-step recording flow: choose modality, capture, celebrate.
 
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, TouchableOpacity, TextInput, ScrollView,
-  Animated, Dimensions, StyleSheet,
+  Animated, StyleSheet, Image, Alert, ActivityIndicator,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
+import { Audio } from 'expo-av';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme, TONE, COLORS } from '../theme/tokens';
 import { PERSPECTIVES, meName, NOW_YM } from '../data';
 import { useData } from '../data/DataProvider';
 import { Icon, PhotoSlot } from '../components/Icons';
 import { LayerHeader, PrimaryButton, SecondaryButton, Chip, Sheet } from '../components/common';
+import { supabase } from '../lib/supabase';
 
 /* ── VoiceRecorder ── */
 
-function VoiceRecorder({ active, paused, theme }) {
+function VoiceRecorder({ active, paused, theme, elapsedRef }) {
   const [t, setT] = useState(0);
   const counting = active && !paused;
 
   useEffect(() => {
     if (!counting) return;
-    const id = setInterval(() => setT(x => x + 1), 1000);
+    const id = setInterval(() => setT(x => {
+      const next = x + 1;
+      if (elapsedRef) elapsedRef.current = next;
+      return next;
+    }), 1000);
     return () => clearInterval(id);
   }, [counting]);
 
@@ -31,7 +38,6 @@ function VoiceRecorder({ active, paused, theme }) {
 
   return (
     <View style={{ alignItems: 'center', paddingVertical: 30 }}>
-      {/* Waveform bars */}
       <View style={{ flexDirection: 'row', alignItems: 'flex-end', height: 64, gap: 4 }}>
         {bars.map((base, i) => {
           const h = counting
@@ -52,7 +58,6 @@ function VoiceRecorder({ active, paused, theme }) {
         })}
       </View>
 
-      {/* Timer */}
       <Text style={{
         fontFamily: 'monospace',
         fontSize: 30,
@@ -62,7 +67,6 @@ function VoiceRecorder({ active, paused, theme }) {
         {mm}:{ss}
       </Text>
 
-      {/* Status label */}
       <Text style={{
         fontFamily: theme.fonts.body,
         fontSize: 14,
@@ -75,6 +79,36 @@ function VoiceRecorder({ active, paused, theme }) {
   );
 }
 
+/* ── Storage upload helper ── */
+
+async function uploadToStorage(uri, userId, memoryId, filename) {
+  try {
+    const ext = uri.split('.').pop()?.split('?')[0]?.toLowerCase() || 'bin';
+    const path = `${userId}/${memoryId}/${filename}.${ext}`;
+    const contentType =
+      ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' :
+      ext === 'png' ? 'image/png' :
+      ext === 'heic' ? 'image/heic' :
+      ext === 'mp4' ? 'video/mp4' :
+      ext === 'mov' ? 'video/quicktime' :
+      ext === 'm4a' ? 'audio/m4a' :
+      ext === 'caf' ? 'audio/x-caf' :
+      ext === 'wav' ? 'audio/wav' :
+      'application/octet-stream';
+
+    const response = await fetch(uri);
+    const blob = await response.blob();
+    const { error } = await supabase.storage
+      .from('memories')
+      .upload(path, blob, { contentType, upsert: true });
+    if (error) console.warn('Storage upload:', error.message);
+    return path;
+  } catch (e) {
+    console.warn('Upload failed:', e);
+    return null;
+  }
+}
+
 /* ── Main RecordFlow screen ── */
 
 export default function RecordFlow({ route, navigation }) {
@@ -83,18 +117,35 @@ export default function RecordFlow({ route, navigation }) {
   const insets = useSafeAreaInsets();
   const t = TONE[level.tone] || TONE.orange;
 
-  // Step: 0 = choose modality, 1 = capture, 2 = celebration
   const [step, setStep] = useState(0);
   const [type, setType] = useState(level.suggest || 'voice');
+
+  // Voice
   const [recording, setRecording] = useState(false);
   const [paused, setPaused] = useState(false);
-  const [text, setText] = useState('');
-  const [photo, setPhoto] = useState(0);
-  const [video, setVideo] = useState(false);
-  const [place, setPlace] = useState('');
-  const [caption, setCaption] = useState('');
+  const [recordingDone, setRecordingDone] = useState(false);
+  const [playing, setPlaying] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [transcribing, setTranscribing] = useState(false);
+  const recordingRef = useRef(null);
+  const soundRef = useRef(null);
+  const recordingUriRef = useRef(null);
+  const elapsedRef = useRef(0);
+
+  // Photo — array of real URIs
+  const [photos, setPhotos] = useState([]);
+
+  // Video — real URI + duration
+  const [videoUri, setVideoUri] = useState(null);
+  const [videoDuration, setVideoDuration] = useState(0);
+
+  // Text
+  const [text, setText] = useState('');
+
+  // Common
+  const [place, setPlace] = useState('');
+  const [caption, setCaption] = useState('');
+  const [saving, setSaving] = useState(false);
   const MAX_SHOTS = 6;
 
   // Step transition animation
@@ -115,7 +166,7 @@ export default function RecordFlow({ route, navigation }) {
     });
   };
 
-  // Celebration scale animation
+  // Celebration animation
   const celebScale = useRef(new Animated.Value(0.6)).current;
   const celebOpacity = useRef(new Animated.Value(0)).current;
 
@@ -123,15 +174,10 @@ export default function RecordFlow({ route, navigation }) {
     if (step === 2) {
       Animated.parallel([
         Animated.spring(celebScale, {
-          toValue: 1,
-          damping: 12,
-          stiffness: 150,
-          useNativeDriver: true,
+          toValue: 1, damping: 12, stiffness: 150, useNativeDriver: true,
         }),
         Animated.timing(celebOpacity, {
-          toValue: 1,
-          duration: 400,
-          useNativeDriver: true,
+          toValue: 1, duration: 400, useNativeDriver: true,
         }),
       ]).start();
     } else {
@@ -140,31 +186,229 @@ export default function RecordFlow({ route, navigation }) {
     }
   }, [step]);
 
-  // Simulated voice transcription
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (recordingRef.current) {
+        recordingRef.current.stopAndUnloadAsync().catch(() => {});
+      }
+      if (soundRef.current) {
+        soundRef.current.unloadAsync().catch(() => {});
+      }
+    };
+  }, []);
+
+  // Auto-close celebration
+  useEffect(() => {
+    if (step !== 2) return;
+    const id = setTimeout(() => {
+      if (navigation.canGoBack()) navigation.goBack();
+    }, 2200);
+    return () => clearTimeout(id);
+  }, [step]);
+
+  /* ── Voice recording ── */
+
+  const startRealRecording = async () => {
+    try {
+      const { status } = await Audio.requestPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('需要麦克风权限', '请在设置中允许访问麦克风');
+        return false;
+      }
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true,
+      });
+      const rec = new Audio.Recording();
+      await rec.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
+      await rec.startAsync();
+      recordingRef.current = rec;
+      return true;
+    } catch (e) {
+      console.error('Recording start failed:', e);
+      Alert.alert('录音失败', '请检查麦克风权限');
+      return false;
+    }
+  };
+
+  const togglePauseRecording = async () => {
+    if (!recordingRef.current) return;
+    try {
+      if (paused) {
+        await recordingRef.current.startAsync();
+        setPaused(false);
+      } else {
+        await recordingRef.current.pauseAsync();
+        setPaused(true);
+      }
+    } catch (e) {
+      console.error('Pause/resume failed:', e);
+    }
+  };
+
+  const stopRecordingAction = async () => {
+    if (!recordingRef.current) return;
+    try {
+      await recordingRef.current.stopAndUnloadAsync();
+      const uri = recordingRef.current.getURI();
+      recordingUriRef.current = uri;
+      recordingRef.current = null;
+      setRecording(false);
+      setRecordingDone(true);
+      await Audio.setAudioModeAsync({ allowsRecordingIOS: false });
+    } catch (e) {
+      console.error('Stop recording failed:', e);
+    }
+  };
+
+  const togglePlayback = async () => {
+    const uri = recordingUriRef.current;
+    if (!uri) return;
+    try {
+      if (soundRef.current) {
+        const status = await soundRef.current.getStatusAsync();
+        if (status.isLoaded) {
+          if (status.isPlaying) {
+            await soundRef.current.pauseAsync();
+            setPlaying(false);
+            return;
+          } else {
+            await soundRef.current.playFromPositionAsync(0);
+            setPlaying(true);
+            return;
+          }
+        }
+      }
+      await Audio.setAudioModeAsync({ allowsRecordingIOS: false, playsInSilentModeIOS: true });
+      const { sound } = await Audio.Sound.createAsync({ uri });
+      soundRef.current = sound;
+      sound.setOnPlaybackStatusUpdate((s) => {
+        if (s.isLoaded && s.didJustFinish) setPlaying(false);
+      });
+      await sound.playAsync();
+      setPlaying(true);
+    } catch (e) {
+      console.error('Playback failed:', e);
+    }
+  };
+
+  // Simulated transcription (real transcription needs an external ASR service)
   const TRANSCRIPT_SEED =
     '（自动转写）今天我们一起做了这件事，我想把当时说的话留下来……这一段，等很久以后再听，一定还是热的。';
 
   useEffect(() => {
     if (step !== 1 || type !== 'voice') return;
     if (transcript) return;
+    if (recording) return;
+    if (!recordingDone) return;
     setTranscribing(true);
     const id = setTimeout(() => {
       setTranscript(TRANSCRIPT_SEED);
       setTranscribing(false);
     }, 1700);
     return () => clearTimeout(id);
-  }, [step, type]);
+  }, [step, type, recording, recordingDone]);
 
-  // Auto-navigate away from celebration after 2.2s
-  useEffect(() => {
-    if (step !== 2) return;
-    const id = setTimeout(() => {
-      if (navigation.canGoBack()) {
-        navigation.goBack();
+  /* ── Photo capture ── */
+
+  const addPhotos = async (fromCamera) => {
+    try {
+      if (fromCamera) {
+        const { status } = await ImagePicker.requestCameraPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('需要相机权限', '请在设置中允许访问相机');
+          return;
+        }
+        const result = await ImagePicker.launchCameraAsync({
+          mediaTypes: ['images'],
+          quality: 0.8,
+        });
+        if (!result.canceled && result.assets?.length > 0) {
+          setPhotos(prev => [...prev, ...result.assets.map(a => a.uri)].slice(0, MAX_SHOTS));
+        }
+      } else {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('需要相册权限', '请在设置中允许访问相册');
+          return;
+        }
+        const remaining = MAX_SHOTS - photos.length;
+        const result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ['images'],
+          quality: 0.8,
+          allowsMultipleSelection: true,
+          selectionLimit: remaining > 0 ? remaining : 1,
+        });
+        if (!result.canceled && result.assets?.length > 0) {
+          setPhotos(prev => [...prev, ...result.assets.map(a => a.uri)].slice(0, MAX_SHOTS));
+        }
       }
-    }, 2200);
-    return () => clearTimeout(id);
-  }, [step]);
+    } catch (e) {
+      console.error('Photo pick failed:', e);
+    }
+  };
+
+  const showPhotoOptions = () => {
+    Alert.alert('添加照片', '', [
+      { text: '拍照', onPress: () => addPhotos(true) },
+      { text: '从相册选择', onPress: () => addPhotos(false) },
+      { text: '取消', style: 'cancel' },
+    ]);
+  };
+
+  const removePhoto = (index) => {
+    setPhotos(prev => prev.filter((_, i) => i !== index));
+  };
+
+  /* ── Video capture ── */
+
+  const pickVideoMedia = async (fromCamera) => {
+    try {
+      if (fromCamera) {
+        const { status } = await ImagePicker.requestCameraPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('需要相机权限', '请在设置中允许访问相机');
+          return;
+        }
+        const result = await ImagePicker.launchCameraAsync({
+          mediaTypes: ['videos'],
+          videoMaxDuration: 60,
+        });
+        if (!result.canceled && result.assets?.length > 0) {
+          const asset = result.assets[0];
+          setVideoUri(asset.uri);
+          setVideoDuration(Math.round((asset.duration || 0) / 1000));
+        }
+      } else {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('需要相册权限', '请在设置中允许访问相册');
+          return;
+        }
+        const result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ['videos'],
+        });
+        if (!result.canceled && result.assets?.length > 0) {
+          const asset = result.assets[0];
+          setVideoUri(asset.uri);
+          setVideoDuration(Math.round((asset.duration || 0) / 1000));
+        }
+      }
+    } catch (e) {
+      console.error('Video pick failed:', e);
+    }
+  };
+
+  const showVideoOptions = () => {
+    Alert.alert('添加视频', '', [
+      { text: '拍摄视频', onPress: () => pickVideoMedia(true) },
+      { text: '从相册选择', onPress: () => pickVideoMedia(false) },
+      { text: '取消', style: 'cancel' },
+    ]);
+  };
+
+  /* ── Navigation & types ── */
 
   const types = [
     { k: 'voice', label: '录一段语音', sub: '最省事，最珍贵', icon: Icon.mic },
@@ -173,35 +417,68 @@ export default function RecordFlow({ route, navigation }) {
     { k: 'text', label: '写几句话', sub: '安静地写下来', icon: Icon.pen },
   ];
 
-  const startCapture = (k) => {
+  const startCapture = async (k) => {
     setType(k);
     animateStep(1);
     if (k === 'voice') {
-      setRecording(true);
-      setPaused(false);
+      const started = await startRealRecording();
+      if (started) {
+        setRecording(true);
+        setPaused(false);
+      }
     }
   };
 
   const captureReady =
-    type === 'voice' ? true
-    : type === 'photo' ? photo > 0
-    : type === 'video' ? video
+    type === 'voice' ? (recording || recordingDone)
+    : type === 'photo' ? photos.length > 0
+    : type === 'video' ? videoUri !== null
     : text.trim().length > 0;
 
   const { addMemory } = useData();
 
   const finish = async () => {
-    const note = caption.trim();
-    const now = new Date();
-    const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    if (saving) return;
+    setSaving(true);
     try {
+      if (type === 'voice' && recordingRef.current) {
+        await stopRecordingAction();
+      }
+
+      const now = new Date();
+      const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+      const memoryId = `m${Date.now()}`;
+      const note = caption.trim();
+
+      let dur;
+      if (type === 'voice') {
+        const secs = elapsedRef.current;
+        dur = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
+      } else if (type === 'video' && videoDuration > 0) {
+        dur = `${Math.floor(videoDuration / 60)}:${String(videoDuration % 60).padStart(2, '0')}`;
+      }
+
+      // Upload media files (fire-and-forget, don't block save)
+      const { data: { session } } = await supabase.auth.getSession();
+      const userId = session?.user?.id || 'anon';
+
+      if (type === 'photo' && photos.length > 0) {
+        photos.forEach((uri, i) => {
+          uploadToStorage(uri, userId, memoryId, `photo_${i}`);
+        });
+      } else if (type === 'video' && videoUri) {
+        uploadToStorage(videoUri, userId, memoryId, 'video_0');
+      } else if (type === 'voice' && recordingUriRef.current) {
+        uploadToStorage(recordingUriRef.current, userId, memoryId, 'audio_0');
+      }
+
       await addMemory({
         kid: kidId,
         levelNum: level.num,
         perspective: level.perspective,
         type,
-        dur: type === 'voice' ? '0:37' : type === 'video' ? '0:24' : undefined,
-        shots: type === 'photo' ? photo : undefined,
+        dur,
+        shots: type === 'photo' ? photos.length : undefined,
         date: dateStr,
         place: place.trim() || null,
         title: level.title,
@@ -214,6 +491,8 @@ export default function RecordFlow({ route, navigation }) {
       });
     } catch (e) {
       console.error('Failed to save memory:', e);
+    } finally {
+      setSaving(false);
     }
     animateStep(2);
   };
@@ -222,13 +501,26 @@ export default function RecordFlow({ route, navigation }) {
     if (step === 0) {
       if (navigation.canGoBack()) navigation.goBack();
     } else {
+      if (recordingRef.current) {
+        recordingRef.current.stopAndUnloadAsync().catch(() => {});
+        recordingRef.current = null;
+      }
+      if (soundRef.current) {
+        soundRef.current.unloadAsync().catch(() => {});
+        soundRef.current = null;
+      }
+      setRecording(false);
+      setRecordingDone(false);
+      setPhotos([]);
+      setVideoUri(null);
+      setText('');
+      setTranscript('');
       animateStep(0);
     }
   };
 
   const placeOptions = ['家里', '奶奶家', '小区楼下', '公园', '幼儿园', '路上'];
 
-  /* ── Text starters ── */
   const sealedStarters = [
     '亲爱的，等你看到这封信的时候…',
     '有件事我一直想对你说——',
@@ -243,12 +535,8 @@ export default function RecordFlow({ route, navigation }) {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.cream }]}>
-      {/* Header — hide on celebration step */}
       {step < 2 && (
-        <LayerHeader
-          title="记录一下"
-          onBack={handleBack}
-        />
+        <LayerHeader title="记录一下" onBack={handleBack} />
       )}
 
       <Animated.View
@@ -265,7 +553,6 @@ export default function RecordFlow({ route, navigation }) {
             contentContainerStyle={{ padding: 24, paddingTop: 8, paddingBottom: 40 }}
             showsVerticalScrollIndicator={false}
           >
-            {/* Activity title */}
             <Text style={{
               fontFamily: theme.fonts.head,
               fontSize: 22,
@@ -276,7 +563,6 @@ export default function RecordFlow({ route, navigation }) {
               {level.title}
             </Text>
 
-            {/* Record prompt */}
             <Text style={{
               fontFamily: theme.fonts.body,
               fontSize: 14.5,
@@ -288,7 +574,6 @@ export default function RecordFlow({ route, navigation }) {
               {level.record}
             </Text>
 
-            {/* Modality buttons */}
             {types.map((ty) => {
               const rec = ty.k === level.suggest;
               return (
@@ -305,7 +590,6 @@ export default function RecordFlow({ route, navigation }) {
                     },
                   ]}
                 >
-                  {/* Icon circle */}
                   <View style={[
                     styles.modalityIcon,
                     { backgroundColor: rec ? theme.accent : t.soft },
@@ -313,7 +597,6 @@ export default function RecordFlow({ route, navigation }) {
                     {ty.icon(rec ? '#FFFDF7' : t.ink, 24)}
                   </View>
 
-                  {/* Labels */}
                   <View style={{ flex: 1 }}>
                     <Text style={{
                       fontFamily: theme.fonts.head,
@@ -332,7 +615,6 @@ export default function RecordFlow({ route, navigation }) {
                     </Text>
                   </View>
 
-                  {/* Recommended badge */}
                   {rec && (
                     <View style={[styles.recBadge, { backgroundColor: t.soft }]}>
                       <Text style={{
@@ -366,121 +648,175 @@ export default function RecordFlow({ route, navigation }) {
               {/* ── Voice capture ── */}
               {type === 'voice' && (
                 <>
-                  <VoiceRecorder active={recording} paused={paused} theme={theme} />
+                  <VoiceRecorder active={recording} paused={paused} theme={theme} elapsedRef={elapsedRef} />
 
-                  {/* Record/pause button */}
+                  {/* Record controls */}
                   {recording && (
                     <View style={{ alignItems: 'center', marginTop: 6 }}>
-                      <TouchableOpacity
-                        onPress={() => setPaused(p => !p)}
-                        activeOpacity={0.8}
-                        style={[styles.recordBtn, {
-                          backgroundColor: theme.accent,
-                        }]}
-                      >
-                        {paused ? (
-                          // Play triangle
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 20 }}>
+                        {/* Pause / Resume */}
+                        <TouchableOpacity
+                          onPress={togglePauseRecording}
+                          activeOpacity={0.8}
+                          style={[styles.recordBtn, { backgroundColor: theme.accent }]}
+                        >
+                          {paused ? (
+                            <View style={{
+                              width: 0, height: 0, marginLeft: 4,
+                              borderTopWidth: 13, borderTopColor: 'transparent',
+                              borderBottomWidth: 13, borderBottomColor: 'transparent',
+                              borderLeftWidth: 20, borderLeftColor: '#FFFDF7',
+                            }} />
+                          ) : (
+                            <View style={{ flexDirection: 'row', gap: 6 }}>
+                              <View style={styles.pauseBar} />
+                              <View style={styles.pauseBar} />
+                            </View>
+                          )}
+                        </TouchableOpacity>
+
+                        {/* Stop */}
+                        <TouchableOpacity
+                          onPress={stopRecordingAction}
+                          activeOpacity={0.8}
+                          style={{
+                            width: 52, height: 52, borderRadius: 26,
+                            backgroundColor: theme.sand,
+                            justifyContent: 'center', alignItems: 'center',
+                          }}
+                        >
                           <View style={{
-                            width: 0, height: 0, marginLeft: 4,
-                            borderTopWidth: 13, borderTopColor: 'transparent',
-                            borderBottomWidth: 13, borderBottomColor: 'transparent',
-                            borderLeftWidth: 20, borderLeftColor: '#FFFDF7',
+                            width: 20, height: 20, borderRadius: 3,
+                            backgroundColor: theme.ink,
                           }} />
-                        ) : (
-                          // Pause bars
-                          <View style={{ flexDirection: 'row', gap: 6 }}>
-                            <View style={styles.pauseBar} />
-                            <View style={styles.pauseBar} />
-                          </View>
-                        )}
-                      </TouchableOpacity>
+                        </TouchableOpacity>
+                      </View>
+                      <Text style={{
+                        fontFamily: theme.fonts.body,
+                        fontSize: 12,
+                        color: theme.inkSoft,
+                        marginTop: 10,
+                      }}>
+                        {paused ? '轻点继续录音' : '轻点暂停'} · 按 ■ 完成录音
+                      </Text>
                     </View>
                   )}
 
-                  {/* Transcript section */}
-                  <View style={{ marginTop: 26 }}>
-                    <View style={styles.sectionLabel}>
-                      {Icon.pen(theme.accent, 15)}
-                      <Text style={{
-                        fontFamily: theme.fonts.body,
-                        fontSize: 13,
-                        color: theme.inkSoft,
-                        marginLeft: 7,
-                      }}>
-                        语音文字 · 自动转写
-                      </Text>
-                      {transcribing && (
-                        <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 'auto' }}>
-                          <View style={[styles.transcribeDot, { backgroundColor: theme.accent }]} />
+                  {/* Transcript section — after recording stops */}
+                  {recordingDone && (
+                    <View style={{ marginTop: 26 }}>
+                      <View style={styles.sectionLabel}>
+                        {Icon.pen(theme.accent, 15)}
+                        <Text style={{
+                          fontFamily: theme.fonts.body,
+                          fontSize: 13,
+                          color: theme.inkSoft,
+                          marginLeft: 7,
+                        }}>
+                          语音文字 · 自动转写
+                        </Text>
+                        {transcribing ? (
+                          <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 'auto' }}>
+                            <View style={[styles.transcribeDot, { backgroundColor: theme.accent }]} />
+                            <Text style={{
+                              fontFamily: theme.fonts.body,
+                              fontSize: 12,
+                              color: theme.accent,
+                              marginLeft: 6,
+                            }}>
+                              正在转文字…
+                            </Text>
+                          </View>
+                        ) : (
+                          <TouchableOpacity
+                            onPress={togglePlayback}
+                            activeOpacity={0.7}
+                            style={{
+                              flexDirection: 'row', alignItems: 'center', gap: 5,
+                              marginLeft: 'auto',
+                              paddingVertical: 4, paddingHorizontal: 10, borderRadius: 999,
+                              backgroundColor: playing ? theme.accent : theme.sand,
+                            }}
+                          >
+                            {playing ? (
+                              <View style={{ flexDirection: 'row', gap: 3 }}>
+                                <View style={{ width: 2.5, height: 11, borderRadius: 1.5, backgroundColor: '#FFFDF7' }} />
+                                <View style={{ width: 2.5, height: 11, borderRadius: 1.5, backgroundColor: '#FFFDF7' }} />
+                              </View>
+                            ) : (
+                              <View style={{
+                                width: 0, height: 0, marginLeft: 1,
+                                borderTopWidth: 5.5, borderTopColor: 'transparent',
+                                borderBottomWidth: 5.5, borderBottomColor: 'transparent',
+                                borderLeftWidth: 9, borderLeftColor: theme.accent,
+                              }} />
+                            )}
+                            <Text style={{
+                              fontFamily: theme.fonts.body,
+                              fontSize: 12,
+                              color: playing ? '#FFFDF7' : theme.accent,
+                            }}>
+                              {playing ? '播放中' : '听原声'}
+                            </Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
+
+                      {transcribing ? (
+                        <View style={[styles.transcribeLoading, {
+                          borderColor: theme.line,
+                          backgroundColor: theme.paper,
+                        }]}>
+                          {[92, 76, 84].map((w, i) => (
+                            <View
+                              key={i}
+                              style={{
+                                height: 11,
+                                width: `${w}%`,
+                                borderRadius: 6,
+                                backgroundColor: theme.sand,
+                                marginBottom: i < 2 ? 12 : 0,
+                              }}
+                            />
+                          ))}
+                        </View>
+                      ) : (
+                        <>
+                          <TextInput
+                            value={transcript}
+                            onChangeText={setTranscript}
+                            placeholder="录音的文字会出现在这里，可以随手改…"
+                            placeholderTextColor={theme.inkSoft}
+                            multiline
+                            style={[styles.transcriptInput, {
+                              borderColor: theme.line,
+                              backgroundColor: theme.paper,
+                              color: theme.ink,
+                              fontFamily: theme.fonts.body,
+                            }]}
+                          />
                           <Text style={{
+                            marginTop: 7,
+                            paddingLeft: 2,
                             fontFamily: theme.fonts.body,
                             fontSize: 12,
-                            color: theme.accent,
-                            marginLeft: 6,
+                            color: theme.inkSoft,
+                            lineHeight: 19,
                           }}>
-                            正在转文字…
+                            自动转写可能不准，改两个字就好。原声会一起留着。
                           </Text>
-                        </View>
+                        </>
                       )}
                     </View>
-
-                    {transcribing ? (
-                      <View style={[styles.transcribeLoading, {
-                        borderColor: theme.line,
-                        backgroundColor: theme.paper,
-                      }]}>
-                        {[92, 76, 84].map((w, i) => (
-                          <View
-                            key={i}
-                            style={{
-                              height: 11,
-                              width: `${w}%`,
-                              borderRadius: 6,
-                              backgroundColor: theme.sand,
-                              marginBottom: i < 2 ? 12 : 0,
-                            }}
-                          />
-                        ))}
-                      </View>
-                    ) : (
-                      <>
-                        <TextInput
-                          value={transcript}
-                          onChangeText={setTranscript}
-                          placeholder="录音的文字会出现在这里，可以随手改…"
-                          placeholderTextColor={theme.inkSoft}
-                          multiline
-                          style={[styles.transcriptInput, {
-                            borderColor: theme.line,
-                            backgroundColor: theme.paper,
-                            color: theme.ink,
-                            fontFamily: theme.fonts.body,
-                          }]}
-                        />
-                        <Text style={{
-                          marginTop: 7,
-                          paddingLeft: 2,
-                          fontFamily: theme.fonts.body,
-                          fontSize: 12,
-                          color: theme.inkSoft,
-                          lineHeight: 19,
-                        }}>
-                          自动转写可能不准，改两个字就好。原声会一起留着。
-                        </Text>
-                      </>
-                    )}
-                  </View>
+                  )}
                 </>
               )}
 
               {/* ── Photo capture ── */}
               {type === 'photo' && (
                 <View style={{ marginTop: 8 }}>
-                  {photo === 0 ? (
-                    <TouchableOpacity
-                      activeOpacity={0.7}
-                      onPress={() => setPhoto(1)}
-                    >
+                  {photos.length === 0 ? (
+                    <TouchableOpacity activeOpacity={0.7} onPress={showPhotoOptions}>
                       <PhotoSlot
                         tone={level.tone}
                         radius={24}
@@ -496,57 +832,73 @@ export default function RecordFlow({ route, navigation }) {
                     </TouchableOpacity>
                   ) : (
                     <View>
-                      {/* Cover photo */}
-                      <View style={{ position: 'relative' }}>
-                        <PhotoSlot
-                          tone={level.tone}
-                          radius={24}
-                          label=""
-                          style={{
-                            height: 268,
-                            aspectRatio: undefined,
-                            borderWidth: 2,
-                            borderColor: theme.accent,
-                          }}
-                        >
-                          {/* Cover badge */}
-                          <View style={{ position: 'absolute', top: 12, left: 12 }}>
-                            <View style={[styles.coverBadge, { backgroundColor: theme.accent }]}>
-                              <Text style={{
-                                fontFamily: theme.fonts.head,
-                                fontSize: 12,
-                                color: '#FFFDF7',
-                              }}>
-                                封面
-                              </Text>
-                            </View>
+                      {/* Cover photo — real image */}
+                      <TouchableOpacity
+                        activeOpacity={0.85}
+                        onLongPress={() => {
+                          Alert.alert('移除封面照片？', '', [
+                            { text: '移除', style: 'destructive', onPress: () => removePhoto(0) },
+                            { text: '取消', style: 'cancel' },
+                          ]);
+                        }}
+                        style={{ position: 'relative' }}
+                      >
+                        <View style={{
+                          height: 268,
+                          borderRadius: 24,
+                          overflow: 'hidden',
+                          borderWidth: 2,
+                          borderColor: theme.accent,
+                        }}>
+                          <Image
+                            source={{ uri: photos[0] }}
+                            style={{ width: '100%', height: '100%' }}
+                            resizeMode="cover"
+                          />
+                        </View>
+                        <View style={{ position: 'absolute', top: 12, left: 12 }}>
+                          <View style={[styles.coverBadge, { backgroundColor: theme.accent }]}>
+                            <Text style={{
+                              fontFamily: theme.fonts.head,
+                              fontSize: 12,
+                              color: '#FFFDF7',
+                            }}>
+                              封面
+                            </Text>
                           </View>
-                          {/* Check icon */}
-                          <View style={styles.photoCheck}>
-                            {Icon.check(t.deep, 22)}
-                          </View>
-                        </PhotoSlot>
-                      </View>
+                        </View>
+                      </TouchableOpacity>
 
-                      {/* Additional photo slots + add button */}
+                      {/* Additional photo thumbnails + add button */}
                       <View style={styles.photoRow}>
-                        {Array.from({ length: photo - 1 }).map((_, i) => (
-                          <PhotoSlot
+                        {photos.slice(1).map((uri, i) => (
+                          <TouchableOpacity
                             key={i}
-                            tone={level.tone}
-                            radius={14}
-                            label=""
+                            activeOpacity={0.85}
+                            onLongPress={() => {
+                              Alert.alert('移除这张照片？', '', [
+                                { text: '移除', style: 'destructive', onPress: () => removePhoto(i + 1) },
+                                { text: '取消', style: 'cancel' },
+                              ]);
+                            }}
                             style={{
                               width: 66, height: 66,
-                              aspectRatio: undefined,
+                              borderRadius: 14,
+                              overflow: 'hidden',
                               borderWidth: 1,
                               borderColor: theme.line,
                             }}
-                          />
+                          >
+                            <Image
+                              source={{ uri }}
+                              style={{ width: '100%', height: '100%' }}
+                              resizeMode="cover"
+                            />
+                          </TouchableOpacity>
                         ))}
-                        {photo < MAX_SHOTS && (
+                        {photos.length < MAX_SHOTS && (
                           <TouchableOpacity
-                            onPress={() => setPhoto(p => p + 1)}
+                            onPress={showPhotoOptions}
                             style={[styles.addPhotoBtn, {
                               borderColor: 'rgba(58,51,43,0.22)',
                               backgroundColor: theme.paper,
@@ -564,7 +916,6 @@ export default function RecordFlow({ route, navigation }) {
                         )}
                       </View>
 
-                      {/* Photo count */}
                       <Text style={{
                         marginTop: 12,
                         marginHorizontal: 4,
@@ -573,9 +924,9 @@ export default function RecordFlow({ route, navigation }) {
                         color: theme.inkSoft,
                         lineHeight: 20,
                       }}>
-                        {photo >= MAX_SHOTS
-                          ? `已选 ${photo} 张 · 第一张作封面`
-                          : `已选 ${photo} 张 · 第一张作封面，最多 ${MAX_SHOTS} 张`}
+                        {photos.length >= MAX_SHOTS
+                          ? `已选 ${photos.length} 张 · 第一张作封面`
+                          : `已选 ${photos.length} 张 · 第一张作封面，最多 ${MAX_SHOTS} 张`}
                       </Text>
                     </View>
                   )}
@@ -585,37 +936,69 @@ export default function RecordFlow({ route, navigation }) {
               {/* ── Video capture ── */}
               {type === 'video' && (
                 <View style={{ marginTop: 8 }}>
-                  <TouchableOpacity
-                    activeOpacity={0.7}
-                    onPress={() => setVideo(true)}
-                  >
-                    <PhotoSlot
-                      tone={level.tone}
-                      radius={24}
-                      label=""
-                      style={{
+                  <TouchableOpacity activeOpacity={0.7} onPress={showVideoOptions}>
+                    {videoUri ? (
+                      <View style={{
                         height: 300,
-                        aspectRatio: undefined,
+                        borderRadius: 24,
+                        overflow: 'hidden',
                         borderWidth: 2,
-                        borderColor: video ? theme.accent : 'rgba(58,51,43,0.18)',
-                        borderStyle: video ? 'solid' : 'dashed',
-                      }}
-                    >
-                      <View style={{ alignItems: 'center' }}>
-                        <View style={styles.videoIconCircle}>
-                          {video ? Icon.play(t.deep, 26) : Icon.video(t.deep, 28)}
-                        </View>
-                        <View style={styles.videoLabel}>
-                          <Text style={{
-                            fontFamily: theme.fonts.body,
-                            fontSize: 13.5,
-                            color: theme.ink,
-                          }}>
-                            {video ? '✓ 已选好视频 · 0:24' : '轻点拍摄或选择视频'}
-                          </Text>
+                        borderColor: theme.accent,
+                        backgroundColor: '#1a1a1a',
+                      }}>
+                        <Image
+                          source={{ uri: videoUri }}
+                          style={{ width: '100%', height: '100%', opacity: 0.85 }}
+                          resizeMode="cover"
+                        />
+                        <View style={[StyleSheet.absoluteFill as any, {
+                          justifyContent: 'center',
+                          alignItems: 'center',
+                        }]}>
+                          <View style={styles.videoIconCircle}>
+                            {Icon.play(t.deep, 26)}
+                          </View>
+                          <View style={styles.videoLabel}>
+                            <Text style={{
+                              fontFamily: theme.fonts.body,
+                              fontSize: 13.5,
+                              color: theme.ink,
+                            }}>
+                              {'✓ 已选好视频 · '}
+                              {Math.floor(videoDuration / 60)}:{String(videoDuration % 60).padStart(2, '0')}
+                            </Text>
+                          </View>
                         </View>
                       </View>
-                    </PhotoSlot>
+                    ) : (
+                      <PhotoSlot
+                        tone={level.tone}
+                        radius={24}
+                        label=""
+                        style={{
+                          height: 300,
+                          aspectRatio: undefined,
+                          borderWidth: 2,
+                          borderColor: 'rgba(58,51,43,0.18)',
+                          borderStyle: 'dashed',
+                        }}
+                      >
+                        <View style={{ alignItems: 'center' }}>
+                          <View style={styles.videoIconCircle}>
+                            {Icon.video(t.deep, 28)}
+                          </View>
+                          <View style={styles.videoLabel}>
+                            <Text style={{
+                              fontFamily: theme.fonts.body,
+                              fontSize: 13.5,
+                              color: theme.ink,
+                            }}>
+                              轻点拍摄或选择视频
+                            </Text>
+                          </View>
+                        </View>
+                      </PhotoSlot>
+                    )}
                   </TouchableOpacity>
                   <Text style={{
                     marginTop: 12,
@@ -626,7 +1009,7 @@ export default function RecordFlow({ route, navigation }) {
                     color: theme.inkSoft,
                     lineHeight: 20,
                   }}>
-                    短短一小段就好，几十秒最耐看。
+                    {videoUri ? '轻点重新选择视频' : '短短一小段就好，几十秒最耐看。'}
                   </Text>
                 </View>
               )}
@@ -634,7 +1017,6 @@ export default function RecordFlow({ route, navigation }) {
               {/* ── Text capture ── */}
               {type === 'text' && (
                 <View style={{ marginTop: 8 }}>
-                  {/* Starter prompts */}
                   {text.trim().length === 0 && (
                     <View style={{ marginBottom: 12 }}>
                       <Text style={{
@@ -672,7 +1054,6 @@ export default function RecordFlow({ route, navigation }) {
                     </View>
                   )}
 
-                  {/* Text area */}
                   <TextInput
                     value={text}
                     onChangeText={setText}
@@ -693,7 +1074,6 @@ export default function RecordFlow({ route, navigation }) {
                     }]}
                   />
 
-                  {/* Word count */}
                   <Text style={{
                     textAlign: 'right',
                     fontFamily: 'monospace',
@@ -794,32 +1174,33 @@ export default function RecordFlow({ route, navigation }) {
             </ScrollView>
 
             {/* ── Bottom submit button ── */}
-            <View style={[styles.bottomBar, {
-              paddingBottom: insets.bottom + 16,
-            }]}>
-              {/* Gradient overlay simulated with a semi-transparent bg */}
+            <View style={[styles.bottomBar, { paddingBottom: insets.bottom + 16 }]}>
               <View style={[StyleSheet.absoluteFill, {
                 backgroundColor: theme.cream,
                 opacity: 0.92,
               }]} />
               <TouchableOpacity
-                disabled={!captureReady}
+                disabled={!captureReady || saving}
                 onPress={finish}
                 activeOpacity={0.8}
                 style={[
                   styles.submitBtn,
                   {
-                    backgroundColor: captureReady ? theme.accent : theme.sand,
+                    backgroundColor: (captureReady && !saving) ? theme.accent : theme.sand,
                   },
                 ]}
               >
-                <Text style={{
-                  fontFamily: theme.fonts.head,
-                  fontSize: 17,
-                  color: captureReady ? '#FFFDF7' : theme.inkSoft,
-                }}>
-                  {level.sealed ? '封存这封信' : '就这样，收好它'}
-                </Text>
+                {saving ? (
+                  <ActivityIndicator color="#FFFDF7" size="small" />
+                ) : (
+                  <Text style={{
+                    fontFamily: theme.fonts.head,
+                    fontSize: 17,
+                    color: captureReady ? '#FFFDF7' : theme.inkSoft,
+                  }}>
+                    {level.sealed ? '封存这封信' : '就这样，收好它'}
+                  </Text>
+                )}
               </TouchableOpacity>
             </View>
           </View>
@@ -836,7 +1217,6 @@ export default function RecordFlow({ route, navigation }) {
               },
             ]}
           >
-            {/* Checkmark + message */}
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               {Icon.check(COLORS.green, 18)}
               <Text style={{
@@ -871,7 +1251,6 @@ export default function RecordFlow({ route, navigation }) {
                 ? '等约定的那天，它会自己出现。'
                 : '团子又长大了一点点。'}
             </Text>
-
           </Animated.View>
         )}
       </Animated.View>
@@ -886,7 +1265,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 
-  /* Step 0 — modality buttons */
   modalityBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -908,7 +1286,6 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
 
-  /* Step 1 — capture */
   recordBtn: {
     width: 74,
     height: 74,
@@ -955,7 +1332,6 @@ const styles = StyleSheet.create({
     textAlignVertical: 'top',
   },
 
-  /* Photo */
   photoRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -987,7 +1363,6 @@ const styles = StyleSheet.create({
     gap: 2,
   },
 
-  /* Video */
   videoIconCircle: {
     width: 64,
     height: 64,
@@ -1009,7 +1384,6 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
 
-  /* Text */
   starterRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -1030,7 +1404,6 @@ const styles = StyleSheet.create({
     textAlignVertical: 'top',
   },
 
-  /* Caption */
   captionInput: {
     borderWidth: 1,
     borderRadius: 18,
@@ -1041,7 +1414,6 @@ const styles = StyleSheet.create({
     textAlignVertical: 'top',
   },
 
-  /* Place */
   placeInput: {
     borderWidth: 1,
     borderRadius: 16,
@@ -1062,7 +1434,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
 
-  /* Bottom bar */
   bottomBar: {
     position: 'absolute',
     left: 0,
@@ -1077,9 +1448,9 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
+    minHeight: 52,
   },
 
-  /* Step 2 — celebration */
   celebContainer: {
     flex: 1,
     alignItems: 'center',

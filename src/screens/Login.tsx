@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import {
-  View, Text, TouchableOpacity, TextInput, Dimensions, Modal, Pressable, Alert,
+  View, Text, TouchableOpacity, TextInput, Dimensions, Modal, Pressable, Alert, ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/tokens';
@@ -118,27 +118,26 @@ function BottomButton({ label, enabled, onPress }) {
 
 /* ── Shared: Agreement Row ── */
 
-function AgreementRow({ checked, onToggle, showCarrier = false }) {
+function AgreementRow({ checked, onToggle, onOpenAgreement, showCarrier = false }) {
   const { theme } = useTheme();
+  const linkStyle = { color: theme.accent };
   return (
-    <TouchableOpacity
-      onPress={onToggle}
-      activeOpacity={0.8}
-      style={{
-        flexDirection: 'row',
-        alignItems: 'flex-start',
-        gap: 10,
-      }}
-    >
-      <View style={{
-        width: 20, height: 20, borderRadius: 10, marginTop: 1,
-        borderWidth: checked ? 0 : 1.5,
-        borderColor: theme.line,
-        backgroundColor: checked ? theme.accent : 'transparent',
-        justifyContent: 'center', alignItems: 'center',
-      }}>
-        {checked ? Icon.check('#FFFDF7', 13) : null}
-      </View>
+    <View style={{
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: 10,
+    }}>
+      <TouchableOpacity onPress={onToggle} activeOpacity={0.8} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+        <View style={{
+          width: 20, height: 20, borderRadius: 10, marginTop: 1,
+          borderWidth: checked ? 0 : 1.5,
+          borderColor: theme.line,
+          backgroundColor: checked ? theme.accent : 'transparent',
+          justifyContent: 'center', alignItems: 'center',
+        }}>
+          {checked ? Icon.check('#FFFDF7', 13) : null}
+        </View>
+      </TouchableOpacity>
       <Text style={{
         flex: 1,
         fontFamily: theme.fonts.body,
@@ -147,15 +146,15 @@ function AgreementRow({ checked, onToggle, showCarrier = false }) {
         color: theme.inkSoft,
       }}>
         已阅读并同意{' '}
-        <Text style={{ color: theme.accent }}>《用户协议》</Text>
-        <Text style={{ color: theme.accent }}>《隐私政策》</Text>
+        <Text style={linkStyle} onPress={() => onOpenAgreement?.('user')}>《用户协议》</Text>
+        <Text style={linkStyle} onPress={() => onOpenAgreement?.('privacy')}>《隐私政策》</Text>
         {showCarrier ? (
           <>
-            与<Text style={{ color: theme.accent }}>《中国移动认证服务协议》</Text>
+            与<Text style={linkStyle} onPress={() => onOpenAgreement?.('carrier')}>《中国移动认证服务协议》</Text>
           </>
         ) : null}
       </Text>
-    </TouchableOpacity>
+    </View>
   );
 }
 
@@ -167,6 +166,7 @@ export function LoginWelcome({ navigation }) {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
   const [agreed, setAgreed] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   return (
     <View style={{
@@ -264,15 +264,24 @@ export function LoginWelcome({ navigation }) {
         {/* Guest login */}
         <TouchableOpacity
           onPress={async () => {
-            if (!agreed) return;
+            if (!agreed) {
+              Alert.alert('请先同意协议', '请阅读并勾选下方的用户协议与隐私政策');
+              return;
+            }
+            if (loading) return;
+            setLoading(true);
             try {
               await signInAnonymously();
-              navigation.replace('Home');
+              navigation.replace('Onboarding');
             } catch (e: any) {
+              console.error('Guest login error:', e);
               Alert.alert('无法连接', '请检查网络后重试');
+            } finally {
+              setLoading(false);
             }
           }}
           activeOpacity={0.8}
+          disabled={loading}
           style={{
             marginTop: 12,
             paddingVertical: 17,
@@ -283,11 +292,15 @@ export function LoginWelcome({ navigation }) {
             alignItems: 'center',
           }}
         >
-          <Text style={{
-            fontFamily: theme.fonts.head,
-            fontSize: 17,
-            color: agreed ? theme.accent : theme.inkSoft,
-          }}>先逛逛再说</Text>
+          {loading ? (
+            <ActivityIndicator color={theme.accent} />
+          ) : (
+            <Text style={{
+              fontFamily: theme.fonts.head,
+              fontSize: 17,
+              color: agreed ? theme.accent : theme.inkSoft,
+            }}>游客登录</Text>
+          )}
         </TouchableOpacity>
 
         {/* Agreement */}
@@ -295,6 +308,7 @@ export function LoginWelcome({ navigation }) {
           <AgreementRow
             checked={agreed}
             onToggle={() => setAgreed(!agreed)}
+            onOpenAgreement={(type) => navigation.navigate('Agreement', { type })}
             showCarrier
           />
         </View>
@@ -455,6 +469,7 @@ export function PhoneLogin({ navigation }) {
           <AgreementRow
             checked={agreed}
             onToggle={() => setAgreed(!agreed)}
+            onOpenAgreement={(type) => navigation.navigate('Agreement', { type })}
           />
         </View>
 

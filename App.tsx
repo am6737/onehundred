@@ -27,16 +27,30 @@ import PhotobookSheet, { BookFlip } from './src/screens/BookPreview';
 import { LoginWelcome, PhoneLogin, ForgotPassword } from './src/screens/Login';
 import EmailLogin from './src/screens/EmailLogin';
 import SettingsScreen from './src/screens/Settings';
+import Agreement from './src/screens/Agreement';
+import OnboardingScreen from './src/screens/Onboarding';
 
 const Stack = createNativeStackNavigator();
 
 function HomeWithDrawer({ navigation }) {
   const { theme, setTheme } = useTheme();
-  const { kidDone, profile } = useData();
+  const { kids, kidDone, profile, loading } = useData();
   const [drawerVisible, setDrawerVisible] = useState(false);
   const [perspective, setPerspective] = useState('parent');
-  const [kidId, setKidId] = useState('duo');
+  const [kidId, setKidId] = useState('all');
   const [me, setMeState] = useState(DEFAULT_ME);
+
+  useEffect(() => {
+    if (kids.length > 0 && kidId === 'all') {
+      setKidId(kids[0].id);
+    }
+  }, [kids]);
+
+  useEffect(() => {
+    if (!loading && kids.length === 0) {
+      navigation.replace('Onboarding');
+    }
+  }, [loading, kids]);
 
   useEffect(() => {
     if (profile) {
@@ -110,17 +124,25 @@ function HomeWithDrawer({ navigation }) {
 
 function AppNavigator() {
   const { theme } = useTheme();
+  const { kids, loading } = useData();
   const [initialRoute, setInitialRoute] = useState<string | null>(null);
 
   useEffect(() => {
+    if (loading) return;
     getSession().then(session => {
-      setInitialRoute(session ? 'Home' : 'LoginWelcome');
+      if (!session) {
+        setInitialRoute('LoginWelcome');
+      } else if (kids.length === 0) {
+        setInitialRoute('Onboarding');
+      } else {
+        setInitialRoute('Home');
+      }
     }).catch(() => {
       setInitialRoute('LoginWelcome');
     });
-  }, []);
+  }, [loading]);
 
-  if (!initialRoute) {
+  if (!initialRoute || loading) {
     return (
       <View style={{ flex: 1, backgroundColor: '#FAF3E6', justifyContent: 'center', alignItems: 'center' }}>
         <ActivityIndicator color="#DE8C57" />
@@ -144,6 +166,8 @@ function AppNavigator() {
         <Stack.Screen name="PhoneLogin" component={PhoneLogin} />
         <Stack.Screen name="ForgotPassword" component={ForgotPassword} />
         <Stack.Screen name="EmailLogin" component={EmailLogin} />
+        <Stack.Screen name="Agreement" component={Agreement} />
+        <Stack.Screen name="Onboarding" component={OnboardingScreen} />
         <Stack.Screen name="Home" component={HomeWithDrawer} />
         <Stack.Screen name="LevelDetail" component={LevelDetail} />
         <Stack.Screen

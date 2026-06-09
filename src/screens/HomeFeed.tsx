@@ -250,28 +250,32 @@ function WelcomeCard({ kidId, done, empty, onScrollHint, onOpenBook, cardHeight 
       height: cardHeight, justifyContent: 'center', alignItems: 'center',
       paddingTop: 120, paddingBottom: 70, paddingHorizontal: 30,
     }}>
-      {/* Bear mascot */}
-      <View>
-        {isAll ? (
-          <View style={{ flexDirection: 'row', alignItems: 'flex-end' }}>
-            <View style={{ marginRight: -20 }}>
-              <Bear size={104} accessories={[]} tone="orange" />
-            </View>
-            <Bear size={118} accessories={[]} tone="green" />
+      {empty ? null : (
+        <>
+          {/* Bear mascot */}
+          <View>
+            {isAll ? (
+              <View style={{ flexDirection: 'row', alignItems: 'flex-end' }}>
+                <View style={{ marginRight: -20 }}>
+                  <Bear size={104} accessories={[]} tone="orange" />
+                </View>
+                <Bear size={118} accessories={[]} tone="green" />
+              </View>
+            ) : (
+              <Bear size={130} accessories={[]} tone={k ? k.tone : 'orange'} />
+            )}
           </View>
-        ) : (
-          <Bear size={130} accessories={[]} tone={k ? k.tone : 'orange'} />
-        )}
-      </View>
 
-      {/* Subtitle */}
-      <Text style={{
-        marginTop: 18,
-        fontFamily: theme.fonts.body, fontSize: 15,
-        color: theme.inkSoft, letterSpacing: 1,
-      }}>
-        {empty ? '都准备好了' : '欢迎回来'}
-      </Text>
+          {/* Subtitle */}
+          <Text style={{
+            marginTop: 18,
+            fontFamily: theme.fonts.body, fontSize: 15,
+            color: theme.inkSoft, letterSpacing: 1,
+          }}>
+            欢迎回来
+          </Text>
+        </>
+      )}
 
       {/* Main title */}
       <Text style={{
@@ -280,22 +284,22 @@ function WelcomeCard({ kidId, done, empty, onScrollHint, onOpenBook, cardHeight 
         color: theme.ink, textAlign: 'center',
       }}>
         {empty
-          ? '还没有任何回忆。\n从第一件事开始吧。'
+          ? '还没有回忆\n挑一件开始吧'
           : `今天，想和${who}\n一起做点什么？`}
       </Text>
 
       {/* Description */}
-      <Text style={{
-        marginTop: 14,
-        fontFamily: theme.fonts.body, fontSize: 15, lineHeight: 25.5,
-        color: theme.inkSoft, textAlign: 'center', maxWidth: 280,
-      }}>
-        {empty
-          ? '一百件值得一起做的事，不用赶进度。挑一件此刻最想做的，做完随手记下来——它就是你们的第一段回忆。'
-          : (isAll
+      {!empty && (
+        <Text style={{
+          marginTop: 14,
+          fontFamily: theme.fonts.body, fontSize: 15, lineHeight: 25.5,
+          color: theme.inkSoft, textAlign: 'center', maxWidth: 280,
+        }}>
+          {isAll
             ? '一百件值得全家一起做的事，一件一件慢慢翻。挑一件此刻最想做的就好。'
-            : '一百件值得一起做的事，一件一件慢慢翻。挑一件此刻最想做的就好。')}
-      </Text>
+            : '一百件值得一起做的事，一件一件慢慢翻。挑一件此刻最想做的就好。'}
+        </Text>
+      )}
 
       {/* Memory book button — only for returning users */}
       {!empty && (
