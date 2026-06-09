@@ -1,11 +1,12 @@
 import React, { useState, useRef } from 'react';
 import {
-  View, Text, TouchableOpacity, TextInput, Dimensions, Modal, Pressable,
+  View, Text, TouchableOpacity, TextInput, Dimensions, Modal, Pressable, Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/tokens';
 import { Icon } from '../components/Icons';
 import Svg, { Path } from 'react-native-svg';
+import { signInAnonymously } from '../lib/auth';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
@@ -258,6 +259,35 @@ export function LoginWelcome({ navigation }) {
             fontSize: 17,
             color: '#FFFDF7',
           }}>本机号码一键登录</Text>
+        </TouchableOpacity>
+
+        {/* Guest login */}
+        <TouchableOpacity
+          onPress={async () => {
+            if (!agreed) return;
+            try {
+              await signInAnonymously();
+              navigation.replace('Home');
+            } catch (e: any) {
+              Alert.alert('无法连接', '请检查网络后重试');
+            }
+          }}
+          activeOpacity={0.8}
+          style={{
+            marginTop: 12,
+            paddingVertical: 17,
+            borderRadius: 999,
+            backgroundColor: 'transparent',
+            borderWidth: 1.5,
+            borderColor: agreed ? theme.accent : theme.line,
+            alignItems: 'center',
+          }}
+        >
+          <Text style={{
+            fontFamily: theme.fonts.head,
+            fontSize: 17,
+            color: agreed ? theme.accent : theme.inkSoft,
+          }}>先逛逛再说</Text>
         </TouchableOpacity>
 
         {/* Agreement */}
