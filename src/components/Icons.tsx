@@ -179,6 +179,35 @@ export const Icon = {
       <Circle cx={12} cy={10} r={3} />
     </Svg>
   ),
+
+  shieldCheck: (c = '#3A332B', s = 22) => (
+    <Svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+      <Path d="M9 12l2 2 4-4" />
+    </Svg>
+  ),
+
+  phone: (c = '#3A332B', s = 22) => (
+    <Svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <Rect x={5} y={2} width={14} height={20} rx={2} />
+      <Line x1={12} y1={18} x2={12.01} y2={18} />
+    </Svg>
+  ),
+
+  logout: (c = '#3A332B', s = 22) => (
+    <Svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+      <Path d="M16 17l5-5-5-5" />
+      <Path d="M21 12H9" />
+    </Svg>
+  ),
+
+  mail: (c = '#3A332B', s = 22) => (
+    <Svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+      <Path d="M22 6l-10 7L2 6" />
+    </Svg>
+  ),
 };
 
 /* ── Tone colour palettes ─────────────────────────────────────── */
