@@ -39,3 +39,8 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# Supabase self-hosted
+supabase-docker/.env
+supabase-docker/volumes/db/data/
+supabase-docker/volumes/storage/
