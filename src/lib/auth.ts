@@ -17,6 +17,24 @@ export async function signOut() {
   if (error) throw error;
 }
 
+export async function signInAnonymously() {
+  const { data, error } = await supabase.auth.signInAnonymously();
+  if (error) throw error;
+  return data;
+}
+
+export async function isAnonymous(): Promise<boolean> {
+  const { data: { user }, error } = await supabase.auth.getUser();
+  if (error || !user) return false;
+  return user.is_anonymous === true;
+}
+
+export async function bindEmail(email: string, password: string) {
+  const { data, error } = await supabase.auth.updateUser({ email, password });
+  if (error) throw error;
+  return data;
+}
+
 export async function getSession() {
   const { data: { session }, error } = await supabase.auth.getSession();
   if (error) throw error;
