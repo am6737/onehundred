@@ -5,10 +5,13 @@ import { useFonts } from 'expo-font';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { ThemeProvider, useTheme } from './src/theme/tokens';
-import { DEFAULT_ME, KIDS, meName, kidDone } from './src/data';
-import { getMe, setMe as persistMe, getAppearance } from './src/utils/storage';
+import { DataProvider, useData } from './src/data/DataProvider';
+import { DEFAULT_ME, meName } from './src/data';
+import { getMe, setMe as persistMe } from './src/utils/storage';
+import { getSession, onAuthStateChange } from './src/lib/auth';
 
 import HomeFeed from './src/screens/HomeFeed';
 import Drawer from './src/screens/Drawer';
@@ -21,25 +24,29 @@ import RecordsCalendar from './src/screens/RecordsCalendar';
 import YearReview from './src/screens/YearReview';
 import InviteFlow, { JoinFlow } from './src/screens/InviteFlow';
 import PhotobookSheet, { BookFlip } from './src/screens/BookPreview';
-
+import { LoginWelcome, PhoneLogin, ForgotPassword } from './src/screens/Login';
+import EmailLogin from './src/screens/EmailLogin';
 import SettingsScreen from './src/screens/Settings';
 
 const Stack = createNativeStackNavigator();
 
 function HomeWithDrawer({ navigation }) {
   const { theme, setTheme } = useTheme();
+  const { kidDone, profile } = useData();
   const [drawerVisible, setDrawerVisible] = useState(false);
   const [perspective, setPerspective] = useState('parent');
   const [kidId, setKidId] = useState('duo');
   const [me, setMeState] = useState(DEFAULT_ME);
 
   useEffect(() => {
-    getMe().then(m => { if (m) setMeState(m); });
-  }, []);
+    if (profile) {
+      setMeState({ role: profile.role, custom: profile.custom_role });
+    }
+  }, [profile]);
 
-  const updateMe = useCallback((m) => {
+  const updateMe = useCallback(async (m) => {
     setMeState(m);
-    persistMe(m);
+    await persistMe(m);
   }, []);
 
   const handleDrawerNavigate = useCallback((route) => {
@@ -103,18 +110,40 @@ function HomeWithDrawer({ navigation }) {
 
 function AppNavigator() {
   const { theme } = useTheme();
+  const [initialRoute, setInitialRoute] = useState<string | null>(null);
+
+  useEffect(() => {
+    getSession().then(session => {
+      setInitialRoute(session ? 'Home' : 'LoginWelcome');
+    }).catch(() => {
+      setInitialRoute('LoginWelcome');
+    });
+  }, []);
+
+  if (!initialRoute) {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#FAF3E6', justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator color="#DE8C57" />
+      </View>
+    );
+  }
 
   return (
     <NavigationContainer>
       <StatusBar style={theme.isDark ? 'light' : 'dark'} />
       <Stack.Navigator
         id="root"
+        initialRouteName={initialRoute}
         screenOptions={{
           headerShown: false,
           contentStyle: { backgroundColor: theme.cream },
           animation: 'slide_from_right',
         }}
       >
+        <Stack.Screen name="LoginWelcome" component={LoginWelcome} />
+        <Stack.Screen name="PhoneLogin" component={PhoneLogin} />
+        <Stack.Screen name="ForgotPassword" component={ForgotPassword} />
+        <Stack.Screen name="EmailLogin" component={EmailLogin} />
         <Stack.Screen name="Home" component={HomeWithDrawer} />
         <Stack.Screen name="LevelDetail" component={LevelDetail} />
         <Stack.Screen
@@ -146,6 +175,38 @@ function AppNavigator() {
   );
 }
 
+function AuthGate() {
+  const [userId, setUserId] = useState<string | null>(null);
+  const [checking, setChecking] = useState(true);
+
+  useEffect(() => {
+    getSession().then(session => {
+      setUserId(session?.user?.id || null);
+      setChecking(false);
+    }).catch(() => setChecking(false));
+
+    const { data: { subscription } } = onAuthStateChange((_event, session) => {
+      setUserId(session?.user?.id || null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  if (checking) {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#FAF3E6', justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator color="#DE8C57" />
+      </View>
+    );
+  }
+
+  return (
+    <DataProvider userId={userId}>
+      <AppNavigator />
+    </DataProvider>
+  );
+}
+
 export default function App() {
   const [fontsLoaded] = useFonts({
     ZCOOLKuaiLe: require('./assets/fonts/ZCOOLKuaiLe-Regular.ttf'),
@@ -162,10 +223,12 @@ export default function App() {
   }
 
   return (
-    <SafeAreaProvider>
-      <ThemeProvider initialPreset="融合·暖" initialAccent="orange">
-        <AppNavigator />
-      </ThemeProvider>
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <ThemeProvider initialPreset="融合·暖" initialAccent="orange">
+          <AuthGate />
+        </ThemeProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
