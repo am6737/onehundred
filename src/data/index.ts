@@ -186,6 +186,30 @@ export async function insertCustomLevel({ title, why = '', perspective = 'togeth
   return mapCustomLevel(data);
 }
 
+export async function insertMemory({ kid, levelNum, perspective, type, dur, shots, date, place, title, caption, transcript, tone }) {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) throw new Error('Not authenticated');
+  const id = `m${Date.now()}`;
+  const { data, error } = await supabase.from('memories').insert({
+    id,
+    user_id: session.user.id,
+    kid_id: kid,
+    level_num: levelNum,
+    perspective,
+    type,
+    duration: dur || null,
+    shots: shots || null,
+    date,
+    place: place || null,
+    title,
+    caption: caption || '',
+    transcript: transcript || null,
+    tone: tone || 'orange',
+  }).select().single();
+  if (error) throw error;
+  return mapMemory(data);
+}
+
 export async function fetchProfile() {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) return null;
@@ -282,7 +306,7 @@ export function frameLabelFrom(kids, perspective, kidId, meLabel = '家长') {
 export function yearReviewFrom(memories, mascots, wardrobe, kidId = 'all') {
   const list = kidId === 'all' ? memories : memories.filter(m => m.kid === kidId || m.kid === 'all');
   const byP = { parent: 0, child: 0, together: 0 };
-  const byType = { voice: 0, photo: 0, text: 0 };
+  const byType = { voice: 0, photo: 0, text: 0, video: 0 };
   const places = {};
   list.forEach(m => {
     byP[m.perspective] = (byP[m.perspective] || 0) + 1;

@@ -7,7 +7,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme, TONE, COLORS } from '../theme/tokens';
-import { PERSPECTIVES, meName } from '../data';
+import { PERSPECTIVES, meName, NOW_YM } from '../data';
 import { useData } from '../data/DataProvider';
 import { Icon, PhotoSlot } from '../components/Icons';
 import { LayerHeader, PrimaryButton, SecondaryButton, Chip, Sheet } from '../components/common';
@@ -188,27 +188,33 @@ export default function RecordFlow({ route, navigation }) {
     : type === 'video' ? video
     : text.trim().length > 0;
 
-  const finish = () => {
-    // Build the memory record (simulated)
+  const { addMemory } = useData();
+
+  const finish = async () => {
     const note = caption.trim();
-    const mem = {
-      id: 'new',
-      levelNum: level.num,
-      perspective: level.perspective,
-      type,
-      dur: type === 'voice' ? '0:37' : type === 'video' ? '0:24' : undefined,
-      shots: type === 'photo' ? photo : undefined,
-      date: '今天',
-      place: place.trim() || '没有记地点',
-      title: level.title,
-      caption:
-        type === 'text' && text.trim()
-          ? text.trim()
-          : note || '这一刻，被记下来了。',
-      transcript: type === 'voice' ? transcript.trim() : undefined,
-      tone: level.tone,
-      fresh: true,
-    };
+    const now = new Date();
+    const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    try {
+      await addMemory({
+        kid: kidId,
+        levelNum: level.num,
+        perspective: level.perspective,
+        type,
+        dur: type === 'voice' ? '0:37' : type === 'video' ? '0:24' : undefined,
+        shots: type === 'photo' ? photo : undefined,
+        date: dateStr,
+        place: place.trim() || null,
+        title: level.title,
+        caption:
+          type === 'text' && text.trim()
+            ? text.trim()
+            : note || '这一刻，被记下来了。',
+        transcript: type === 'voice' ? transcript.trim() : undefined,
+        tone: level.tone,
+      });
+    } catch (e) {
+      console.error('Failed to save memory:', e);
+    }
     animateStep(2);
   };
 

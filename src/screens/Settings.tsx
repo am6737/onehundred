@@ -11,6 +11,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme, COLORS } from '../theme/tokens';
 import { ROLES, DEFAULT_ME, meName, meChar, NOW_YM } from '../data';
 import { useData } from '../data/DataProvider';
+import { signOut } from '../lib/auth';
 import { Icon, KidAvatar } from '../components/Icons';
 import { LayerHeader, Sheet, Chip, PrimaryButton, SecondaryButton, Section } from '../components/common';
 
@@ -1683,7 +1684,10 @@ function AccountSecuritySheet({ onClose }) {
         message={'你们记下的一切都会好好留着，\n下次用同一个账号登录就能再见到。'}
         confirmLabel="退出登录"
         confirmColor={theme.accent}
-        onConfirm={() => setShowLogout(false)}
+        onConfirm={async () => {
+          setShowLogout(false);
+          await signOut();
+        }}
         cancelLabel="再想想"
         onCancel={() => setShowLogout(false)}
       />

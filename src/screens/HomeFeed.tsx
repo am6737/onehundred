@@ -695,7 +695,7 @@ export default function HomeFeed({ navigation, onOpenDrawer, perspective, setPer
     let pool = allLevels().filter(l => l.perspective === perspective);
     if (!pool.length) pool = allLevels();
     return weightedShuffle(pool, kidId);
-  }, [perspective, shuffleKey, kidId]);
+  }, [perspective, shuffleKey, kidId, allLevels, weightedShuffle]);
 
   const data = useMemo(() => {
     const items = [];

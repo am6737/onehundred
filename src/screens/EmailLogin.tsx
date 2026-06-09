@@ -43,9 +43,16 @@ export default function EmailLogin({ navigation }) {
     setError('');
     try {
       if (mode === 'register') {
-        await signUp(email, password);
+        const { session } = await signUp(email, password);
+        if (!session) {
+          setError('注册成功，请检查邮箱确认后登录');
+          setMode('login');
+          setLoading(false);
+          return;
+        }
+      } else {
+        await signIn(email, password);
       }
-      await signIn(email, password);
       navigation.replace('Home');
     } catch (e: any) {
       setError(e.message || '操作失败，请重试');

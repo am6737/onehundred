@@ -201,7 +201,7 @@ function MonthHeatmap({ onOpen, kidId = 'all' }) {
       recordedDays: wk.filter((c) => c > 0).length,
       weekDone: wk.reduce((a, b) => a + b, 0),
     };
-  }, [kidId]);
+  }, [kidId, memories, memoriesForKid]);
 
   const key = (d) => `${d.getMonth() + 1}-${d.getDate()}`;
 
@@ -462,7 +462,7 @@ export default function Drawer({ visible, onClose, onNavigate, kidId = 'all', me
       return sinceA < sinceB ? a : b;
     });
     return durationSince(earliest.since);
-  }, []);
+  }, [kids]);
 
   // Sealed items
   const sealedLevels = levels.filter(

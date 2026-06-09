@@ -60,7 +60,7 @@ export default function RecordsCalendar({ navigation, route }) {
     });
     const ms = Object.keys(bm).map(Number).sort((a, b) => a - b);
     return { byMonth: bm, months: ms };
-  }, [filter]);
+  }, [filter, memories]);
 
   const latest = months[months.length - 1] || 5;
   const [month, setMonth] = useState(initialMonth || latest);
