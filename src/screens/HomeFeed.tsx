@@ -635,7 +635,6 @@ function EndCard({ onBook, onReshuffle, onAddOwn, cardHeight }) {
             shadowOffset: { width: 0, height: 5 }, elevation: 6,
           }}
         >
-          {Icon.shuffle('#FFFDF7', 18)}
           <Text style={{
             fontFamily: theme.fonts.head, fontSize: 16, color: '#FFFDF7',
           }}>换一批，继续翻</Text>
@@ -652,7 +651,6 @@ function EndCard({ onBook, onReshuffle, onAddOwn, cardHeight }) {
             borderWidth: 1, borderColor: theme.line,
           }}
         >
-          {Icon.seed(theme.accent, 18)}
           <Text style={{
             fontFamily: theme.fonts.head, fontSize: 16, color: theme.ink,
           }}>加一件我们家自己的事</Text>
@@ -667,7 +665,6 @@ function EndCard({ onBook, onReshuffle, onAddOwn, cardHeight }) {
             gap: 8, paddingVertical: 14, paddingHorizontal: 22, borderRadius: 999,
           }}
         >
-          {Icon.book(theme.inkSoft, 18)}
           <Text style={{
             fontFamily: theme.fonts.head, fontSize: 15, color: theme.inkSoft,
           }}>翻翻已经做过的</Text>
@@ -804,8 +801,8 @@ export default function HomeFeed({ navigation, onOpenDrawer, perspective, setPer
   }, []);
 
   const handleOpenLevel = useCallback((level) => {
-    if (navigation) navigation.navigate('LevelDetail', { level });
-  }, [navigation]);
+    if (navigation) navigation.navigate('LevelDetail', { level, kidId, me });
+  }, [navigation, kidId, me]);
 
   const handleOpenBook = useCallback(() => {
     if (navigation) navigation.navigate('MemoryBook', { kidId });

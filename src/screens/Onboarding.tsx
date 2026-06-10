@@ -202,7 +202,7 @@ function MeStep({ value, onChange, onNext }) {
                 onPress={() => onChange(r)}
                 activeOpacity={0.7}
                 style={{
-                  width: (SCREEN_W - 48 - 22) / 3,
+                  width: (SCREEN_W - 48 - 11) / 2,
                   paddingVertical: 20, borderRadius: 20, alignItems: 'center',
                   backgroundColor: on ? theme.accent : theme.paper,
                   borderWidth: 1.5, borderColor: on ? theme.accent : theme.line,
@@ -222,13 +222,6 @@ function MeStep({ value, onChange, onNext }) {
           })}
         </View>
 
-        <Text style={{
-          marginTop: 22, textAlign: 'center',
-          fontFamily: theme.fonts.hand, fontSize: 16,
-          color: theme.inkSoft, lineHeight: 28,
-        }}>
-          {value ? `从今往后，TA 会这样叫你——${value}` : '长辈也在这里：爷爷奶奶、外公外婆都行'}
-        </Text>
       </ScrollView>
 
       <CTA
@@ -334,16 +327,6 @@ function DoneStep({ me, child, onEnter, loading }) {
         flex: 1, justifyContent: 'center', alignItems: 'center',
         paddingHorizontal: 32,
       }}>
-        <Animated.View entering={FadeIn.duration(400)} style={{
-          flexDirection: 'row', alignItems: 'center', gap: 6,
-        }}>
-          {Icon.check(COLORS.green, 17)}
-          <Text style={{
-            fontFamily: theme.fonts.head, fontSize: 14.5,
-            color: COLORS.green,
-          }}>都准备好了</Text>
-        </Animated.View>
-
         <Animated.Text entering={FadeIn.duration(400).delay(80)} style={{
           marginTop: 14, fontFamily: theme.fonts.head, fontSize: 28,
           lineHeight: 41, color: theme.ink, textAlign: 'center',

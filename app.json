@@ -7,7 +7,8 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.t1137.yibai"
     },
     "android": {
       "adaptiveIcon": {
@@ -15,7 +16,14 @@
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
-      }
+      },
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"
+      ],
+      "package": "com.t1137.yibai"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -30,11 +38,17 @@
         }
       ],
       [
-        "expo-av",
+        "expo-audio",
         {
           "microphonePermission": "允许「一百件事」使用麦克风，录下你想对孩子说的话。"
         }
-      ]
-    ]
+      ],
+      "expo-video"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "068f5c93-dfff-445c-ba00-cb1fed6c4598"
+      }
+    }
   }
 }

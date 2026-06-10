@@ -23,7 +23,7 @@ export function DataProvider({ children, userId }) {
   const [loading, setLoading] = useState(true);
 
   const loadAll = useCallback(async () => {
-    if (!userId) return;
+    if (!userId) { setLoading(false); return; }
     setLoading(true);
     try {
       const [lv, ki, me, ma, wa, cl, pr] = await Promise.all([

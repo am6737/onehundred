@@ -186,10 +186,10 @@ export async function insertCustomLevel({ title, why = '', perspective = 'togeth
   return mapCustomLevel(data);
 }
 
-export async function insertMemory({ kid, levelNum, perspective, type, dur, shots, date, place, title, caption, transcript, tone }) {
+export async function insertMemory({ id: givenId, kid, levelNum, perspective, type, dur, shots, date, place, title, caption, transcript, tone }) {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) throw new Error('Not authenticated');
-  const id = `m${Date.now()}`;
+  const id = givenId || `m${Date.now()}`;
   const { data, error } = await supabase.from('memories').insert({
     id,
     user_id: session.user.id,

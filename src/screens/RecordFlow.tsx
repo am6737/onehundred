@@ -6,7 +6,16 @@ import {
   Animated, StyleSheet, Image, Alert, ActivityIndicator,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { Audio } from 'expo-av';
+import {
+  useAudioRecorder,
+  createAudioPlayer,
+  RecordingPresets,
+  requestRecordingPermissionsAsync,
+  setAudioModeAsync,
+  type AudioPlayer,
+} from 'expo-audio';
+import { useVideoPlayer, VideoView } from 'expo-video';
+import { useEvent, useEventListener } from 'expo';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme, TONE, COLORS } from '../theme/tokens';
 import { PERSPECTIVES, meName, NOW_YM } from '../data';
@@ -112,8 +121,11 @@ async function uploadToStorage(uri, userId, memoryId, filename) {
 /* ── Main RecordFlow screen ── */
 
 export default function RecordFlow({ route, navigation }) {
-  const { level, kidId, me } = route.params;
+  const { level, kidId: rawKidId, me } = route.params;
   const { theme } = useTheme();
+  const { kids, addMemory } = useData();
+  // 'all' 是合法的 kid_id（全家），兜底用它，避免 kid_id 为空导致保存失败
+  const kidId = (rawKidId && rawKidId !== 'all') ? rawKidId : (kids[0]?.id || 'all');
   const insets = useSafeAreaInsets();
   const t = TONE[level.tone] || TONE.orange;
 
@@ -127,10 +139,11 @@ export default function RecordFlow({ route, navigation }) {
   const [playing, setPlaying] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [transcribing, setTranscribing] = useState(false);
-  const recordingRef = useRef(null);
-  const soundRef = useRef(null);
-  const recordingUriRef = useRef(null);
+  const audioRecorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  const soundRef = useRef<AudioPlayer | null>(null);
+  const recordingUriRef = useRef<string | null>(null);
   const elapsedRef = useRef(0);
+  const savedMemRef = useRef(null); // 保存成功后的 memory，庆祝页结束时跳详情用
 
   // Photo — array of real URIs
   const [photos, setPhotos] = useState([]);
@@ -138,6 +151,16 @@ export default function RecordFlow({ route, navigation }) {
   // Video — real URI + duration
   const [videoUri, setVideoUri] = useState(null);
   const [videoDuration, setVideoDuration] = useState(0);
+  const videoPlayer = useVideoPlayer(null);
+  const { isPlaying } = useEvent(videoPlayer, 'playingChange', { isPlaying: videoPlayer.playing });
+  useEventListener(videoPlayer, 'playToEnd', () => {
+    // 播完回到首帧，方便再看一遍
+    videoPlayer.pause();
+    videoPlayer.currentTime = 0;
+  });
+  useEffect(() => {
+    if (videoUri) videoPlayer.replaceAsync(videoUri).catch(() => {});
+  }, [videoUri]);
 
   // Text
   const [text, setText] = useState('');
@@ -189,20 +212,23 @@ export default function RecordFlow({ route, navigation }) {
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (recordingRef.current) {
-        recordingRef.current.stopAndUnloadAsync().catch(() => {});
-      }
       if (soundRef.current) {
-        soundRef.current.unloadAsync().catch(() => {});
+        soundRef.current.release();
+        soundRef.current = null;
       }
     };
   }, []);
 
-  // Auto-close celebration
+  // Auto-close celebration → 进入这条回忆的详情页（封存的信除外）
   useEffect(() => {
     if (step !== 2) return;
     const id = setTimeout(() => {
-      if (navigation.canGoBack()) navigation.goBack();
+      const mem = savedMemRef.current;
+      if (mem && !level.sealed) {
+        navigation.replace('Memory', { memory: mem });
+      } else if (navigation.canGoBack()) {
+        navigation.goBack();
+      }
     }, 2200);
     return () => clearTimeout(id);
   }, [step]);
@@ -211,19 +237,17 @@ export default function RecordFlow({ route, navigation }) {
 
   const startRealRecording = async () => {
     try {
-      const { status } = await Audio.requestPermissionsAsync();
-      if (status !== 'granted') {
+      const { granted } = await requestRecordingPermissionsAsync();
+      if (!granted) {
         Alert.alert('需要麦克风权限', '请在设置中允许访问麦克风');
         return false;
       }
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true,
+      await setAudioModeAsync({
+        allowsRecording: true,
+        playsInSilentMode: true,
       });
-      const rec = new Audio.Recording();
-      await rec.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
-      await rec.startAsync();
-      recordingRef.current = rec;
+      await audioRecorder.prepareToRecordAsync();
+      audioRecorder.record();
       return true;
     } catch (e) {
       console.error('Recording start failed:', e);
@@ -233,13 +257,12 @@ export default function RecordFlow({ route, navigation }) {
   };
 
   const togglePauseRecording = async () => {
-    if (!recordingRef.current) return;
     try {
       if (paused) {
-        await recordingRef.current.startAsync();
+        audioRecorder.record();
         setPaused(false);
       } else {
-        await recordingRef.current.pauseAsync();
+        audioRecorder.pause();
         setPaused(true);
       }
     } catch (e) {
@@ -248,15 +271,12 @@ export default function RecordFlow({ route, navigation }) {
   };
 
   const stopRecordingAction = async () => {
-    if (!recordingRef.current) return;
     try {
-      await recordingRef.current.stopAndUnloadAsync();
-      const uri = recordingRef.current.getURI();
-      recordingUriRef.current = uri;
-      recordingRef.current = null;
+      await audioRecorder.stop();
+      recordingUriRef.current = audioRecorder.uri;
       setRecording(false);
       setRecordingDone(true);
-      await Audio.setAudioModeAsync({ allowsRecordingIOS: false });
+      await setAudioModeAsync({ allowsRecording: false });
     } catch (e) {
       console.error('Stop recording failed:', e);
     }
@@ -267,26 +287,23 @@ export default function RecordFlow({ route, navigation }) {
     if (!uri) return;
     try {
       if (soundRef.current) {
-        const status = await soundRef.current.getStatusAsync();
-        if (status.isLoaded) {
-          if (status.isPlaying) {
-            await soundRef.current.pauseAsync();
-            setPlaying(false);
-            return;
-          } else {
-            await soundRef.current.playFromPositionAsync(0);
-            setPlaying(true);
-            return;
-          }
+        if (soundRef.current.playing) {
+          soundRef.current.pause();
+          setPlaying(false);
+        } else {
+          soundRef.current.seekTo(0);
+          soundRef.current.play();
+          setPlaying(true);
         }
+        return;
       }
-      await Audio.setAudioModeAsync({ allowsRecordingIOS: false, playsInSilentModeIOS: true });
-      const { sound } = await Audio.Sound.createAsync({ uri });
-      soundRef.current = sound;
-      sound.setOnPlaybackStatusUpdate((s) => {
-        if (s.isLoaded && s.didJustFinish) setPlaying(false);
+      await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
+      const player = createAudioPlayer(uri);
+      soundRef.current = player;
+      player.addListener('playbackStatusUpdate', (status: any) => {
+        if (status?.didJustFinish) setPlaying(false);
       });
-      await sound.playAsync();
+      player.play();
       setPlaying(true);
     } catch (e) {
       console.error('Playback failed:', e);
@@ -435,13 +452,12 @@ export default function RecordFlow({ route, navigation }) {
     : type === 'video' ? videoUri !== null
     : text.trim().length > 0;
 
-  const { addMemory } = useData();
 
   const finish = async () => {
     if (saving) return;
     setSaving(true);
     try {
-      if (type === 'voice' && recordingRef.current) {
+      if (type === 'voice' && recording) {
         await stopRecordingAction();
       }
 
@@ -472,7 +488,8 @@ export default function RecordFlow({ route, navigation }) {
         uploadToStorage(recordingUriRef.current, userId, memoryId, 'audio_0');
       }
 
-      await addMemory({
+      savedMemRef.current = await addMemory({
+        id: memoryId, // 与媒体文件的存储路径保持同一个 id
         kid: kidId,
         levelNum: level.num,
         perspective: level.perspective,
@@ -489,29 +506,30 @@ export default function RecordFlow({ route, navigation }) {
         transcript: type === 'voice' ? transcript.trim() : undefined,
         tone: level.tone,
       });
+      animateStep(2);
     } catch (e) {
       console.error('Failed to save memory:', e);
+      Alert.alert('没保存成功', '这条记录还没存上，请检查网络后再试一次。');
     } finally {
       setSaving(false);
     }
-    animateStep(2);
   };
 
   const handleBack = () => {
     if (step === 0) {
       if (navigation.canGoBack()) navigation.goBack();
     } else {
-      if (recordingRef.current) {
-        recordingRef.current.stopAndUnloadAsync().catch(() => {});
-        recordingRef.current = null;
+      if (recording) {
+        audioRecorder.stop().catch(() => {});
       }
       if (soundRef.current) {
-        soundRef.current.unloadAsync().catch(() => {});
+        soundRef.current.release();
         soundRef.current = null;
       }
       setRecording(false);
       setRecordingDone(false);
       setPhotos([]);
+      videoPlayer.pause();
       setVideoUri(null);
       setText('');
       setTranscript('');
@@ -936,41 +954,67 @@ export default function RecordFlow({ route, navigation }) {
               {/* ── Video capture ── */}
               {type === 'video' && (
                 <View style={{ marginTop: 8 }}>
-                  <TouchableOpacity activeOpacity={0.7} onPress={showVideoOptions}>
-                    {videoUri ? (
-                      <View style={{
-                        height: 300,
-                        borderRadius: 24,
-                        overflow: 'hidden',
-                        borderWidth: 2,
-                        borderColor: theme.accent,
-                        backgroundColor: '#1a1a1a',
-                      }}>
-                        <Image
-                          source={{ uri: videoUri }}
-                          style={{ width: '100%', height: '100%', opacity: 0.85 }}
-                          resizeMode="cover"
-                        />
-                        <View style={[StyleSheet.absoluteFill as any, {
+                  {videoUri ? (
+                    <View style={{
+                      height: 300,
+                      borderRadius: 24,
+                      overflow: 'hidden',
+                      borderWidth: 2,
+                      borderColor: theme.accent,
+                      backgroundColor: '#1a1a1a',
+                    }}>
+                      <VideoView
+                        player={videoPlayer}
+                        style={{ width: '100%', height: '100%' }}
+                        contentFit="cover"
+                        nativeControls={false}
+                      />
+                      {/* 点画面播放/暂停；暂停时盖上播放按钮和时长 */}
+                      <TouchableOpacity
+                        activeOpacity={0.85}
+                        onPress={() => (isPlaying ? videoPlayer.pause() : videoPlayer.play())}
+                        style={[StyleSheet.absoluteFill as any, {
                           justifyContent: 'center',
                           alignItems: 'center',
-                        }]}>
-                          <View style={styles.videoIconCircle}>
-                            {Icon.play(t.deep, 26)}
-                          </View>
-                          <View style={styles.videoLabel}>
-                            <Text style={{
-                              fontFamily: theme.fonts.body,
-                              fontSize: 13.5,
-                              color: theme.ink,
-                            }}>
-                              {'✓ 已选好视频 · '}
-                              {Math.floor(videoDuration / 60)}:{String(videoDuration % 60).padStart(2, '0')}
-                            </Text>
-                          </View>
-                        </View>
-                      </View>
-                    ) : (
+                        }]}
+                      >
+                        {!isPlaying && (
+                          <>
+                            <View style={styles.videoIconCircle}>
+                              {Icon.play(t.deep, 26)}
+                            </View>
+                            <View style={styles.videoLabel}>
+                              <Text style={{
+                                fontFamily: theme.fonts.body,
+                                fontSize: 13.5,
+                                color: theme.ink,
+                              }}>
+                                {'✓ 已选好视频 · '}
+                                {Math.floor(videoDuration / 60)}:{String(videoDuration % 60).padStart(2, '0')}
+                              </Text>
+                            </View>
+                          </>
+                        )}
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        activeOpacity={0.8}
+                        onPress={() => { videoPlayer.pause(); showVideoOptions(); }}
+                        style={{
+                          position: 'absolute', top: 12, right: 12,
+                          paddingHorizontal: 12, paddingVertical: 6,
+                          borderRadius: 999,
+                          backgroundColor: 'rgba(255,253,247,0.92)',
+                        }}
+                      >
+                        <Text style={{
+                          fontFamily: theme.fonts.body,
+                          fontSize: 12.5,
+                          color: theme.ink,
+                        }}>重选</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ) : (
+                    <TouchableOpacity activeOpacity={0.7} onPress={showVideoOptions}>
                       <PhotoSlot
                         tone={level.tone}
                         radius={24}
@@ -998,8 +1042,8 @@ export default function RecordFlow({ route, navigation }) {
                           </View>
                         </View>
                       </PhotoSlot>
-                    )}
-                  </TouchableOpacity>
+                    </TouchableOpacity>
+                  )}
                   <Text style={{
                     marginTop: 12,
                     marginHorizontal: 4,
@@ -1009,7 +1053,7 @@ export default function RecordFlow({ route, navigation }) {
                     color: theme.inkSoft,
                     lineHeight: 20,
                   }}>
-                    {videoUri ? '轻点重新选择视频' : '短短一小段就好，几十秒最耐看。'}
+                    {videoUri ? '轻点画面播放或暂停 · 右上角可重选' : '短短一小段就好，几十秒最耐看。'}
                   </Text>
                 </View>
               )}
