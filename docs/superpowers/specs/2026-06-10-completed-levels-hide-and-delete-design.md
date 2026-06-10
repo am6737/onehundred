@@ -43,7 +43,7 @@
 ### 3. 详情页 UI（`src/screens/Memory.tsx` 的 `MemoryPage`）
 
 - 页面底部操作区新增低调的「删除这条回忆」按钮（次要样式，与分享按钮区分）。
-- 点击弹 `Alert.alert` 二次确认：标题「删除这条回忆？」，说明「删掉就找不回来了，这件事会重新回到首页。」，按钮为「取消」+ 红色 destructive「删除」。
+- 点击弹 `Alert.alert` 二次确认：标题「删除这条回忆？」，说明「删掉就找不回来了，这件事会重新回到「一百件事」里。」，按钮为「取消」+ 红色 destructive「删除」。
 - 确认后按钮进入 loading/禁用态防双击 → `removeMemory(m.id)` → 成功 `navigation.goBack()`；失败 `Alert` 提示稍后再试并恢复按钮。
 
 ### 4. 边界情况

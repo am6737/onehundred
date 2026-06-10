@@ -270,7 +270,7 @@ export function MemoryPage({ route, navigation }) {
   const confirmDelete = () => {
     Alert.alert(
       '删除这条回忆？',
-      '删掉就找不回来了，这件事会重新回到首页。',
+      '删掉就找不回来了，这件事会重新回到「一百件事」里。',
       [
         { text: '取消', style: 'cancel' },
         {
