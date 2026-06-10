@@ -606,7 +606,7 @@ function CustomLevelSheet({ visible, onClose, onCreated }) {
    EndCard — shown at end of feed
    ════════════════════════════════════════════════════════════ */
 
-function EndCard({ onBook, onReshuffle, onAddOwn, cardHeight }) {
+function EndCard({ onBook, onReshuffle, onAddOwn, cardHeight, allDone }) {
   const { theme } = useTheme();
 
   return (
@@ -619,26 +619,30 @@ function EndCard({ onBook, onReshuffle, onAddOwn, cardHeight }) {
         fontFamily: theme.fonts.hand, fontSize: 21, lineHeight: 38,
         color: theme.ink, textAlign: 'center',
       }}>
-        {'这一轮先到这。\n换一批，也许会遇见刚好想做的那件。'}
+        {allDone
+          ? '这里的事，你们都做完啦。\n翻翻回忆册，或者加一件你们家自己的事。'
+          : '这一轮先到这。\n换一批，也许会遇见刚好想做的那件。'}
       </Text>
 
       <View style={{ marginTop: 24, width: '100%', maxWidth: 300, gap: 12 }}>
-        {/* Reshuffle */}
-        <TouchableOpacity
-          onPress={onReshuffle}
-          activeOpacity={0.8}
-          style={{
-            flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-            gap: 8, paddingVertical: 14, paddingHorizontal: 22, borderRadius: 999,
-            backgroundColor: theme.accent,
-            shadowColor: theme.accent, shadowOpacity: 0.4, shadowRadius: 12,
-            shadowOffset: { width: 0, height: 5 }, elevation: 6,
-          }}
-        >
-          <Text style={{
-            fontFamily: theme.fonts.head, fontSize: 16, color: '#FFFDF7',
-          }}>换一批，继续翻</Text>
-        </TouchableOpacity>
+        {/* Reshuffle — 全做完时池子为空，重洗无意义，隐藏 */}
+        {!allDone && (
+          <TouchableOpacity
+            onPress={onReshuffle}
+            activeOpacity={0.8}
+            style={{
+              flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+              gap: 8, paddingVertical: 14, paddingHorizontal: 22, borderRadius: 999,
+              backgroundColor: theme.accent,
+              shadowColor: theme.accent, shadowOpacity: 0.4, shadowRadius: 12,
+              shadowOffset: { width: 0, height: 5 }, elevation: 6,
+            }}
+          >
+            <Text style={{
+              fontFamily: theme.fonts.head, fontSize: 16, color: '#FFFDF7',
+            }}>换一批，继续翻</Text>
+          </TouchableOpacity>
+        )}
 
         {/* Add own */}
         <TouchableOpacity
@@ -695,8 +699,11 @@ export default function HomeFeed({ navigation, onOpenDrawer, perspective, setPer
   const levels = useMemo(() => {
     let pool = allLevels().filter(l => l.perspective === perspective);
     if (!pool.length) pool = allLevels();
+    // 当前孩子做过的活动不再出现（kid='all' 的记录对每个孩子都算做过）
+    const doneSet = new Set(memoriesForKid(kidId).map(m => `${m.perspective}|${m.levelNum}`));
+    pool = pool.filter(l => !doneSet.has(`${l.perspective}|${l.num}`));
     return weightedShuffle(pool, kidId);
-  }, [perspective, shuffleKey, kidId, allLevels, weightedShuffle]);
+  }, [perspective, shuffleKey, kidId, allLevels, weightedShuffle, memoriesForKid]);
 
   const data = useMemo(() => {
     const items = [];
@@ -711,7 +718,7 @@ export default function HomeFeed({ navigation, onOpenDrawer, perspective, setPer
         index: i,
       });
     });
-    items.push({ type: 'end', key: 'end' });
+    items.push({ type: 'end', key: 'end', allDone: !empty && levels.length === 0 });
     return items;
   }, [levels, empty, perspective, shuffleKey]);
 
@@ -834,6 +841,7 @@ export default function HomeFeed({ navigation, onOpenDrawer, perspective, setPer
           onReshuffle={reshuffle}
           onAddOwn={() => setAddOwnVisible(true)}
           cardHeight={cardHeight}
+          allDone={item.allDone}
         />
       );
     }
