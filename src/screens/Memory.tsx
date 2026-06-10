@@ -283,7 +283,7 @@ export function MemoryPage({ route, navigation }) {
               navigation.goBack();
             } catch (e) {
               setDeleting(false);
-              Alert.alert('删除失败', '网络好像不太好，稍后再试试。');
+              Alert.alert('删除失败', '没能删掉，稍后再试一次。');
             }
           },
         },
@@ -568,7 +568,7 @@ export function MemoryPage({ route, navigation }) {
             }}
           >
             <Text style={{
-              fontFamily: theme.fonts.body, fontSize: 14, color: '#C25B4E',
+              fontFamily: theme.fonts.body, fontSize: 14, color: theme.danger,
             }}>{deleting ? '正在删除…' : '删除这条回忆'}</Text>
           </TouchableOpacity>
         </View>

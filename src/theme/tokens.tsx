@@ -46,6 +46,7 @@ export function createTheme(presetName, isDark, accent) {
     accentSoft: accentTone.soft,
     accentDeep: accentTone.deep,
     accentInk: accentTone.ink,
+    danger: isDark ? '#E0867A' : '#C25B4E',
     fonts: FONTS,
     isDark: !!isDark,
     presetName: isDark ? 'dark' : presetName,
