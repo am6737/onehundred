@@ -210,6 +210,27 @@ export async function insertMemory({ id: givenId, kid, levelNum, perspective, ty
   return mapMemory(data);
 }
 
+export async function deleteMemory(id) {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) throw new Error('Not authenticated');
+  const { error } = await supabase.from('memories').delete().eq('id', id);
+  if (error) throw error;
+  // best-effort 清理 Storage 媒体目录，失败不阻塞删除
+  try {
+    const dir = `${session.user.id}/${id}`;
+    const { data: files, error: listErr } = await supabase.storage.from('memories').list(dir);
+    if (listErr) throw listErr;
+    if (files && files.length > 0) {
+      const { error: rmErr } = await supabase.storage
+        .from('memories')
+        .remove(files.map(f => `${dir}/${f.name}`));
+      if (rmErr) throw rmErr;
+    }
+  } catch (e) {
+    console.warn('deleteMemory storage cleanup:', e?.message || e);
+  }
+}
+
 export async function insertKid({ name, y, m, tone = 'orange' }) {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) throw new Error('Not authenticated');
