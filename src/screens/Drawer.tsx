@@ -534,7 +534,7 @@ export default function Drawer({ visible, onClose, onNavigate, kidId = 'all', me
               { fontFamily: theme.fonts.hand, color: theme.accent },
             ]}
           >
-            {empty ? '从今天，慢慢开始' : `一起记录了 ${togetherFor}`}
+            {empty ? '从今天，慢慢开始' : `一起记录了 ${togetherFor || '1 天'}`}
           </Text>
 
         </View>

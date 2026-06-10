@@ -57,7 +57,7 @@ export function durationSince(sinceStr) {
   if (years > 0) parts.push(`${years} 年`);
   if (months > 0) parts.push(`${months} 个月`);
   if (days > 0) parts.push(`${days} 天`);
-  return parts.join(' ') || '刚刚开始';
+  return parts.join(' ') || '1 天';
 }
 
 export function kidAge(k) {
