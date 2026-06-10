@@ -696,14 +696,22 @@ export default function HomeFeed({ navigation, onOpenDrawer, perspective, setPer
   const [shuffleKey, setShuffleKey] = useState(0);
   const [addOwnVisible, setAddOwnVisible] = useState(false);
 
-  const levels = useMemo(() => {
+  const doneSet = useMemo(
+    () => new Set(memoriesForKid(kidId).map(m => `${m.perspective}|${m.levelNum}`)),
+    [memoriesForKid, kidId]
+  );
+
+  const shuffled = useMemo(() => {
     let pool = allLevels().filter(l => l.perspective === perspective);
     if (!pool.length) pool = allLevels();
-    // 当前孩子做过的活动不再出现（kid='all' 的记录对每个孩子都算做过）
-    const doneSet = new Set(memoriesForKid(kidId).map(m => `${m.perspective}|${m.levelNum}`));
-    pool = pool.filter(l => !doneSet.has(`${l.perspective}|${l.num}`));
     return weightedShuffle(pool, kidId);
-  }, [perspective, shuffleKey, kidId, allLevels, weightedShuffle, memoriesForKid]);
+  }, [perspective, shuffleKey, kidId, allLevels, weightedShuffle]);
+
+  // 当前孩子做过的活动不再出现（kid='all' 的记录对每个孩子都算做过）
+  const levels = useMemo(
+    () => shuffled.filter(l => !doneSet.has(`${l.perspective}|${l.num}`)),
+    [shuffled, doneSet]
+  );
 
   const data = useMemo(() => {
     const items = [];
