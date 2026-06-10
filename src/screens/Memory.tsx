@@ -298,7 +298,7 @@ export function MemoryPage({ route, navigation }) {
   const perspective = PERSPECTIVES[m.perspective];
 
   return (
-    <View style={{ flex: 1, backgroundColor: theme.paper }}>
+    <View style={{ flex: 1, backgroundColor: theme.cream }}>
       <LayerHeader
         title={perspective ? perspective.long : ''}
         onBack={() => navigation.goBack()}
@@ -500,7 +500,7 @@ export function MemoryPage({ route, navigation }) {
           {hasTranscript && (
             <View style={{
               marginTop: 20, borderRadius: 20,
-              backgroundColor: theme.cream,
+              backgroundColor: theme.paper,
               borderWidth: 1, borderColor: theme.line,
               overflow: 'hidden',
             }}>
