@@ -299,7 +299,26 @@ export function MemoryPage({ route, navigation }) {
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.paper }}>
-      <LayerHeader title={perspective ? perspective.long : ''} onBack={() => navigation.goBack()} />
+      <LayerHeader
+        title={perspective ? perspective.long : ''}
+        onBack={() => navigation.goBack()}
+        right={
+          <TouchableOpacity
+            onPress={confirmDelete}
+            disabled={deleting}
+            activeOpacity={0.7}
+            style={{
+              width: 42, height: 42, borderRadius: 21,
+              backgroundColor: theme.paper,
+              borderWidth: 1, borderColor: theme.line,
+              justifyContent: 'center', alignItems: 'center',
+              opacity: deleting ? 0.4 : 1,
+            }}
+          >
+            {Icon.trash(theme.danger, 20)}
+          </TouchableOpacity>
+        }
+      />
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{ paddingBottom: 50 }}
@@ -556,21 +575,6 @@ export function MemoryPage({ route, navigation }) {
               elevation: 6,
             }}
           />
-          {/* ── Delete (低调入口，二次确认) ── */}
-          <TouchableOpacity
-            onPress={confirmDelete}
-            disabled={deleting}
-            activeOpacity={0.7}
-            style={{
-              marginTop: 14, paddingVertical: 12,
-              alignItems: 'center',
-              opacity: deleting ? 0.4 : 1,
-            }}
-          >
-            <Text style={{
-              fontFamily: theme.fonts.body, fontSize: 14, color: theme.danger,
-            }}>{deleting ? '正在删除…' : '删除这条回忆'}</Text>
-          </TouchableOpacity>
         </View>
       </ScrollView>
 
