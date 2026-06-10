@@ -128,7 +128,9 @@ function AppNavigator() {
   const [initialRoute, setInitialRoute] = useState<string | null>(null);
 
   useEffect(() => {
-    if (loading) return;
+    // 只在冷启动时算一次初始路由；之后路由变化都由页面自己导航，
+    // 不能再卸载 NavigationContainer，否则会丢掉导航状态（游客登录闪回登录页就是这么来的）
+    if (loading || initialRoute) return;
     getSession().then(session => {
       if (!session) {
         setInitialRoute('LoginWelcome');
@@ -140,9 +142,9 @@ function AppNavigator() {
     }).catch(() => {
       setInitialRoute('LoginWelcome');
     });
-  }, [loading]);
+  }, [loading, initialRoute]);
 
-  if (!initialRoute || loading) {
+  if (!initialRoute) {
     return (
       <View style={{ flex: 1, backgroundColor: '#FAF3E6', justifyContent: 'center', alignItems: 'center' }}>
         <ActivityIndicator color="#DE8C57" />

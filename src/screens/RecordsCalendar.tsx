@@ -3,7 +3,8 @@ import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme, TONE } from '../theme/tokens';
 import { useData } from '../data/DataProvider';
-import { Icon, PhotoSlot } from '../components/Icons';
+import { Icon } from '../components/Icons';
+import { MemoryCover } from '../components/MemoryCover';
 import { LayerHeader, Chip } from '../components/common';
 
 const REC_WK = ['一', '二', '三', '四', '五', '六', '日'];
@@ -263,7 +264,7 @@ export default function RecordsCalendar({ navigation, route }) {
                         }}
                       >
                         <View style={{ width: 100 }}>
-                          <PhotoSlot tone={m.tone} radius={0} label="" style={{ width: 100, height: 100, aspectRatio: undefined }} />
+                          <MemoryCover memory={m} style={{ width: 100, height: 100, aspectRatio: undefined }} />
                           <View style={{
                             position: 'absolute', left: 7, bottom: 7,
                             flexDirection: 'row', alignItems: 'center', gap: 4,

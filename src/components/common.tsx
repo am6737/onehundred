@@ -1,7 +1,7 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import {
   View, Text, TouchableOpacity, Animated, Dimensions,
-  Modal, Pressable, ScrollView, StyleSheet,
+  Modal, Pressable, ScrollView, StyleSheet, PanResponder,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/tokens';
@@ -49,6 +49,8 @@ export function Sheet({ visible, onClose, children, title }) {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
   const slideAnim = useRef(new Animated.Value(SCREEN_H)).current;
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   useEffect(() => {
     if (visible) {
@@ -68,8 +70,37 @@ export function Sheet({ visible, onClose, children, title }) {
       toValue: SCREEN_H,
       duration: 250,
       useNativeDriver: true,
-    }).start(() => onClose && onClose());
+    }).start(() => onCloseRef.current && onCloseRef.current());
   };
+
+  // 整个弹层支持下滑关闭：内容滚在顶部时向下拖动跟手下移，
+  // 超过阈值或甩动即收起，否则弹回。用捕获阶段抢在内容 ScrollView 之前，
+  // 已滚动时不抢，保证内容还能正常往回滚。
+  const scrollYRef = useRef(0);
+  const [contentH, setContentH] = useState(0);
+  const needScroll = contentH > SCREEN_H * 0.7;
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponderCapture: (_, g) =>
+        scrollYRef.current <= 0 && g.dy > 6 && Math.abs(g.dy) > Math.abs(g.dx),
+      onPanResponderTerminationRequest: () => false,
+      onPanResponderMove: (_, g) => {
+        if (g.dy > 0) slideAnim.setValue(g.dy);
+      },
+      onPanResponderRelease: (_, g) => {
+        if (g.dy > 120 || g.vy > 0.8) {
+          handleClose();
+        } else {
+          Animated.spring(slideAnim, {
+            toValue: 0,
+            useNativeDriver: true,
+            damping: 20,
+            stiffness: 200,
+          }).start();
+        }
+      },
+    })
+  ).current;
 
   if (!visible) return null;
 
@@ -77,11 +108,14 @@ export function Sheet({ visible, onClose, children, title }) {
     <Modal transparent visible={visible} animationType="fade" onRequestClose={handleClose}>
       <Pressable style={styles.overlay} onPress={handleClose}>
         <Pressable onPress={e => e.stopPropagation()}>
-          <Animated.View style={[styles.sheetContainer, {
-            backgroundColor: theme.paper,
-            paddingBottom: insets.bottom + 20,
-            transform: [{ translateY: slideAnim }],
-          }]}>
+          <Animated.View
+            {...panResponder.panHandlers}
+            style={[styles.sheetContainer, {
+              backgroundColor: theme.paper,
+              paddingBottom: insets.bottom + 20,
+              transform: [{ translateY: slideAnim }],
+            }]}
+          >
             <View style={styles.sheetHandle}>
               <View style={[styles.handle, { backgroundColor: theme.line }]} />
             </View>
@@ -99,6 +133,12 @@ export function Sheet({ visible, onClose, children, title }) {
               style={{ maxHeight: SCREEN_H * 0.7 }}
               showsVerticalScrollIndicator={false}
               bounces={false}
+              // 内容不超高就关掉滚动：原生滚动手势会在 native 层吃掉触摸，
+              // 关掉后事件才能到 JS 层的 PanResponder，整个弹层都能下滑关闭
+              scrollEnabled={needScroll}
+              onContentSizeChange={(_, h) => setContentH(h)}
+              scrollEventThrottle={16}
+              onScroll={e => { scrollYRef.current = e.nativeEvent.contentOffset.y; }}
             >
               {children}
             </ScrollView>

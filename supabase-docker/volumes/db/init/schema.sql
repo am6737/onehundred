@@ -131,3 +131,11 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+-- 9. Storage: private bucket for memory media (photos / videos / audio)
+--    Files live at `${userId}/${memoryId}/<name>.<ext>`; owner-folder access only.
+INSERT INTO storage.buckets (id, name, public) VALUES ('memories', 'memories', false)
+ON CONFLICT (id) DO NOTHING;
+CREATE POLICY "memories_media_own" ON storage.objects FOR ALL TO authenticated
+  USING (bucket_id = 'memories' AND (storage.foldername(name))[1] = auth.uid()::text)
+  WITH CHECK (bucket_id = 'memories' AND (storage.foldername(name))[1] = auth.uid()::text);

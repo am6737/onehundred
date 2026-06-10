@@ -16,6 +16,7 @@ import {
 } from 'expo-audio';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { useEvent, useEventListener } from 'expo';
+import { File as FSFile } from 'expo-file-system';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme, TONE, COLORS } from '../theme/tokens';
 import { PERSPECTIVES, meName, NOW_YM } from '../data';
@@ -105,11 +106,11 @@ async function uploadToStorage(uri, userId, memoryId, filename) {
       ext === 'wav' ? 'audio/wav' :
       'application/octet-stream';
 
-    const response = await fetch(uri);
-    const blob = await response.blob();
+    // RN 的 fetch(file://).blob() 上传经常得到 0 字节文件，改为直接读字节
+    const bytes = await new FSFile(uri).bytes();
     const { error } = await supabase.storage
       .from('memories')
-      .upload(path, blob, { contentType, upsert: true });
+      .upload(path, bytes, { contentType, upsert: true });
     if (error) console.warn('Storage upload:', error.message);
     return path;
   } catch (e) {
@@ -839,6 +840,7 @@ export default function RecordFlow({ route, navigation }) {
                         tone={level.tone}
                         radius={24}
                         label="轻点添加照片"
+                        striped={false}
                         style={{
                           height: 300,
                           aspectRatio: undefined,
@@ -989,7 +991,7 @@ export default function RecordFlow({ route, navigation }) {
                                 fontSize: 13.5,
                                 color: theme.ink,
                               }}>
-                                {'✓ 已选好视频 · '}
+                                {'已选好视频 · '}
                                 {Math.floor(videoDuration / 60)}:{String(videoDuration % 60).padStart(2, '0')}
                               </Text>
                             </View>
@@ -1019,6 +1021,7 @@ export default function RecordFlow({ route, navigation }) {
                         tone={level.tone}
                         radius={24}
                         label=""
+                        striped={false}
                         style={{
                           height: 300,
                           aspectRatio: undefined,

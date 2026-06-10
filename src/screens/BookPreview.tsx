@@ -3,7 +3,8 @@ import { View, Text, ScrollView, TouchableOpacity, Dimensions, FlatList } from '
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme, TONE } from '../theme/tokens';
 import { useData } from '../data/DataProvider';
-import { Icon, PhotoSlot } from '../components/Icons';
+import { Icon } from '../components/Icons';
+import { MemoryCover } from '../components/MemoryCover';
 import { LayerHeader, PrimaryButton, SecondaryButton } from '../components/common';
 
 const { width: SW, height: SH } = Dimensions.get('window');
@@ -76,7 +77,7 @@ function BookLeaf({ type, content, template, theme, index, total }) {
         width: PAGE_W, height: PAGE_H, backgroundColor: t.bg,
         borderRadius: 16, padding: 24, borderWidth: 1, borderColor: theme.line,
       }}>
-        <PhotoSlot tone={m.tone} radius={12} style={{ width: '100%', height: PAGE_H * 0.4 }} />
+        <MemoryCover memory={m} mode="hero" radius={12} label="照片" style={{ width: '100%', height: PAGE_H * 0.4, aspectRatio: undefined }} />
         <View style={{ marginTop: 16 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
             <View style={{

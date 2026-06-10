@@ -1,11 +1,15 @@
 import React, { useState } from 'react';
 import {
   View, Text, TouchableOpacity, ScrollView, FlatList,
-  StyleSheet, Dimensions,
+  StyleSheet, Dimensions, Image,
 } from 'react-native';
+import { useVideoPlayer, VideoView } from 'expo-video';
+import { useEvent, useEventListener } from 'expo';
 import { useTheme, TONE } from '../theme/tokens';
 import { PERSPECTIVES } from '../data';
 import { useData } from '../data/DataProvider';
+import { useMemoryMedia } from '../lib/media';
+import { MemoryCover } from '../components/MemoryCover';
 import { Icon, PhotoSlot, KidAvatar } from '../components/Icons';
 import { LayerHeader, Sheet, Chip, PrimaryButton } from '../components/common';
 
@@ -114,6 +118,46 @@ const badgeStyles = StyleSheet.create({
 });
 
 /* ════════════════════════════════════════════════════════════
+   MemoryVideo — inline video with first-frame preview & play
+   ════════════════════════════════════════════════════════════ */
+
+function MemoryVideo({ url, tone }) {
+  const t = TONE[tone] || TONE.orange;
+  const player = useVideoPlayer(url);
+  const { isPlaying } = useEvent(player, 'playingChange', { isPlaying: player.playing });
+  useEventListener(player, 'playToEnd', () => {
+    player.pause();
+    player.currentTime = 0;
+  });
+
+  return (
+    <View style={{ height: 300, backgroundColor: '#1a1a1a' }}>
+      <VideoView
+        player={player}
+        style={{ width: '100%', height: '100%' }}
+        contentFit="cover"
+        nativeControls={false}
+      />
+      <TouchableOpacity
+        activeOpacity={0.85}
+        onPress={() => (isPlaying ? player.pause() : player.play())}
+        style={[StyleSheet.absoluteFill, { justifyContent: 'center', alignItems: 'center' }]}
+      >
+        {!isPlaying && (
+          <View style={{
+            width: 56, height: 56, borderRadius: 28,
+            justifyContent: 'center', alignItems: 'center',
+            backgroundColor: 'rgba(255,253,247,0.93)',
+          }}>
+            {Icon.play(t.deep, 26)}
+          </View>
+        )}
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════
    ShareSheet — bottom sheet with share card preview
    ════════════════════════════════════════════════════════════ */
 
@@ -137,7 +181,7 @@ function ShareSheet({ m, visible, onClose }) {
         elevation: 6,
         marginBottom: 18,
       }}>
-        <PhotoSlot tone={m.tone} radius={0} label="照片" style={{ height: 200, aspectRatio: undefined }} />
+        <MemoryCover memory={m} mode="hero" label="照片" style={{ width: '100%', height: 200, aspectRatio: undefined }} />
         <View style={{ padding: 18, paddingHorizontal: 20, paddingBottom: 20 }}>
           <View style={{
             alignSelf: 'flex-start',
@@ -214,6 +258,10 @@ export function MemoryPage({ route, navigation }) {
   const t = TONE[m?.tone] || TONE.orange;
   const [shareVisible, setShareVisible] = useState(false);
   const [openText, setOpenText] = useState(false);
+  const [heroIndex, setHeroIndex] = useState(0);
+  const media = useMemoryMedia(m?.id);
+  const images = media.filter(x => x.kind === 'image');
+  const video = media.find(x => x.kind === 'video');
 
   if (!m) return null;
 
@@ -241,10 +289,20 @@ export function MemoryPage({ route, navigation }) {
             shadowRadius: 22,
             elevation: 8,
           }}>
-            <PhotoSlot tone={m.tone} radius={28} label="照片" style={{ height: 300, aspectRatio: undefined }} />
+            {video ? (
+              <MemoryVideo url={video.url} tone={m.tone} />
+            ) : images.length > 0 ? (
+              <Image
+                source={{ uri: images[Math.min(heroIndex, images.length - 1)].url }}
+                style={{ width: '100%', height: 300 }}
+                resizeMode="cover"
+              />
+            ) : (
+              <PhotoSlot tone={m.tone} radius={28} label="照片" style={{ height: 300, aspectRatio: undefined }} />
+            )}
             {/* Type badge overlay */}
             {(type === 'voice' || type === 'video') && (
-              <View style={{ position: 'absolute', left: 16, bottom: 16 }}>
+              <View pointerEvents="none" style={{ position: 'absolute', left: 16, bottom: 16 }}>
                 <TypeBadge type={type} dur={m.dur} />
               </View>
             )}
@@ -269,8 +327,44 @@ export function MemoryPage({ route, navigation }) {
             )}
           </View>
 
-          {/* Thumbnail strip for multi-shot */}
-          {shots > 1 && (
+          {/* Thumbnail strip for multi-shot — 有真实图片时可点击切换大图 */}
+          {images.length > 1 ? (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={{ marginTop: 10 }}
+              contentContainerStyle={{ gap: 8 }}
+            >
+              {images.map((img, i) => (
+                <TouchableOpacity
+                  key={img.name}
+                  activeOpacity={0.8}
+                  onPress={() => setHeroIndex(i)}
+                  style={{ position: 'relative' }}
+                >
+                  <Image
+                    source={{ uri: img.url }}
+                    style={{
+                      width: 66, height: 66, borderRadius: 13,
+                      borderWidth: i === heroIndex ? 2 : 1,
+                      borderColor: i === heroIndex ? theme.accent : theme.line,
+                    }}
+                  />
+                  {i === 0 && (
+                    <View style={{
+                      position: 'absolute', top: 4, left: 4,
+                      backgroundColor: theme.accent,
+                      paddingHorizontal: 6, paddingVertical: 2, borderRadius: 999,
+                    }}>
+                      <Text style={{
+                        fontFamily: theme.fonts.head, fontSize: 9.5, color: '#FFFDF7',
+                      }}>封面</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          ) : shots > 1 && images.length === 0 ? (
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
@@ -306,7 +400,7 @@ export function MemoryPage({ route, navigation }) {
                 </View>
               ))}
             </ScrollView>
-          )}
+          ) : null}
         </View>
 
         {/* ── Page body ── */}
@@ -566,7 +660,7 @@ function MemoryThreadItem({ m, onOpen, showWho }) {
         {/* Left photo thumbnail — absolute fill avoids PhotoSlot aspectRatio inflating height */}
         <View style={{ width: 80, minHeight: 92, position: 'relative' }}>
           <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, overflow: 'hidden' }}>
-            <PhotoSlot tone={m.tone} radius={0} label="" style={{ width: '100%', height: '100%', aspectRatio: undefined }} />
+            <MemoryCover memory={m} style={{ width: '100%', height: '100%', aspectRatio: undefined }} />
           </View>
           {(type === 'voice' || type === 'video') && (
             <View style={{

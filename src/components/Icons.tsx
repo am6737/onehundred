@@ -226,7 +226,7 @@ const AVATAR_TONES = {
 
 /* ── PhotoSlot ────────────────────────────────────────────────── */
 
-export function PhotoSlot({ tone = 'orange', label = '照片', radius = 22, style, children = null }) {
+export function PhotoSlot({ tone = 'orange', label = '照片', radius = 22, style, children = null, striped = true }) {
   const colors = PHOTO_TONES[tone] || PHOTO_TONES.orange;
   const stripeCount = 12;
 
@@ -238,18 +238,20 @@ export function PhotoSlot({ tone = 'orange', label = '照片', radius = 22, styl
         style,
       ]}
     >
-      {/* Alternating horizontal stripes */}
-      <View style={StyleSheet.absoluteFill}>
-        {Array.from({ length: stripeCount }).map((_, i) => (
-          <View
-            key={i}
-            style={{
-              flex: 1,
-              backgroundColor: i % 2 === 0 ? colors[0] : colors[1],
-            }}
-          />
-        ))}
-      </View>
+      {/* Alternating horizontal stripes（striped=false 时纯色底，文字更清楚） */}
+      {striped && (
+        <View style={StyleSheet.absoluteFill}>
+          {Array.from({ length: stripeCount }).map((_, i) => (
+            <View
+              key={i}
+              style={{
+                flex: 1,
+                backgroundColor: i % 2 === 0 ? colors[0] : colors[1],
+              }}
+            />
+          ))}
+        </View>
+      )}
 
       {/* Content or label */}
       {children || (
