@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, TouchableOpacity, ScrollView, FlatList,
-  StyleSheet, Dimensions, Image,
+  StyleSheet, Dimensions, Image, Alert,
 } from 'react-native';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { useEvent, useEventListener } from 'expo';
@@ -255,15 +255,41 @@ function ShareSheet({ m, visible, onClose }) {
 export function MemoryPage({ route, navigation }) {
   const m = route?.params?.memory;
   const { theme } = useTheme();
+  const { removeMemory } = useData();
   const t = TONE[m?.tone] || TONE.orange;
   const [shareVisible, setShareVisible] = useState(false);
   const [openText, setOpenText] = useState(false);
   const [heroIndex, setHeroIndex] = useState(0);
+  const [deleting, setDeleting] = useState(false);
   const media = useMemoryMedia(m?.id);
   const images = media.filter(x => x.kind === 'image');
   const video = media.find(x => x.kind === 'video');
 
   if (!m) return null;
+
+  const confirmDelete = () => {
+    Alert.alert(
+      '删除这条回忆？',
+      '删掉就找不回来了，这件事会重新回到首页。',
+      [
+        { text: '取消', style: 'cancel' },
+        {
+          text: '删除',
+          style: 'destructive',
+          onPress: async () => {
+            setDeleting(true);
+            try {
+              await removeMemory(m.id);
+              navigation.goBack();
+            } catch (e) {
+              setDeleting(false);
+              Alert.alert('删除失败', '网络好像不太好，稍后再试试。');
+            }
+          },
+        },
+      ],
+    );
+  };
 
   const type = normalType(m.type);
   const hasTranscript = (type === 'voice' || type === 'video') && m.transcript && m.transcript.trim();
@@ -530,6 +556,21 @@ export function MemoryPage({ route, navigation }) {
               elevation: 6,
             }}
           />
+          {/* ── Delete (低调入口，二次确认) ── */}
+          <TouchableOpacity
+            onPress={confirmDelete}
+            disabled={deleting}
+            activeOpacity={0.7}
+            style={{
+              marginTop: 14, paddingVertical: 12,
+              alignItems: 'center',
+              opacity: deleting ? 0.4 : 1,
+            }}
+          >
+            <Text style={{
+              fontFamily: theme.fonts.body, fontSize: 14, color: '#C25B4E',
+            }}>{deleting ? '正在删除…' : '删除这条回忆'}</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
 
