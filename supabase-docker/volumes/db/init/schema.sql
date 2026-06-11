@@ -106,7 +106,7 @@ BEGIN
   END IF;
   LOOP
     code := upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 8));
-    EXIT WHEN NOT EXISTS (SELECT 1 FROM public.families WHERE invite_code = code);
+    EXIT WHEN NOT EXISTS (SELECT 1 FROM public.families f WHERE f.invite_code = code);
   END LOOP;
   INSERT INTO public.families (created_by, invite_code) VALUES (uid, code) RETURNING id INTO fid;
   INSERT INTO public.family_members (family_id, user_id, role, custom_role)
