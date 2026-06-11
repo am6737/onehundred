@@ -19,7 +19,7 @@ import { useEvent, useEventListener } from 'expo';
 import { File as FSFile } from 'expo-file-system';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme, TONE, COLORS } from '../theme/tokens';
-import { PERSPECTIVES, meName, NOW_YM } from '../data';
+import { PERSPECTIVES, meName, NOW_YM, getMyFamilyId } from '../data';
 import { useData } from '../data/DataProvider';
 import { Icon, PhotoSlot } from '../components/Icons';
 import { LayerHeader, PrimaryButton, SecondaryButton, Chip, Sheet } from '../components/common';
@@ -27,9 +27,17 @@ import { supabase } from '../lib/supabase';
 
 /* ── VoiceRecorder ── */
 
-function VoiceRecorder({ active, paused, theme, elapsedRef }) {
+function VoiceRecorder({ active, done, theme, elapsedRef }) {
   const [t, setT] = useState(0);
-  const counting = active && !paused;
+  const counting = active;
+
+  // 每次重新开始录音，计时归零
+  useEffect(() => {
+    if (active) {
+      setT(0);
+      if (elapsedRef) elapsedRef.current = 0;
+    }
+  }, [active]);
 
   useEffect(() => {
     if (!counting) return;
@@ -83,7 +91,7 @@ function VoiceRecorder({ active, paused, theme, elapsedRef }) {
         color: theme.inkSoft,
         marginTop: 8,
       }}>
-        {!active ? '已录好这一段' : paused ? '已暂停 · 轻点继续' : '正在录音…'}
+        {active ? '正在录音…' : done ? '已录好这一段' : '准备好了就开始'}
       </Text>
     </View>
   );
@@ -91,10 +99,10 @@ function VoiceRecorder({ active, paused, theme, elapsedRef }) {
 
 /* ── Storage upload helper ── */
 
-async function uploadToStorage(uri, userId, memoryId, filename) {
+async function uploadToStorage(uri, familyId, memoryId, filename) {
   try {
     const ext = uri.split('.').pop()?.split('?')[0]?.toLowerCase() || 'bin';
-    const path = `${userId}/${memoryId}/${filename}.${ext}`;
+    const path = `${familyId}/${memoryId}/${filename}.${ext}`;
     const contentType =
       ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' :
       ext === 'png' ? 'image/png' :
@@ -135,7 +143,6 @@ export default function RecordFlow({ route, navigation }) {
 
   // Voice
   const [recording, setRecording] = useState(false);
-  const [paused, setPaused] = useState(false);
   const [recordingDone, setRecordingDone] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [transcript, setTranscript] = useState('');
@@ -257,20 +264,6 @@ export default function RecordFlow({ route, navigation }) {
     }
   };
 
-  const togglePauseRecording = async () => {
-    try {
-      if (paused) {
-        audioRecorder.record();
-        setPaused(false);
-      } else {
-        audioRecorder.pause();
-        setPaused(true);
-      }
-    } catch (e) {
-      console.error('Pause/resume failed:', e);
-    }
-  };
-
   const stopRecordingAction = async () => {
     try {
       await audioRecorder.stop();
@@ -280,6 +273,28 @@ export default function RecordFlow({ route, navigation }) {
       await setAudioModeAsync({ allowsRecording: false });
     } catch (e) {
       console.error('Stop recording failed:', e);
+    }
+  };
+
+  // 重录：丢弃当前这段，从头开始录
+  const restartRecording = async () => {
+    try {
+      if (soundRef.current) {
+        soundRef.current.release();
+        soundRef.current = null;
+      }
+      setPlaying(false);
+      setTranscript('');
+      setTranscribing(false);
+      recordingUriRef.current = null;
+      elapsedRef.current = 0;
+      setRecordingDone(false);
+      const started = await startRealRecording();
+      if (started) {
+        setRecording(true);
+      }
+    } catch (e) {
+      console.error('Re-record failed:', e);
     }
   };
 
@@ -435,15 +450,16 @@ export default function RecordFlow({ route, navigation }) {
     { k: 'text', label: '写几句话', sub: '安静地写下来', icon: Icon.pen },
   ];
 
-  const startCapture = async (k) => {
+  const startCapture = (k) => {
     setType(k);
     animateStep(1);
-    if (k === 'voice') {
-      const started = await startRealRecording();
-      if (started) {
-        setRecording(true);
-        setPaused(false);
-      }
+  };
+
+  // 进入语音页先停在准备态，用户点「开始录音」才真正开始
+  const beginRecording = async () => {
+    const started = await startRealRecording();
+    if (started) {
+      setRecording(true);
     }
   };
 
@@ -476,17 +492,16 @@ export default function RecordFlow({ route, navigation }) {
       }
 
       // Upload media files (fire-and-forget, don't block save)
-      const { data: { session } } = await supabase.auth.getSession();
-      const userId = session?.user?.id || 'anon';
+      const familyId = await getMyFamilyId();
 
       if (type === 'photo' && photos.length > 0) {
         photos.forEach((uri, i) => {
-          uploadToStorage(uri, userId, memoryId, `photo_${i}`);
+          uploadToStorage(uri, familyId, memoryId, `photo_${i}`);
         });
       } else if (type === 'video' && videoUri) {
-        uploadToStorage(videoUri, userId, memoryId, 'video_0');
+        uploadToStorage(videoUri, familyId, memoryId, 'video_0');
       } else if (type === 'voice' && recordingUriRef.current) {
-        uploadToStorage(recordingUriRef.current, userId, memoryId, 'audio_0');
+        uploadToStorage(recordingUriRef.current, familyId, memoryId, 'audio_0');
       }
 
       savedMemRef.current = await addMemory({
@@ -527,6 +542,8 @@ export default function RecordFlow({ route, navigation }) {
         soundRef.current.release();
         soundRef.current = null;
       }
+      setPlaying(false);
+      recordingUriRef.current = null;
       setRecording(false);
       setRecordingDone(false);
       setPhotos([]);
@@ -667,56 +684,110 @@ export default function RecordFlow({ route, navigation }) {
               {/* ── Voice capture ── */}
               {type === 'voice' && (
                 <>
-                  <VoiceRecorder active={recording} paused={paused} theme={theme} elapsedRef={elapsedRef} />
+                  <VoiceRecorder active={recording} done={recordingDone} theme={theme} elapsedRef={elapsedRef} />
 
-                  {/* Record controls */}
-                  {recording && (
+                  {/* Start — 准备好了再开始 */}
+                  {!recording && !recordingDone && (
                     <View style={{ alignItems: 'center', marginTop: 6 }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 20 }}>
-                        {/* Pause / Resume */}
-                        <TouchableOpacity
-                          onPress={togglePauseRecording}
-                          activeOpacity={0.8}
-                          style={[styles.recordBtn, { backgroundColor: theme.accent }]}
-                        >
-                          {paused ? (
-                            <View style={{
-                              width: 0, height: 0, marginLeft: 4,
-                              borderTopWidth: 13, borderTopColor: 'transparent',
-                              borderBottomWidth: 13, borderBottomColor: 'transparent',
-                              borderLeftWidth: 20, borderLeftColor: '#FFFDF7',
-                            }} />
-                          ) : (
-                            <View style={{ flexDirection: 'row', gap: 6 }}>
-                              <View style={styles.pauseBar} />
-                              <View style={styles.pauseBar} />
-                            </View>
-                          )}
-                        </TouchableOpacity>
-
-                        {/* Stop */}
-                        <TouchableOpacity
-                          onPress={stopRecordingAction}
-                          activeOpacity={0.8}
-                          style={{
-                            width: 52, height: 52, borderRadius: 26,
-                            backgroundColor: theme.sand,
-                            justifyContent: 'center', alignItems: 'center',
-                          }}
-                        >
-                          <View style={{
-                            width: 20, height: 20, borderRadius: 3,
-                            backgroundColor: theme.ink,
-                          }} />
-                        </TouchableOpacity>
-                      </View>
+                      <TouchableOpacity
+                        onPress={beginRecording}
+                        activeOpacity={0.85}
+                        style={[styles.recordBtn, { backgroundColor: theme.accent }]}
+                      >
+                        {Icon.mic('#FFFDF7', 32)}
+                      </TouchableOpacity>
                       <Text style={{
                         fontFamily: theme.fonts.body,
                         fontSize: 12,
                         color: theme.inkSoft,
-                        marginTop: 10,
+                        marginTop: 12,
                       }}>
-                        {paused ? '轻点继续录音' : '轻点暂停'} · 按 ■ 完成录音
+                        准备好了就开始 · 轻点录音
+                      </Text>
+                    </View>
+                  )}
+
+                  {/* Record controls — 只有「结束录音」 */}
+                  {recording && (
+                    <View style={{ alignItems: 'center', marginTop: 6 }}>
+                      <TouchableOpacity
+                        onPress={stopRecordingAction}
+                        activeOpacity={0.85}
+                        style={[styles.recordBtn, { backgroundColor: theme.accent }]}
+                      >
+                        <View style={{
+                          width: 26, height: 26, borderRadius: 5,
+                          backgroundColor: '#FFFDF7',
+                        }} />
+                      </TouchableOpacity>
+                      <Text style={{
+                        fontFamily: theme.fonts.body,
+                        fontSize: 12,
+                        color: theme.inkSoft,
+                        marginTop: 12,
+                      }}>
+                        正在录音 · 轻点结束
+                      </Text>
+                    </View>
+                  )}
+
+                  {/* Done controls — 播放 / 重录 */}
+                  {recordingDone && (
+                    <View style={{ alignItems: 'center', marginTop: 10 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+                        {/* 播放 / 暂停 */}
+                        <TouchableOpacity
+                          onPress={togglePlayback}
+                          activeOpacity={0.85}
+                          style={{
+                            flexDirection: 'row', alignItems: 'center', gap: 8,
+                            paddingVertical: 12, paddingHorizontal: 24, borderRadius: 999,
+                            backgroundColor: theme.accent,
+                          }}
+                        >
+                          {playing ? (
+                            <View style={{ flexDirection: 'row', gap: 4 }}>
+                              <View style={{ width: 3.5, height: 15, borderRadius: 2, backgroundColor: '#FFFDF7' }} />
+                              <View style={{ width: 3.5, height: 15, borderRadius: 2, backgroundColor: '#FFFDF7' }} />
+                            </View>
+                          ) : (
+                            <View style={{
+                              width: 0, height: 0, marginLeft: 2,
+                              borderTopWidth: 8, borderTopColor: 'transparent',
+                              borderBottomWidth: 8, borderBottomColor: 'transparent',
+                              borderLeftWidth: 13, borderLeftColor: '#FFFDF7',
+                            }} />
+                          )}
+                          <Text style={{
+                            fontFamily: theme.fonts.head, fontSize: 15, color: '#FFFDF7',
+                          }}>
+                            {playing ? '播放中' : '播放'}
+                          </Text>
+                        </TouchableOpacity>
+
+                        {/* 重录 */}
+                        <TouchableOpacity
+                          onPress={restartRecording}
+                          activeOpacity={0.85}
+                          style={{
+                            flexDirection: 'row', alignItems: 'center', gap: 7,
+                            paddingVertical: 12, paddingHorizontal: 20, borderRadius: 999,
+                            backgroundColor: theme.paper,
+                            borderWidth: 1, borderColor: theme.line,
+                          }}
+                        >
+                          {Icon.mic(theme.ink, 16)}
+                          <Text style={{
+                            fontFamily: theme.fonts.head, fontSize: 15, color: theme.ink,
+                          }}>
+                            重录
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                      <Text style={{
+                        fontFamily: theme.fonts.body, fontSize: 12, color: theme.inkSoft, marginTop: 10,
+                      }}>
+                        听一听 · 不满意可以重录
                       </Text>
                     </View>
                   )}
@@ -746,39 +817,7 @@ export default function RecordFlow({ route, navigation }) {
                               正在转文字…
                             </Text>
                           </View>
-                        ) : (
-                          <TouchableOpacity
-                            onPress={togglePlayback}
-                            activeOpacity={0.7}
-                            style={{
-                              flexDirection: 'row', alignItems: 'center', gap: 5,
-                              marginLeft: 'auto',
-                              paddingVertical: 4, paddingHorizontal: 10, borderRadius: 999,
-                              backgroundColor: playing ? theme.accent : theme.sand,
-                            }}
-                          >
-                            {playing ? (
-                              <View style={{ flexDirection: 'row', gap: 3 }}>
-                                <View style={{ width: 2.5, height: 11, borderRadius: 1.5, backgroundColor: '#FFFDF7' }} />
-                                <View style={{ width: 2.5, height: 11, borderRadius: 1.5, backgroundColor: '#FFFDF7' }} />
-                              </View>
-                            ) : (
-                              <View style={{
-                                width: 0, height: 0, marginLeft: 1,
-                                borderTopWidth: 5.5, borderTopColor: 'transparent',
-                                borderBottomWidth: 5.5, borderBottomColor: 'transparent',
-                                borderLeftWidth: 9, borderLeftColor: theme.accent,
-                              }} />
-                            )}
-                            <Text style={{
-                              fontFamily: theme.fonts.body,
-                              fontSize: 12,
-                              color: playing ? '#FFFDF7' : theme.accent,
-                            }}>
-                              {playing ? '播放中' : '听原声'}
-                            </Text>
-                          </TouchableOpacity>
-                        )}
+                        ) : null}
                       </View>
 
                       {transcribing ? (
@@ -1345,13 +1384,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 14,
   },
-  pauseBar: {
-    width: 7,
-    height: 26,
-    borderRadius: 2,
-    backgroundColor: '#FFFDF7',
-  },
-
   sectionLabel: {
     flexDirection: 'row',
     alignItems: 'center',

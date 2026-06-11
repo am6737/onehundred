@@ -4,6 +4,7 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from './supabase';
+import { getMyFamilyId } from '../data';
 
 const VIDEO_EXT = ['mp4', 'mov', 'm4v', '3gp', 'webm'];
 const AUDIO_EXT = ['m4a', 'caf', 'wav', 'mp3', 'aac', 'ogg'];
@@ -30,7 +31,9 @@ export async function fetchMemoryMedia(memoryId: string): Promise<MemoryMediaIte
   if (hit) return hit;
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) return [];
-  const dir = `${session.user.id}/${memoryId}`;
+  const familyId = await getMyFamilyId();
+  if (!familyId) return [];
+  const dir = `${familyId}/${memoryId}`;
   const { data: files, error } = await supabase.storage.from('memories').list(dir);
   if (error || !files || files.length === 0) return [];
   const paths = files.map(f => `${dir}/${f.name}`);
