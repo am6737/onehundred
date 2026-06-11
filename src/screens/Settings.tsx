@@ -5,13 +5,13 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   View, Text, TouchableOpacity, ScrollView, Switch,
   Modal, Pressable, TextInput, StyleSheet, Dimensions,
-  useColorScheme, Alert,
+  useColorScheme, Alert, ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme, COLORS } from '../theme/tokens';
 import { ROLES, DEFAULT_ME, meName, meChar, NOW_YM } from '../data';
 import { useData } from '../data/DataProvider';
-import { signOut, isAnonymous, bindEmail } from '../lib/auth';
+import { signOut, isAnonymous, bindEmail, deleteAccount } from '../lib/auth';
 import { Icon, KidAvatar } from '../components/Icons';
 import { LayerHeader, Sheet, Chip, PrimaryButton, SecondaryButton, Section } from '../components/common';
 
@@ -692,25 +692,20 @@ function InviteSheet({ kids, me, onClose }) {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
   const [copied, setCopied] = useState(false);
-  const code = 'JIA · 7K2P';
+  const { family } = useData();
+  const code = family?.inviteCode || '——';
 
   const myName = me.role === '其他' ? (me.custom || '我') : me.role;
   const myChar = me.role === '其他' ? (me.custom || '我')[0] : me.role[me.role.length - 1];
   const isParent = me.role === '爸爸' || me.role === '妈妈';
-  let adults;
-  if (isParent) {
-    const other = me.role === '爸爸' ? ['妈', '妈妈'] : ['爸', '爸爸'];
-    adults = [
-      { ch: myChar, name: myName, role: '你 · 管理员' },
-      { ch: other[0], name: other[1], role: '家长' },
-    ];
-  } else {
-    adults = [
-      { ch: myChar, name: myName, role: '你 · 管理员' },
-      { ch: '爸', name: '爸爸', role: '家长' },
-      { ch: '妈', name: '妈妈', role: '家长' },
-    ];
-  }
+  const adults = (family?.members || []).map(m => {
+    const nm = m.role === '其他' ? (m.customRole || '家人') : m.role;
+    return {
+      ch: nm[nm.length - 1],
+      name: nm,
+      role: m.isMe ? '你' + (family?.isCreator ? ' · 管理员' : '') : '家长',
+    };
+  });
   const peopleCount = adults.length + kids.length;
 
   const copy = () => {
@@ -786,7 +781,7 @@ function InviteSheet({ kids, me, onClose }) {
               <Text style={{
                 fontFamily: theme.fonts.head, fontSize: 16,
                 color: copied ? theme.accent : '#FFFDF7',
-              }}>{copied ? '链接已复制' : '复制邀请链接'}</Text>
+              }}>{copied ? '已记下' : '记下邀请码'}</Text>
             </TouchableOpacity>
           </View>
           <Text style={{
@@ -1472,7 +1467,22 @@ function DeleteAccountSheet({ onClose }) {
   const CONFIRM_TEXT = '清除所有回忆';
   const [input, setInput] = useState('');
   const [checked, setChecked] = useState(false);
-  const canDelete = input.trim() === CONFIRM_TEXT && checked;
+  const [deleting, setDeleting] = useState(false);
+  const canDelete = input.trim() === CONFIRM_TEXT && checked && !deleting;
+
+  const handleDelete = async () => {
+    if (!canDelete) return;
+    setDeleting(true);
+    try {
+      await deleteAccount();
+      // 成功后会触发 SIGNED_OUT，App 根导航会重置回登录页，
+      // 本组件随 Settings 一起卸载，这里不用再做收尾。
+    } catch (e) {
+      console.error('Delete account failed:', e);
+      setDeleting(false);
+      Alert.alert('注销没成功', '账号还没注销掉，请检查网络后再试一次。');
+    }
+  };
 
   return (
     <Modal visible animationType="slide" onRequestClose={onClose}>
@@ -1552,7 +1562,7 @@ function DeleteAccountSheet({ onClose }) {
 
           {/* Button */}
           <TouchableOpacity
-            onPress={canDelete ? onClose : undefined}
+            onPress={handleDelete}
             disabled={!canDelete}
             activeOpacity={0.7}
             style={{
@@ -1561,10 +1571,14 @@ function DeleteAccountSheet({ onClose }) {
               alignItems: 'center',
             }}
           >
-            <Text style={{
-              fontFamily: theme.fonts.head, fontSize: 16,
-              color: canDelete ? '#FFFDF7' : theme.inkSoft,
-            }}>永久注销账户</Text>
+            {deleting ? (
+              <ActivityIndicator color="#FFFDF7" size="small" />
+            ) : (
+              <Text style={{
+                fontFamily: theme.fonts.head, fontSize: 16,
+                color: canDelete ? '#FFFDF7' : theme.inkSoft,
+              }}>永久注销账户</Text>
+            )}
           </TouchableOpacity>
         </ScrollView>
       </View>
