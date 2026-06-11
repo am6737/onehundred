@@ -8,6 +8,8 @@ import {
   throwbackFrom, yearReviewFrom, levelWeightFrom, weightedShuffleFrom,
   frameLabelFrom,
   FAMILY,
+  fetchMyFamily, createFamily as apiCreateFamily, joinFamily as apiJoinFamily,
+  removeFamilyMember, clearFamilyCache,
 } from './index';
 
 const DataContext = createContext(null);
@@ -20,15 +22,17 @@ export function DataProvider({ children, userId }) {
   const [wardrobe, setWardrobe] = useState([]);
   const [customLevels, setCustomLevels] = useState([]);
   const [profile, setProfile] = useState(null);
+  const [family, setFamily] = useState(null);
   const [loading, setLoading] = useState(true);
 
   const loadAll = useCallback(async () => {
     if (!userId) { setLoading(false); return; }
+    clearFamilyCache();
     setLoading(true);
     try {
-      const [lv, ki, me, ma, wa, cl, pr] = await Promise.all([
+      const [lv, ki, me, ma, wa, cl, pr, fam] = await Promise.all([
         fetchLevels(), fetchKids(), fetchMemories(), fetchMascots(),
-        fetchWardrobe(), fetchCustomLevels(), fetchProfile(),
+        fetchWardrobe(), fetchCustomLevels(), fetchProfile(), fetchMyFamily(),
       ]);
       setLevels(lv);
       setKids(ki);
@@ -37,6 +41,7 @@ export function DataProvider({ children, userId }) {
       setWardrobe(wa);
       setCustomLevels(cl);
       setProfile(pr);
+      setFamily(fam);
     } catch (e) {
       console.error('DataProvider loadAll error:', e);
     } finally {
@@ -88,13 +93,30 @@ export function DataProvider({ children, userId }) {
     setProfile(prev => prev ? { ...prev, ...fields } : prev);
   }, []);
 
+  const createFamily = useCallback(async (role, custom = '') => {
+    const fam = await apiCreateFamily(role, custom);
+    setFamily(await fetchMyFamily());
+    return fam;
+  }, []);
+
+  const joinFamily = useCallback(async (code, role, custom = '') => {
+    await apiJoinFamily(code, role, custom);
+    await loadAll();           // 加入后整库重拉（拿到家庭的孩子/回忆/小熊）
+  }, [loadAll]);
+
+  const removeMember = useCallback(async (memberUserId) => {
+    await removeFamilyMember(memberUserId);
+    setFamily(await fetchMyFamily());
+  }, []);
+
   const value = {
-    levels, kids, memories, mascots, wardrobe, customLevels, profile, loading,
+    levels, kids, memories, mascots, wardrobe, customLevels, profile, family, loading,
     refresh: loadAll,
     getKid, kidLabel, kidDone, memoriesForKid, allLevels,
     getMascot, wardrobeState, nextUnlock, throwback, yearReview,
     frameLabel, levelWeight, weightedShuffle,
     addMemory, removeMemory, addKid, addCustomLevel, updateMe,
+    createFamily, joinFamily, removeMember,
     FAMILY,
   };
 
