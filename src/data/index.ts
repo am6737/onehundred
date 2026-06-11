@@ -174,9 +174,12 @@ export async function fetchCustomLevels() {
 export async function insertCustomLevel({ title, why = '', perspective = 'together', tone = 'pink', suggest = 'photo' }) {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) throw new Error('Not authenticated');
-  const { data: existing } = await supabase.from('custom_levels').select('id').eq('user_id', session.user.id);
+  const familyId = await getMyFamilyId();
+  if (!familyId) throw new Error('no_family');
+  const { data: existing } = await supabase.from('custom_levels').select('id').eq('family_id', familyId);
   const num = '★' + ((existing?.length || 0) + 1);
   const { data, error } = await supabase.from('custom_levels').insert({
+    family_id: familyId,
     user_id: session.user.id,
     num, title, perspective, tone, suggest,
     why: why || '这是你们家自己的事，记下来就不会忘。',
@@ -189,9 +192,12 @@ export async function insertCustomLevel({ title, why = '', perspective = 'togeth
 export async function insertMemory({ id: givenId, kid, levelNum, perspective, type, dur, shots, date, place, title, caption, transcript, tone }) {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) throw new Error('Not authenticated');
+  const familyId = await getMyFamilyId();
+  if (!familyId) throw new Error('no_family');
   const id = givenId || `m${Date.now()}`;
   const { data, error } = await supabase.from('memories').insert({
     id,
+    family_id: familyId,
     user_id: session.user.id,
     kid_id: kid,
     level_num: levelNum,
@@ -217,7 +223,8 @@ export async function deleteMemory(id) {
   if (error) throw error;
   // best-effort 清理 Storage 媒体目录，失败不阻塞删除
   try {
-    const dir = `${session.user.id}/${id}`;
+    const familyId = await getMyFamilyId();
+    const dir = `${familyId}/${id}`;
     const { data: files, error: listErr } = await supabase.storage.from('memories').list(dir);
     if (listErr) throw listErr;
     if (files && files.length > 0) {
@@ -234,9 +241,12 @@ export async function deleteMemory(id) {
 export async function insertKid({ name, y, m, tone = 'orange' }) {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) throw new Error('Not authenticated');
+  const familyId = await getMyFamilyId();
+  if (!familyId) throw new Error('no_family');
   const id = 'k' + Date.now();
   const { data, error } = await supabase.from('kids').insert({
     id,
+    family_id: familyId,
     user_id: session.user.id,
     name,
     birth_year: y,
