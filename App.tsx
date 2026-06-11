@@ -3,7 +3,7 @@ import { View, ActivityIndicator } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
@@ -22,7 +22,7 @@ import MascotPage, { UnlockMoment } from './src/screens/Mascot';
 import SealedPage from './src/screens/SealedPage';
 import RecordsCalendar from './src/screens/RecordsCalendar';
 import YearReview from './src/screens/YearReview';
-import InviteFlow, { JoinFlow } from './src/screens/InviteFlow';
+import InviteFlow from './src/screens/InviteFlow';
 import PhotobookSheet, { BookFlip } from './src/screens/BookPreview';
 import { LoginWelcome, PhoneLogin, ForgotPassword } from './src/screens/Login';
 import EmailLogin from './src/screens/EmailLogin';
@@ -31,6 +31,7 @@ import Agreement from './src/screens/Agreement';
 import OnboardingScreen from './src/screens/Onboarding';
 
 const Stack = createNativeStackNavigator();
+export const navigationRef = createNavigationContainerRef();
 
 function HomeWithDrawer({ navigation }) {
   const { theme, setTheme } = useTheme();
@@ -153,7 +154,7 @@ function AppNavigator() {
   }
 
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={navigationRef}>
       <StatusBar style={theme.isDark ? 'light' : 'dark'} />
       <Stack.Navigator
         id="root"
@@ -188,7 +189,6 @@ function AppNavigator() {
           options={{ animation: 'fade' }}
         />
         <Stack.Screen name="Invite" component={InviteFlow} />
-        <Stack.Screen name="Join" component={JoinFlow} />
         <Stack.Screen name="Photobook" component={PhotobookSheet} />
         <Stack.Screen name="BookFlip" component={BookFlip} />
         <Stack.Screen
@@ -213,6 +213,11 @@ function AuthGate() {
 
     const { data: { subscription } } = onAuthStateChange((_event, session) => {
       setUserId(session?.user?.id || null);
+      // 退出登录 / 注销账户后，把整个导航栈重置回登录页。
+      // 只在 SIGNED_OUT 时做，避免影响游客登录等其它会话变化。
+      if (_event === 'SIGNED_OUT' && navigationRef.isReady()) {
+        navigationRef.reset({ index: 0, routes: [{ name: 'LoginWelcome' }] });
+      }
     });
 
     return () => subscription.unsubscribe();

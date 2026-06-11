@@ -137,7 +137,7 @@ function Stepper({ value, min, max, onChange, fmt = (v) => String(v), wrap = fal
 
 /* ── Step 1: Welcome ── */
 
-function WelcomeStep({ onNext }) {
+function WelcomeStep({ onNext, onJoin }) {
   const { theme } = useTheme();
   return (
     <>
@@ -167,6 +167,11 @@ function WelcomeStep({ onNext }) {
       </View>
 
       <CTA label="好，开始吧" onPress={onNext} hint="花一分钟，让它认识你们" />
+      <TouchableOpacity onPress={onJoin} activeOpacity={0.7} style={{ paddingBottom: 24, alignItems: 'center' }}>
+        <Text style={{ fontFamily: theme.fonts.body, fontSize: 14.5, color: theme.inkSoft }}>
+          已经有家人在用了？<Text style={{ color: theme.accent }}>输入邀请码加入</Text>
+        </Text>
+      </TouchableOpacity>
     </>
   );
 }
@@ -361,38 +366,144 @@ function DoneStep({ me, child, onEnter, loading }) {
   );
 }
 
+/* ── Join step A: 邀请码 ── */
+function JoinCodeStep({ code, onChange, onNext }) {
+  const { theme } = useTheme();
+  const ok = code.trim().length > 0;
+  return (
+    <>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 24, paddingTop: 6 }}>
+        <Text style={{ fontFamily: theme.fonts.hand, fontSize: 17, color: theme.accent, marginBottom: 8 }}>加入家人的家</Text>
+        <Text style={{ fontFamily: theme.fonts.head, fontSize: 27, lineHeight: 38, color: theme.ink }}>输入邀请码</Text>
+        <Text style={{ marginTop: 12, fontSize: 15, lineHeight: 28, color: theme.inkSoft }}>
+          家人在「邀请家人」里能看到这串口令。
+        </Text>
+        <TextInput
+          value={code}
+          onChangeText={(t) => onChange(t.toUpperCase())}
+          placeholder="邀请码"
+          placeholderTextColor={theme.inkSoft}
+          autoCapitalize="characters"
+          autoCorrect={false}
+          autoFocus
+          style={{
+            marginTop: 22, width: '100%',
+            borderWidth: 1.5, borderColor: theme.line, borderRadius: 18,
+            paddingVertical: 16, paddingHorizontal: 17,
+            backgroundColor: theme.paper, color: theme.ink,
+            fontFamily: theme.fonts.head, fontSize: 20, letterSpacing: 3, textAlign: 'center',
+          }}
+        />
+      </ScrollView>
+      <CTA label="下一步" onPress={onNext} disabled={!ok} />
+    </>
+  );
+}
+
+/* ── Join step B: 选自己的角色（孩子叫你什么）── */
+function JoinRoleStep({ value, onChange, onEnter, loading }) {
+  const { theme } = useTheme();
+  return (
+    <>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 24, paddingTop: 6 }}>
+        <Text style={{ fontFamily: theme.fonts.head, fontSize: 27, lineHeight: 38, color: theme.ink }}>孩子叫你什么？</Text>
+        <Text style={{ marginTop: 12, fontSize: 15, lineHeight: 28, color: theme.inkSoft }}>
+          这个是你自己的角色，选一次就好。
+        </Text>
+        <View style={{ marginTop: 26, flexDirection: 'row', flexWrap: 'wrap', gap: 11 }}>
+          {ROLES.map(r => {
+            const on = value === r;
+            return (
+              <TouchableOpacity
+                key={r}
+                onPress={() => onChange(r)}
+                activeOpacity={0.7}
+                style={{
+                  width: (SCREEN_W - 48 - 11) / 2,
+                  paddingVertical: 20, borderRadius: 20, alignItems: 'center',
+                  backgroundColor: on ? theme.accent : theme.paper,
+                  borderWidth: 1.5, borderColor: on ? theme.accent : theme.line,
+                }}
+              >
+                <Text style={{ fontFamily: theme.fonts.head, fontSize: 19, color: on ? '#FFFDF7' : theme.ink }}>{r}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </ScrollView>
+      <CTA label={loading ? '加入中...' : (value ? `我是${value}，加入` : '选一个')} onPress={onEnter} disabled={!value || loading} />
+    </>
+  );
+}
+
 /* ── Main Onboarding Screen ── */
 
 export default function OnboardingScreen({ navigation }) {
-  const { addKid, updateMe } = useData();
+  const { addKid, createFamily, joinFamily } = useData();
   const { theme } = useTheme();
 
+  const [mode, setMode] = useState<'create' | 'join'>('create');
   const [page, setPage] = useState<typeof FLOW[number]>('welcome');
+  const [joinStep, setJoinStep] = useState<'code' | 'role'>('code');
   const [me, setMe] = useState('');
+  const [code, setCode] = useState('');
   const [child, setChild] = useState({ name: '', y: 2021, m: 3 });
   const [saving, setSaving] = useState(false);
 
   const idx = FLOW.indexOf(page);
   const next = () => setPage(FLOW[Math.min(FLOW.length - 1, idx + 1)]);
-  const back = idx > 0 ? () => setPage(FLOW[idx - 1]) : null;
 
+  // 创建路径：建家 → 镜像角色 → 加孩子 → 进首页
   const enter = async () => {
     if (saving) return;
     setSaving(true);
     try {
+      await createFamily(me, '');
       await persistMe({ role: me, custom: '' });
       await addKid({ name: child.name.trim(), y: child.y, m: child.m, tone: 'orange' });
       navigation.replace('Home');
     } catch (e: any) {
-      console.error('Onboarding save error:', e);
+      console.error('Onboarding create error:', e);
       Alert.alert('保存失败', '请检查网络后重试');
       setSaving(false);
     }
   };
 
+  // 加入路径：redeem → 镜像角色 → 进首页
+  const doJoin = async () => {
+    if (saving) return;
+    setSaving(true);
+    try {
+      await joinFamily(code.trim(), me, '');
+      await persistMe({ role: me, custom: '' });
+      navigation.replace('Home');
+    } catch (e: any) {
+      const msg = e?.message || '';
+      const hint = msg.includes('invalid_code') ? '邀请码不对，请再确认一下'
+        : msg.includes('already_in_family') ? '你已经在一个家里了'
+        : '请检查网络后重试';
+      Alert.alert('加入失败', hint);
+      setSaving(false);
+    }
+  };
+
+  const startJoin = () => { setMode('join'); setJoinStep('code'); };
+  const back = () => {
+    if (mode === 'join') {
+      if (joinStep === 'role') { setJoinStep('code'); return; }
+      setMode('create'); setPage('welcome'); return;
+    }
+    if (idx > 0) setPage(FLOW[idx - 1]);
+  };
+  const showBack = mode === 'join' || idx > 0;
+
   const body = (() => {
+    if (mode === 'join') {
+      if (joinStep === 'code') return <JoinCodeStep code={code} onChange={setCode} onNext={() => setJoinStep('role')} />;
+      return <JoinRoleStep value={me} onChange={setMe} onEnter={doJoin} loading={saving} />;
+    }
     switch (page) {
-      case 'welcome': return <WelcomeStep onNext={next} />;
+      case 'welcome': return <WelcomeStep onNext={next} onJoin={startJoin} />;
       case 'me': return <MeStep value={me} onChange={setMe} onNext={next} />;
       case 'child': return <ChildStep child={child} onChange={setChild} onNext={next} />;
       case 'done': return <DoneStep me={me} child={child} onEnter={enter} loading={saving} />;
@@ -400,9 +511,12 @@ export default function OnboardingScreen({ navigation }) {
     }
   })();
 
+  // 进度点只在创建路径显示；加入路径不显示
+  const barPage = mode === 'join' ? 'welcome' : page;
+
   return (
     <View style={{ flex: 1, backgroundColor: theme.cream }}>
-      <TopBar onBack={back} page={page} />
+      <TopBar onBack={showBack ? back : null} page={barPage} />
       <View style={{ flex: 1 }}>
         {body}
       </View>

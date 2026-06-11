@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/tokens';
 import { ROLES } from '../data';
@@ -94,7 +94,7 @@ export default function InviteFlow({ navigation, route }) {
           {INVITE_OPTIONS.map(opt => (
             <TouchableOpacity
               key={opt.id}
-              onPress={() => {}}
+              onPress={() => Alert.alert('马上就好', '邀请家人一起记的功能正在打磨，很快就能用。')}
               activeOpacity={0.8}
               style={{
                 flexDirection: 'row', alignItems: 'center', gap: 14,
@@ -199,96 +199,6 @@ export default function InviteFlow({ navigation, route }) {
           fontFamily: theme.fonts.body, fontSize: 13, lineHeight: 21,
           color: theme.inkSoft,
         }}>邀请更多家人一起参与，{'\n'}每个人都能看到回忆、养小熊</Text>
-      </ScrollView>
-    </View>
-  );
-}
-
-export function JoinFlow({ navigation, route }) {
-  const { theme } = useTheme();
-  const insets = useSafeAreaInsets();
-  const [step, setStep] = useState(0);
-  const [code, setCode] = useState('');
-  const [role, setRole] = useState(null);
-
-  const steps = [
-    // Step 0: Enter code
-    <View key="code" style={{ alignItems: 'center', padding: 22 }}>
-      <Text style={{
-        fontFamily: theme.fonts.head, fontSize: 26, color: theme.ink,
-        textAlign: 'center', marginBottom: 8,
-      }}>加入一百件事</Text>
-      <Text style={{
-        fontFamily: theme.fonts.body, fontSize: 15, color: theme.inkSoft,
-        textAlign: 'center', marginBottom: 30, lineHeight: 24,
-      }}>输入家人分享的邀请码</Text>
-      <TextInput
-        value={code}
-        onChangeText={setCode}
-        placeholder="邀请码"
-        placeholderTextColor={theme.inkSoft}
-        style={{
-          width: '100%', padding: 16, borderRadius: 16,
-          backgroundColor: theme.paper, borderWidth: 1, borderColor: theme.line,
-          fontFamily: theme.fonts.head, fontSize: 20, color: theme.ink,
-          textAlign: 'center', letterSpacing: 2,
-        }}
-      />
-      <View style={{ marginTop: 24, width: '100%' }}>
-        <PrimaryButton label="下一步" onPress={() => setStep(1)} />
-      </View>
-    </View>,
-    // Step 1: Choose role
-    <View key="role" style={{ alignItems: 'center', padding: 22 }}>
-      <Text style={{
-        fontFamily: theme.fonts.head, fontSize: 22, color: theme.ink,
-        textAlign: 'center', marginBottom: 20,
-      }}>你是？</Text>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, justifyContent: 'center' }}>
-        {ROLES.map(r => (
-          <TouchableOpacity
-            key={r}
-            onPress={() => { setRole(r); setStep(2); }}
-            activeOpacity={0.8}
-            style={{
-              paddingHorizontal: 20, paddingVertical: 14, borderRadius: 999,
-              backgroundColor: role === r ? theme.accent : theme.sand,
-            }}
-          >
-            <Text style={{
-              fontFamily: theme.fonts.head, fontSize: 16,
-              color: role === r ? '#FFFDF7' : theme.ink,
-            }}>{r}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-    </View>,
-    // Step 2: Done
-    <View key="done" style={{ alignItems: 'center', padding: 22 }}>
-      <View style={{
-        width: 80, height: 80, borderRadius: 40,
-        backgroundColor: theme.accent, justifyContent: 'center', alignItems: 'center',
-        marginBottom: 20,
-      }}>
-        {Icon.check('#FFFDF7', 36)}
-      </View>
-      <Text style={{
-        fontFamily: theme.fonts.head, fontSize: 26, color: theme.ink,
-        textAlign: 'center', marginBottom: 10,
-      }}>加入成功！</Text>
-      <Text style={{
-        fontFamily: theme.fonts.body, fontSize: 15, color: theme.inkSoft,
-        textAlign: 'center', lineHeight: 24, marginBottom: 30,
-      }}>欢迎{role || '你'}，一起开始记录吧</Text>
-      <PrimaryButton label="开始" onPress={() => navigation.goBack()} />
-    </View>,
-  ];
-
-  return (
-    <View style={{ flex: 1, backgroundColor: theme.cream }}>
-      <LayerHeader title="加入家庭" onBack={() => step > 0 ? setStep(step - 1) : navigation.goBack()} />
-      <ScrollView contentContainerStyle={{ flex: 1, justifyContent: 'center', paddingBottom: insets.bottom + 40 }}>
-        {steps[step]}
       </ScrollView>
     </View>
   );
