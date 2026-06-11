@@ -1,5 +1,5 @@
 // media — list & sign storage files for a memory.
-// 文件按 `${userId}/${memoryId}/<name>.<ext>` 存在私有桶 memories 里，
+// 文件按 `${familyId}/${memoryId}/<name>.<ext>` 存在私有桶 memories 里，
 // 这里列出目录并换成带签名的临时 URL 供 <Image>/<VideoView> 使用。
 
 import { useEffect, useState } from 'react';

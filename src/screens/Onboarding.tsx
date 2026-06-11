@@ -423,6 +423,11 @@ function JoinRoleStep({ value, onChange, onEnter, loading }) {
                   paddingVertical: 20, borderRadius: 20, alignItems: 'center',
                   backgroundColor: on ? theme.accent : theme.paper,
                   borderWidth: 1.5, borderColor: on ? theme.accent : theme.line,
+                  shadowColor: on ? theme.accent : 'transparent',
+                  shadowOffset: { width: 0, height: 12 },
+                  shadowOpacity: on ? 0.3 : 0,
+                  shadowRadius: 24,
+                  elevation: on ? 4 : 0,
                 }}
               >
                 <Text style={{ fontFamily: theme.fonts.head, fontSize: 19, color: on ? '#FFFDF7' : theme.ink }}>{r}</Text>
@@ -479,10 +484,13 @@ export default function OnboardingScreen({ navigation }) {
       navigation.replace('Home');
     } catch (e: any) {
       const msg = e?.message || '';
-      const hint = msg.includes('invalid_code') ? '邀请码不对，请再确认一下'
-        : msg.includes('already_in_family') ? '你已经在一个家里了'
-        : '请检查网络后重试';
-      Alert.alert('加入失败', hint);
+      if (msg.includes('invalid_code')) {
+        setJoinStep('code');
+        Alert.alert('加入失败', '邀请码不对，请再确认一下');
+      } else {
+        const hint = msg.includes('already_in_family') ? '你已经在一个家里了' : '请检查网络后重试';
+        Alert.alert('加入失败', hint);
+      }
       setSaving(false);
     }
   };
