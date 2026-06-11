@@ -8,7 +8,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme, COLORS } from '../theme/tokens';
 import { ROLES, NOW_YM } from '../data';
 import { useData } from '../data/DataProvider';
-import { setMe as persistMe } from '../utils/storage';
 import { Icon, KidAvatar } from '../components/Icons';
 
 const { width: SCREEN_W } = Dimensions.get('window');
@@ -444,7 +443,7 @@ function JoinRoleStep({ value, onChange, onEnter, loading }) {
 /* ── Main Onboarding Screen ── */
 
 export default function OnboardingScreen({ navigation }) {
-  const { addKid, createFamily, joinFamily } = useData();
+  const { addKid, createFamily, joinFamily, updateMe } = useData();
   const { theme } = useTheme();
 
   const [mode, setMode] = useState<'create' | 'join'>('create');
@@ -464,7 +463,7 @@ export default function OnboardingScreen({ navigation }) {
     setSaving(true);
     try {
       await createFamily(me, '');
-      await persistMe({ role: me, custom: '' });
+      await updateMe({ role: me, custom_role: '' });
       await addKid({ name: child.name.trim(), y: child.y, m: child.m, tone: 'orange' });
       navigation.replace('Home');
     } catch (e: any) {
@@ -480,7 +479,7 @@ export default function OnboardingScreen({ navigation }) {
     setSaving(true);
     try {
       await joinFamily(code.trim(), me, '');
-      await persistMe({ role: me, custom: '' });
+      await updateMe({ role: me, custom_role: '' });
       navigation.replace('Home');
     } catch (e: any) {
       const msg = e?.message || '';
