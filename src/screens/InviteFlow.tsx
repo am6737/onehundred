@@ -32,7 +32,7 @@ function KidCluster({ theme }) {
   );
 }
 
-function InvMemberRow({ role, onRemove = null, theme }) {
+function InvMemberRow({ role, canRemove = false, onRemove = null, theme }) {
   return (
     <View style={{
       flexDirection: 'row', alignItems: 'center', gap: 12,
@@ -41,7 +41,19 @@ function InvMemberRow({ role, onRemove = null, theme }) {
     }}>
       <InvAvatar label={role} tone="orange" size={40} theme={theme} />
       <Text style={{ flex: 1, fontFamily: theme.fonts.head, fontSize: 16, color: theme.ink }}>{role}</Text>
-      <Text style={{ fontFamily: theme.fonts.body, fontSize: 12, color: theme.inkSoft }}>已加入</Text>
+      {canRemove ? (
+        <TouchableOpacity
+          onPress={() => Alert.alert('移除成员', `把 ${role} 移出这个家？`, [
+            { text: '取消', style: 'cancel' },
+            { text: '移除', style: 'destructive', onPress: onRemove },
+          ])}
+          activeOpacity={0.7}
+        >
+          <Text style={{ fontFamily: theme.fonts.body, fontSize: 13, color: theme.danger || '#C2553D' }}>移除</Text>
+        </TouchableOpacity>
+      ) : (
+        <Text style={{ fontFamily: theme.fonts.body, fontSize: 12, color: theme.inkSoft }}>已加入</Text>
+      )}
     </View>
   );
 }
@@ -56,11 +68,12 @@ export default function InviteFlow({ navigation, route }) {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
   const [step, setStep] = useState('list');
-  const [selectedRole, setSelectedRole] = useState(null);
   const [showShare, setShowShare] = useState(false);
 
-  const familyMembers = ['爸爸'];
-  const inviteCode = 'YIBAI-2026-A3K7';
+  const { family, removeMember } = useData();
+  const inviteCode = family?.inviteCode || '——';
+  const members = family?.members || [];
+  const isCreator = family?.isCreator;
 
   if (step === 'share') {
     return (
@@ -70,7 +83,7 @@ export default function InviteFlow({ navigation, route }) {
           <View style={{ alignItems: 'center', marginBottom: 30 }}>
             <Text style={{
               fontFamily: theme.fonts.head, fontSize: 22, color: theme.ink, textAlign: 'center',
-            }}>邀请{selectedRole || '家人'}加入</Text>
+            }}>邀请家人加入</Text>
             <Text style={{
               marginTop: 10, fontFamily: theme.fonts.body, fontSize: 14.5,
               color: theme.inkSoft, textAlign: 'center', lineHeight: 24,
@@ -120,44 +133,6 @@ export default function InviteFlow({ navigation, route }) {
     );
   }
 
-  if (step === 'who') {
-    const availableRoles = ROLES.filter(r => !familyMembers.includes(r));
-    return (
-      <View style={{ flex: 1, backgroundColor: theme.cream }}>
-        <LayerHeader title="选择角色" onBack={() => setStep('list')} />
-        <ScrollView contentContainerStyle={{ padding: 22, paddingBottom: insets.bottom + 40 }}>
-          <Text style={{
-            fontFamily: theme.fonts.head, fontSize: 22, color: theme.ink,
-            textAlign: 'center', marginBottom: 8,
-          }}>要邀请谁？</Text>
-          <Text style={{
-            fontFamily: theme.fonts.body, fontSize: 14.5, color: theme.inkSoft,
-            textAlign: 'center', marginBottom: 24,
-          }}>选择 TA 在家里的角色</Text>
-
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, justifyContent: 'center' }}>
-            {availableRoles.map(role => (
-              <TouchableOpacity
-                key={role}
-                onPress={() => { setSelectedRole(role); setStep('share'); }}
-                activeOpacity={0.8}
-                style={{
-                  width: '45%', alignItems: 'center', padding: 18,
-                  borderRadius: 20, backgroundColor: theme.paper,
-                  borderWidth: 1, borderColor: theme.line,
-                }}
-              >
-                <InvAvatar label={role} tone="orange" size={56} theme={theme} />
-                <Text style={{
-                  marginTop: 10, fontFamily: theme.fonts.head, fontSize: 16, color: theme.ink,
-                }}>{role}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </ScrollView>
-      </View>
-    );
-  }
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.cream }}>
@@ -181,8 +156,14 @@ export default function InviteFlow({ navigation, route }) {
           <View style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: theme.line }}>
             <Text style={{ fontFamily: theme.fonts.head, fontSize: 15, color: theme.inkSoft }}>已加入</Text>
           </View>
-          {familyMembers.map(role => (
-            <InvMemberRow key={role} role={role} theme={theme} />
+          {members.map(m => (
+            <InvMemberRow
+              key={m.userId}
+              role={m.role === '其他' ? (m.customRole || '家人') : m.role}
+              theme={theme}
+              canRemove={isCreator && !m.isMe}
+              onRemove={() => removeMember(m.userId)}
+            />
           ))}
         </View>
 
@@ -190,7 +171,7 @@ export default function InviteFlow({ navigation, route }) {
           <PrimaryButton
             label="邀请家人加入"
             icon={Icon.plus('#FFFDF7', 18)}
-            onPress={() => setStep('who')}
+            onPress={() => setStep('share')}
           />
         </View>
 
