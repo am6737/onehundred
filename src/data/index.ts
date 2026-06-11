@@ -265,6 +265,86 @@ export async function updateProfile(fields) {
   if (error) throw error;
 }
 
+// ── Family（家庭共享）──
+
+// 当前用户的 family_id 缓存：避免每次写入都查一次。切账号/退出时调 clearFamilyCache()。
+let _familyIdCache: string | null = null;
+export function clearFamilyCache() { _familyIdCache = null; }
+
+export async function getMyFamilyId(): Promise<string | null> {
+  if (_familyIdCache) return _familyIdCache;
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) return null;
+  const { data, error } = await supabase
+    .from('family_members')
+    .select('family_id')
+    .eq('user_id', session.user.id)
+    .maybeSingle();
+  if (error || !data) return null;
+  _familyIdCache = data.family_id;
+  return _familyIdCache;
+}
+
+// 拉「我的家」+ 花名册。无家时返回 null。
+export async function fetchMyFamily() {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) return null;
+  const { data: mem } = await supabase
+    .from('family_members')
+    .select('family_id')
+    .eq('user_id', session.user.id)
+    .maybeSingle();
+  if (!mem) return null;
+  const { data: fam } = await supabase
+    .from('families')
+    .select('id, invite_code, created_by')
+    .eq('id', mem.family_id)
+    .maybeSingle();
+  const { data: members } = await supabase
+    .from('family_members')
+    .select('user_id, role, custom_role, joined_at')
+    .eq('family_id', mem.family_id)
+    .order('joined_at');
+  return {
+    id: mem.family_id,
+    inviteCode: fam?.invite_code || '',
+    isCreator: fam?.created_by === session.user.id,
+    members: (members || []).map(m => ({
+      userId: m.user_id, role: m.role, customRole: m.custom_role,
+      isMe: m.user_id === session.user.id,
+    })),
+  };
+}
+
+// 建家：返回 { id, inviteCode }
+export async function createFamily(role: string, custom = '') {
+  const { data, error } = await supabase.rpc('create_family', { p_role: role, p_custom_role: custom });
+  if (error) throw error;
+  _familyIdCache = null;
+  const row = Array.isArray(data) ? data[0] : data;
+  return { id: row.family_id, inviteCode: row.invite_code };
+}
+
+// 加入：返回 family_id；错误码 invalid_code / already_in_family
+export async function joinFamily(code: string, role: string, custom = '') {
+  const { data, error } = await supabase.rpc('redeem_invite', { p_code: code, p_role: role, p_custom_role: custom });
+  if (error) throw error;
+  _familyIdCache = null;
+  return data as string;
+}
+
+// 创建者移除成员
+export async function removeFamilyMember(userId: string) {
+  const fid = await getMyFamilyId();
+  if (!fid) throw new Error('no_family');
+  const { error } = await supabase
+    .from('family_members')
+    .delete()
+    .eq('family_id', fid)
+    .eq('user_id', userId);
+  if (error) throw error;
+}
+
 // ── Derived helper functions (accept data as params) ──
 
 export function getKidFrom(kids, id) {
