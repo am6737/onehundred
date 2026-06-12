@@ -1,6 +1,7 @@
 import React from 'react';
-import { View, Text } from 'react-native';
+import { View, Text, Image } from 'react-native';
 import Svg, { Circle, Path, Rect, Ellipse, Line, G } from 'react-native-svg';
+import { supabase } from '../lib/supabase';
 
 const MOTIF_COLORS = {
   orange: { bg: '#F4D9BE', fg: '#DE8C57' },
@@ -168,11 +169,34 @@ export function motifForLevel(level) {
   return 'star';
 }
 
+// illustration_path 支持两种写法：
+//  1) 完整网址 https://...        —— 任何外链图都行，直接用
+//  2) 桶内文件名 level-3.png      —— 当成 illustrations 公开桶里的路径解析
+// 都没有则返回 null，由 SceneSlot 回退到关键字匹配的 SVG motif
+export function illustrationUrl(level) {
+  const v = level?.illustrationPath ?? level?.illustration_path;
+  if (!v) return null;
+  if (/^https?:\/\//i.test(v)) return v;
+  return supabase.storage.from('illustrations').getPublicUrl(v).data.publicUrl;
+}
+
 export function SceneSlot({ tone = 'orange', level, size = 120, style = undefined }) {
   const colors = MOTIF_COLORS[tone] || MOTIF_COLORS.orange;
-  const motifKey = motifForLevel(level);
-  const MotifComponent = MOTIF_MAP[motifKey] || Star;
+  const url = illustrationUrl(level);
 
+  // 有插画：铺满父容器（首页那张大卡），圆角/裁切交给父级的 overflow:hidden
+  if (url) {
+    return (
+      <Image
+        source={{ uri: url }}
+        style={[{ width: '100%', height: '100%' }, style]}
+        resizeMode="cover"
+      />
+    );
+  }
+
+  // 没插画：回退到固定尺寸、居中的 SVG motif（保持原样）
+  const MotifComponent = MOTIF_MAP[motifForLevel(level)] || Star;
   return (
     <View style={[{
       width: size,
@@ -181,6 +205,7 @@ export function SceneSlot({ tone = 'orange', level, size = 120, style = undefine
       backgroundColor: colors.bg,
       justifyContent: 'center',
       alignItems: 'center',
+      overflow: 'hidden',
     }, style]}>
       <MotifComponent size={size * 0.7} color={colors.fg} />
     </View>

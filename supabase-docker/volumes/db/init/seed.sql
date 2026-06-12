@@ -21,6 +21,9 @@ INSERT INTO public.levels (num, perspective, tone, title, why, how, record, sugg
 ('19','together','orange','一起完成一件需要等很久才有结果的事','等待本身就是一种陪伴：发豆芽、等月亮、看面团发起来。','挑一件需要耐心的小事，每天一起去看它一点点变化。','把第一天和最后一天的样子拍下来对比。','photo',false,NULL,NULL,false,NULL,20),
 ('27','together','pink','一起发明一个只属于你们的「暗号」','一个外人看不懂的小手势，会成为你们一生的默契。','一起设计一个动作或一句怪话，约定它代表「我爱你」。','录下你们第一次对暗号时的傻笑。','voice',false,NULL,NULL,false,NULL,21);
 
+-- 可封存活动的到期日来源：给 18 岁的信按孩子生日+18 年自动算（age18），时间胶囊等录制时手选日期（date，默认）
+UPDATE public.levels SET seal_kind = 'age18' WHERE num = '12';
+
 INSERT INTO public.wardrobe (id, name, slot, at, line) VALUES
 ('scarf','小围巾','脖子',1,'围上了奶奶织的那条小围巾。'),
 ('star','星空小窝','场景',5,'它的小世界里，亮起了一整片星空。'),

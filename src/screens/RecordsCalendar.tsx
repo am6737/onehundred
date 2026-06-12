@@ -3,6 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme, TONE } from '../theme/tokens';
 import { useData } from '../data/DataProvider';
+import { isMemoryLocked } from '../data';
 import { Icon } from '../components/Icons';
 import { MemoryCover } from '../components/MemoryCover';
 import { LayerHeader, Chip } from '../components/common';
@@ -252,6 +253,7 @@ export default function RecordsCalendar({ navigation, route }) {
                   {dayMemories.map((m) => {
                     const t = TONE[m.tone] || TONE.orange;
                     const tm = typeMeta(m.type);
+                    const locked = isMemoryLocked(m);
                     return (
                       <TouchableOpacity
                         key={m.id}
@@ -260,22 +262,34 @@ export default function RecordsCalendar({ navigation, route }) {
                         style={{
                           flexDirection: 'row', borderRadius: 20, overflow: 'hidden',
                           backgroundColor: theme.paper, borderWidth: 1, borderColor: theme.line,
+                          borderStyle: locked ? 'dashed' : 'solid',
                           marginBottom: 14, height: 100,
                         }}
                       >
                         <View style={{ width: 100 }}>
-                          <MemoryCover memory={m} style={{ width: 100, height: 100, aspectRatio: undefined }} />
-                          <View style={{
-                            position: 'absolute', left: 7, bottom: 7,
-                            flexDirection: 'row', alignItems: 'center', gap: 4,
-                            paddingHorizontal: 7, paddingVertical: 3, borderRadius: 999,
-                            backgroundColor: 'rgba(255,253,247,0.92)',
-                          }}>
-                            {tm.ic(t.deep, 12)}
-                            <Text style={{ fontFamily: theme.fonts.body, fontSize: 11, color: t.ink }}>
-                              {(m.type === 'voice' || m.type === 'audio' || m.type === 'video') ? m.dur : tm.txt}
-                            </Text>
-                          </View>
+                          {locked ? (
+                            <View style={{
+                              width: 100, height: 100, backgroundColor: t.soft,
+                              justifyContent: 'center', alignItems: 'center',
+                            }}>
+                              {Icon.lock(t.deep, 26)}
+                            </View>
+                          ) : (
+                            <>
+                              <MemoryCover memory={m} style={{ width: 100, height: 100, aspectRatio: undefined }} />
+                              <View style={{
+                                position: 'absolute', left: 7, bottom: 7,
+                                flexDirection: 'row', alignItems: 'center', gap: 4,
+                                paddingHorizontal: 7, paddingVertical: 3, borderRadius: 999,
+                                backgroundColor: 'rgba(255,253,247,0.92)',
+                              }}>
+                                {tm.ic(t.deep, 12)}
+                                <Text style={{ fontFamily: theme.fonts.body, fontSize: 11, color: t.ink }}>
+                                  {(m.type === 'voice' || m.type === 'audio' || m.type === 'video') ? m.dur : tm.txt}
+                                </Text>
+                              </View>
+                            </>
+                          )}
                         </View>
                         <View style={{ flex: 1, padding: 12, paddingLeft: 14, justifyContent: 'center' }}>
                           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 4 }}>
@@ -298,7 +312,7 @@ export default function RecordsCalendar({ navigation, route }) {
                           }}>{m.title}</Text>
                           <Text numberOfLines={1} style={{
                             marginTop: 3, fontFamily: theme.fonts.body, fontSize: 12.5, lineHeight: 18, color: theme.inkSoft,
-                          }}>{m.caption}</Text>
+                          }}>{locked ? `封存中 · 等${m.sealLabel || '约定的那天'}` : m.caption}</Text>
                         </View>
                       </TouchableOpacity>
                     );

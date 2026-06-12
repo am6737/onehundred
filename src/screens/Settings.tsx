@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme, COLORS } from '../theme/tokens';
-import { ROLES, DEFAULT_ME, meName, meChar, NOW_YM } from '../data';
+import { ROLES, DEFAULT_ME, meName, meChar, NOW_YM, sealedLockedFrom } from '../data';
 import { useData } from '../data/DataProvider';
 import { signOut, isAnonymous, bindEmail, deleteAccount } from '../lib/auth';
 import { Icon, KidAvatar } from '../components/Icons';
@@ -784,13 +784,6 @@ function InviteSheet({ kids, me, onClose }) {
               }}>{copied ? '已记下' : '记下邀请码'}</Text>
             </TouchableOpacity>
           </View>
-          <Text style={{
-            textAlign: 'center', marginTop: 20,
-            fontFamily: theme.fonts.hand, fontSize: 17,
-            color: theme.inkSoft, lineHeight: 30,
-          }}>
-            · 记得越多的人，回忆越热闹 ·
-          </Text>
         </ScrollView>
       </View>
     </Modal>
@@ -916,9 +909,9 @@ function ReminderTimeSheet({ value, onChange, onClose }) {
 
 function SealedItemsSheet({ onClose }) {
   const { theme } = useTheme();
-  const { levels } = useData();
+  const { memories } = useData();
   const insets = useSafeAreaInsets();
-  const sealed = levels.filter(l => l.sealed);
+  const sealed = sealedLockedFrom(memories);
 
   return (
     <Modal visible animationType="slide" onRequestClose={onClose}>
@@ -949,8 +942,8 @@ function SealedItemsSheet({ onClose }) {
 
           {/* Sealed items */}
           <View style={{ gap: 14, marginTop: 4 }}>
-            {sealed.map(l => (
-              <View key={l.num} style={{
+            {sealed.map(m => (
+              <View key={m.id} style={{
                 flexDirection: 'row', gap: 13, alignItems: 'flex-start',
                 padding: 16, backgroundColor: theme.paper,
                 borderWidth: 1.5, borderColor: theme.line,
@@ -967,18 +960,18 @@ function SealedItemsSheet({ onClose }) {
                   <Text style={{
                     fontFamily: theme.fonts.head, fontSize: 16.5,
                     lineHeight: 24, color: theme.ink,
-                  }}>{l.title}</Text>
+                  }}>{m.title}</Text>
                   <View style={{ marginTop: 8, flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
                       {Icon.lock(theme.inkSoft, 13)}
                       <Text style={{ fontFamily: theme.fonts.body, fontSize: 12.5, color: theme.inkSoft }}>
-                        {l.sealedOn || '未封存'} 封存
+                        {m.date} 封存
                       </Text>
                     </View>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
                       {Icon.seed(theme.accent, 13)}
                       <Text style={{ fontFamily: theme.fonts.body, fontSize: 12.5, color: theme.accent }}>
-                        等{l.sealUntil || '约定日期'}
+                        等{m.sealLabel || '约定日期'}
                       </Text>
                     </View>
                   </View>

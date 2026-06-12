@@ -43,7 +43,16 @@
           "microphonePermission": "允许「一百件事」使用麦克风，录下你想对孩子说的话。"
         }
       ],
-      "expo-video"
+      "expo-video",
+      "expo-sharing",
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "允许「一百件事」访问你的照片，把这些珍贵的瞬间留下来。",
+          "savePhotosPermission": "允许「一百件事」把这一页存成图片，保存到你的相册里。",
+          "isAccessMediaLocationEnabled": false
+        }
+      ]
     ],
     "extra": {
       "eas": {

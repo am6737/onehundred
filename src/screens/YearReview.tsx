@@ -1,8 +1,8 @@
 import React, { useState, useMemo } from 'react';
-import { View, Text, TouchableOpacity, Dimensions } from 'react-native';
+import { View, Text, TouchableOpacity, Dimensions, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/tokens';
-import { PET_BODY } from '../data';
+import { PET_BODY, SHOW_MASCOT } from '../data';
 import { useData } from '../data/DataProvider';
 import { Icon } from '../components/Icons';
 import { Bear } from '../components/Bear';
@@ -41,9 +41,11 @@ export default function YearReview({ navigation, route }) {
         marginTop: 18, maxWidth: 280, fontFamily: theme.fonts.body,
         fontSize: 16, lineHeight: 30, color: theme.inkSoft, textAlign: 'center',
       }}>{'你和' + who + '今年一起做到的事，\n一件一件，慢慢翻给你看。'}</Text>
-      <View style={{ marginTop: 26 }}>
-        <Bear size={120} stage={PET_BODY} accessories={acc.map(a => a.id)} tone={mascot.tone || 'orange'} mood="happy" />
-      </View>
+      {SHOW_MASCOT && (
+        <View style={{ marginTop: 26 }}>
+          <Bear size={120} stage={PET_BODY} accessories={acc.map(a => a.id)} tone={mascot.tone || 'orange'} mood="happy" />
+        </View>
+      )}
     </View>
   );
 
@@ -127,34 +129,38 @@ export default function YearReview({ navigation, route }) {
     );
   }
 
-  // Card 4: Bear grew
-  cards.push(
-    <View key="bear" style={{ alignItems: 'center' }}>
-      <Text style={{ fontFamily: theme.fonts.body, fontSize: 15.5, color: theme.inkSoft, letterSpacing: 1 }}>
-        陪着你们的{mascot.name || '小熊'}
-      </Text>
-      <View style={{ marginTop: 18 }}>
-        <Bear size={138} stage={PET_BODY} accessories={acc.map(a => a.id)} tone={mascot.tone || 'orange'} mood="celebrate" />
+  // Card 4: Bear grew — 宠物系统隐藏时整张卡片跳过
+  if (SHOW_MASCOT) {
+    cards.push(
+      <View key="bear" style={{ alignItems: 'center' }}>
+        <Text style={{ fontFamily: theme.fonts.body, fontSize: 15.5, color: theme.inkSoft, letterSpacing: 1 }}>
+          陪着你们的{mascot.name || '小熊'}
+        </Text>
+        <View style={{ marginTop: 18 }}>
+          <Bear size={138} stage={PET_BODY} accessories={acc.map(a => a.id)} tone={mascot.tone || 'orange'} mood="celebrate" />
+        </View>
+        <Text style={{
+          marginTop: 14, fontFamily: theme.fonts.head, fontSize: 26, color: theme.ink,
+        }}>今年解锁了 {acc.length} 件装扮</Text>
+        <View style={{ marginTop: 14, flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
+          {acc.map(a => (
+            <View key={a.id} style={{
+              paddingHorizontal: 15, paddingVertical: 8, borderRadius: 999, backgroundColor: theme.sand,
+            }}>
+              <Text style={{ fontFamily: theme.fonts.head, fontSize: 14, color: theme.ink }}>{a.name}</Text>
+            </View>
+          ))}
+        </View>
       </View>
-      <Text style={{
-        marginTop: 14, fontFamily: theme.fonts.head, fontSize: 26, color: theme.ink,
-      }}>今年解锁了 {acc.length} 件装扮</Text>
-      <View style={{ marginTop: 14, flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
-        {acc.map(a => (
-          <View key={a.id} style={{
-            paddingHorizontal: 15, paddingVertical: 8, borderRadius: 999, backgroundColor: theme.sand,
-          }}>
-            <Text style={{ fontFamily: theme.fonts.head, fontSize: 14, color: theme.ink }}>{a.name}</Text>
-          </View>
-        ))}
-      </View>
-    </View>
-  );
+    );
+  }
 
   // Card 5: Ending
   cards.push(
     <View key="end" style={{ alignItems: 'center' }}>
-      <Bear size={104} stage={PET_BODY} accessories={['scarf', 'hat']} tone={mascot.tone || 'orange'} mood="sleepy" />
+      {SHOW_MASCOT && (
+        <Bear size={104} stage={PET_BODY} accessories={['scarf', 'hat']} tone={mascot.tone || 'orange'} mood="sleepy" />
+      )}
       <Text style={{
         marginTop: 14, fontFamily: theme.fonts.head, fontSize: 28, lineHeight: 39,
         color: theme.ink, textAlign: 'center',
@@ -165,7 +171,7 @@ export default function YearReview({ navigation, route }) {
       }}>这 {data.total} 段回忆，可以印成一本真正的书，寄到你们家。</Text>
       <View style={{ marginTop: 26, width: '100%', maxWidth: 300, gap: 12 }}>
         <TouchableOpacity
-          onPress={() => {}}
+          onPress={() => Alert.alert('马上就好', '把这一年印成一本真正的书寄到家，我们正在接洽印厂，很快开放预订。')}
           activeOpacity={0.8}
           style={{
             flexDirection: 'row', alignItems: 'center', justifyContent: 'center',

@@ -12,7 +12,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import { useTheme, TONE } from '../theme/tokens';
-import { meName, meChar, PET_BODY, durationSince } from '../data';
+import { meName, meChar, PET_BODY, SHOW_MASCOT, durationSince, sealedLockedFrom, isMemoryUnsealed } from '../data';
 import { useData } from '../data/DataProvider';
 import { Icon } from '../components/Icons';
 import { Bear } from '../components/Bear';
@@ -464,16 +464,17 @@ export default function Drawer({ visible, onClose, onNavigate, kidId = 'all', me
     return durationSince(earliest.since);
   }, [kids]);
 
-  // Sealed items
-  const sealedLevels = levels.filter(
-    (l) => l.sealed && (isAll || l.kid === kidId || l.kid === 'all'),
-  );
-  const sealedCount = sealedLevels.length;
-  const sealedSub = sealedLevels[0]
-    ? sealedLevels[0].kid
-      ? `给 ${getKid(sealedLevels[0].kid)?.name || '孩子'} 18 岁的信`
-      : '时间胶囊，等约定的那天'
-    : '还没有封存的东西';
+  // Sealed items（真实封存记录：仍锁定的计数 + 已到期可打开的提示）
+  const sealedLocked = sealedLockedFrom(memories, kidId);
+  const sealedCount = sealedLocked.length;
+  const openableCount = memories.filter(
+    (m) => isMemoryUnsealed(m) && (isAll || m.kid === kidId || m.kid === 'all'),
+  ).length;
+  const sealedSub = openableCount > 0
+    ? `${openableCount} 个可以打开了`
+    : sealedLocked[0]
+      ? `等${sealedLocked[0].sealLabel || '约定的那天'}`
+      : '还没有封存的东西';
 
   // Mascot info
   const petKid = isAll ? (kids[0]?.id || 'duo') : kidId;
@@ -621,7 +622,7 @@ export default function Drawer({ visible, onClose, onNavigate, kidId = 'all', me
           )}
 
           {/* ── Mascot / pet entry ── */}
-          {!empty && mascot && (
+          {SHOW_MASCOT && !empty && mascot && (
             <TouchableOpacity
               activeOpacity={0.7}
               onPress={() => go('mascot')}

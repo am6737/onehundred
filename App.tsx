@@ -11,7 +11,7 @@ import { ThemeProvider, useTheme } from './src/theme/tokens';
 import { DataProvider, useData } from './src/data/DataProvider';
 import { DEFAULT_ME, meName } from './src/data';
 import { getMe, setMe as persistMe } from './src/utils/storage';
-import { getSession, onAuthStateChange } from './src/lib/auth';
+import { getSession, getValidSession, onAuthStateChange } from './src/lib/auth';
 
 import HomeFeed from './src/screens/HomeFeed';
 import Drawer from './src/screens/Drawer';
@@ -206,10 +206,12 @@ function AuthGate() {
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
-    getSession().then(session => {
+    // 用 getValidSession：本地库重置后设备里的旧 JWT 仍“有效”，必须向服务端确认
+    // 用户是否还存在，否则会带着幽灵 uid 进 onboarding 触发 create_family 外键报错。
+    getValidSession().then(session => {
       setUserId(session?.user?.id || null);
       setChecking(false);
-    }).catch(() => setChecking(false));
+    }).catch(() => { setUserId(null); setChecking(false); });
 
     const { data: { subscription } } = onAuthStateChange((_event, session) => {
       setUserId(session?.user?.id || null);

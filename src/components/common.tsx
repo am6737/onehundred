@@ -1,8 +1,9 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useMemo } from 'react';
 import {
   View, Text, TouchableOpacity, Animated, Dimensions,
-  Modal, Pressable, ScrollView, StyleSheet, PanResponder,
+  Modal, Pressable, ScrollView, StyleSheet,
 } from 'react-native';
+import { GestureHandlerRootView, GestureDetector, Gesture } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/tokens';
 import { Icon } from './Icons';
@@ -73,46 +74,48 @@ export function Sheet({ visible, onClose, children, title }) {
     }).start(() => onCloseRef.current && onCloseRef.current());
   };
 
-  // 整个弹层支持下滑关闭：内容滚在顶部时向下拖动跟手下移，
-  // 超过阈值或甩动即收起，否则弹回。用捕获阶段抢在内容 ScrollView 之前，
-  // 已滚动时不抢，保证内容还能正常往回滚。
+  // 整个弹层支持下滑关闭。用 gesture-handler 的原生 Pan 手势
+  // （RN 新架构下 Modal 里的 JS PanResponder 收不到事件，必须走原生手势）：
+  // 下拉 12px 激活、跟手下移，松手超过阈值或甩动即收起，否则弹回。
   const scrollYRef = useRef(0);
   const [contentH, setContentH] = useState(0);
   const needScroll = contentH > SCREEN_H * 0.7;
-  const panResponder = useRef(
-    PanResponder.create({
-      onMoveShouldSetPanResponderCapture: (_, g) =>
-        scrollYRef.current <= 0 && g.dy > 6 && Math.abs(g.dy) > Math.abs(g.dx),
-      onPanResponderTerminationRequest: () => false,
-      onPanResponderMove: (_, g) => {
-        if (g.dy > 0) slideAnim.setValue(g.dy);
-      },
-      onPanResponderRelease: (_, g) => {
-        if (g.dy > 120 || g.vy > 0.8) {
-          handleClose();
-        } else {
-          Animated.spring(slideAnim, {
-            toValue: 0,
-            useNativeDriver: true,
-            damping: 20,
-            stiffness: 200,
-          }).start();
-        }
-      },
+  const panGesture = useMemo(() => Gesture.Pan()
+    .runOnJS(true)
+    .activeOffsetY(12)   // 明确的下拉才激活
+    .failOffsetY(-12)    // 上滑让位给内容滚动
+    .onUpdate(e => {
+      if (e.translationY > 0 && scrollYRef.current <= 0) {
+        slideAnim.setValue(e.translationY);
+      }
     })
-  ).current;
+    .onEnd(e => {
+      if (scrollYRef.current <= 0 && (e.translationY > 120 || e.velocityY > 800)) {
+        handleClose();
+      } else {
+        Animated.spring(slideAnim, {
+          toValue: 0,
+          useNativeDriver: true,
+          damping: 20,
+          stiffness: 200,
+        }).start();
+      }
+    }), []);
 
   if (!visible) return null;
 
   return (
     <Modal transparent visible={visible} animationType="fade" onRequestClose={handleClose}>
+      {/* Modal 是独立原生根，gesture-handler 需要自己的 RootView 才能工作 */}
+      <GestureHandlerRootView style={{ flex: 1 }}>
       <Pressable style={styles.overlay} onPress={handleClose}>
         <Pressable onPress={e => e.stopPropagation()}>
+          <GestureDetector gesture={panGesture}>
           <Animated.View
-            {...panResponder.panHandlers}
             style={[styles.sheetContainer, {
               backgroundColor: theme.paper,
-              paddingBottom: insets.bottom + 20,
+              // 安全区已经留白了，再加一点点呼吸感即可；无安全区机型保底 16
+              paddingBottom: Math.max(insets.bottom + 6, 16),
               transform: [{ translateY: slideAnim }],
             }]}
           >
@@ -133,8 +136,7 @@ export function Sheet({ visible, onClose, children, title }) {
               style={{ maxHeight: SCREEN_H * 0.7 }}
               showsVerticalScrollIndicator={false}
               bounces={false}
-              // 内容不超高就关掉滚动：原生滚动手势会在 native 层吃掉触摸，
-              // 关掉后事件才能到 JS 层的 PanResponder，整个弹层都能下滑关闭
+              // 内容不超高就关掉滚动，避免原生滚动手势和下滑关闭抢触摸
               scrollEnabled={needScroll}
               onContentSizeChange={(_, h) => setContentH(h)}
               scrollEventThrottle={16}
@@ -143,8 +145,10 @@ export function Sheet({ visible, onClose, children, title }) {
               {children}
             </ScrollView>
           </Animated.View>
+          </GestureDetector>
         </Pressable>
       </Pressable>
+      </GestureHandlerRootView>
     </Modal>
   );
 }

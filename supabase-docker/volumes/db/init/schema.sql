@@ -13,9 +13,11 @@ CREATE TABLE IF NOT EXISTS public.levels (
   sealed      BOOLEAN NOT NULL DEFAULT false,
   seal_until  TEXT,
   sealed_on   TEXT,
+  seal_kind   TEXT NOT NULL DEFAULT 'date' CHECK (seal_kind IN ('age18','date')),  -- 可封存活动到期日怎么取
   seasonal    BOOLEAN NOT NULL DEFAULT false,
   kid         TEXT,
-  sort_order  INT NOT NULL DEFAULT 0
+  sort_order  INT NOT NULL DEFAULT 0,
+  illustration_path TEXT  -- illustrations 桶里的图路径；为空则回退到 Motifs 的 SVG
 );
 ALTER TABLE public.levels ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "levels_public_read" ON public.levels FOR SELECT USING (true);
@@ -178,6 +180,9 @@ CREATE TABLE IF NOT EXISTS public.memories (
   caption     TEXT NOT NULL DEFAULT '',
   transcript  TEXT,
   tone        TEXT NOT NULL DEFAULT 'orange',
+  sealed      BOOLEAN NOT NULL DEFAULT false,        -- 这条记录是否封存
+  seal_until  TIMESTAMPTZ,                           -- 真实到期日；解封靠它比时间
+  seal_label  TEXT,                                  -- 展示文案，如「朵朵 18 岁生日」
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 ALTER TABLE public.memories ENABLE ROW LEVEL SECURITY;
@@ -215,6 +220,7 @@ CREATE TABLE IF NOT EXISTS public.custom_levels (
   perspective TEXT NOT NULL DEFAULT 'together',
   tone        TEXT NOT NULL DEFAULT 'pink',
   suggest     TEXT NOT NULL DEFAULT 'photo',
+  illustration_path TEXT,  -- 同 levels.illustration_path
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 ALTER TABLE public.custom_levels ENABLE ROW LEVEL SECURITY;
@@ -241,6 +247,10 @@ ON CONFLICT (id) DO NOTHING;
 CREATE POLICY "memories_media_family" ON storage.objects FOR ALL TO authenticated
   USING (bucket_id = 'memories' AND (storage.foldername(name))[1] = public.my_family_id()::text)
   WITH CHECK (bucket_id = 'memories' AND (storage.foldername(name))[1] = public.my_family_id()::text);
+
+-- 公开桶 illustrations：事情的插画，所有人可读（public 桶读取走 /object/public/ 不过 RLS）
+INSERT INTO storage.buckets (id, name, public) VALUES ('illustrations', 'illustrations', true)
+ON CONFLICT (id) DO UPDATE SET public = true;
 
 -- 10. Account deletion: 用户删自己账号。
 --     注意：若删的是家庭创建者，families.created_by ON DELETE CASCADE 会连带删掉整个家的数据。

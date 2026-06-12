@@ -63,7 +63,7 @@ export function DataProvider({ children, userId }) {
   const yearReview = useCallback((kidId?) => yearReviewFrom(memories, mascots, wardrobe, kidId), [memories, mascots, wardrobe]);
   const frameLabel = useCallback((perspective, kidId, meLabel?) => frameLabelFrom(kids, perspective, kidId, meLabel), [kids]);
   const levelWeight = useCallback((l, kid) => levelWeightFrom(kids, l, kid), [kids]);
-  const weightedShuffle = useCallback((arr, kid) => weightedShuffleFrom(kids, arr, kid), [kids]);
+  const weightedShuffle = useCallback((arr, kid, seed) => weightedShuffleFrom(kids, arr, kid, seed), [kids]);
 
   const addMemory = useCallback(async (input) => {
     const mem = await insertMemory(input);

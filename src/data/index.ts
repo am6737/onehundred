@@ -21,6 +21,9 @@ export const NOW_YM = { y: 2026, m: 6 };
 
 export const PET_BODY = 3;
 
+// 宠物/小熊衣橱系统总开关。先整体隐藏，需要时改回 true 即可恢复全部入口。
+export const SHOW_MASCOT = false;
+
 // ── Pure functions (no DB dependency) ──
 
 export function meName(me) {
@@ -92,7 +95,8 @@ function mapLevel(row) {
     num: row.num, perspective: row.perspective, tone: row.tone,
     title: row.title, why: row.why, how: row.how, record: row.record,
     suggest: row.suggest, sealed: row.sealed, sealUntil: row.seal_until,
-    sealedOn: row.sealed_on, seasonal: row.seasonal, kid: row.kid,
+    sealedOn: row.sealed_on, sealKind: row.seal_kind, seasonal: row.seasonal, kid: row.kid,
+    illustrationPath: row.illustration_path,
   };
 }
 
@@ -102,6 +106,7 @@ function mapMemory(row) {
     perspective: row.perspective, type: row.type, dur: row.duration,
     shots: row.shots, date: row.date, place: row.place, title: row.title,
     caption: row.caption, transcript: row.transcript, tone: row.tone,
+    sealed: row.sealed, sealUntil: row.seal_until, sealLabel: row.seal_label,
   };
 }
 
@@ -123,7 +128,7 @@ function mapCustomLevel(row) {
   return {
     num: row.num, perspective: row.perspective, tone: row.tone, custom: true,
     title: row.title, why: row.why, how: row.how, record: row.record_hint,
-    suggest: row.suggest,
+    suggest: row.suggest, illustrationPath: row.illustration_path,
   };
 }
 
@@ -189,7 +194,7 @@ export async function insertCustomLevel({ title, why = '', perspective = 'togeth
   return mapCustomLevel(data);
 }
 
-export async function insertMemory({ id: givenId, kid, levelNum, perspective, type, dur, shots, date, place, title, caption, transcript, tone }) {
+export async function insertMemory({ id: givenId, kid, levelNum, perspective, type, dur, shots, date, place, title, caption, transcript, tone, sealed, sealUntil, sealLabel }) {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) throw new Error('Not authenticated');
   const familyId = await getMyFamilyId();
@@ -211,6 +216,9 @@ export async function insertMemory({ id: givenId, kid, levelNum, perspective, ty
     caption: caption || '',
     transcript: transcript || null,
     tone: tone || 'orange',
+    sealed: sealed || false,
+    seal_until: sealUntil || null,
+    seal_label: sealLabel || null,
   }).select().single();
   if (error) throw error;
   return mapMemory(data);
@@ -375,6 +383,39 @@ export function memoriesForKidFrom(memories, id) {
   return memories.filter(m => m.kid === id || m.kid === 'all');
 }
 
+/* ── 封存 ── */
+
+// 这条记录此刻是否处于"封存锁定"（封存了且还没到约定日期）
+export function isMemoryLocked(mem) {
+  return !!(mem && mem.sealed && mem.sealUntil && Date.now() < new Date(mem.sealUntil).getTime());
+}
+
+// 封存了且已到期（可以打开了）
+export function isMemoryUnsealed(mem) {
+  return !!(mem && mem.sealed && mem.sealUntil && Date.now() >= new Date(mem.sealUntil).getTime());
+}
+
+// 某个孩子（或全家）当前仍锁定的封存记录
+export function sealedLockedFrom(memories, kidId = 'all') {
+  return memories.filter(m => isMemoryLocked(m) && (kidId === 'all' || m.kid === kidId || m.kid === 'all'));
+}
+
+// 根据可封存活动 + 孩子算到期日与展示文案。
+// age18：孩子生日(年+月) + 18 年；返回 null 表示需要 UI 进一步处理（如未指定具体孩子）。
+export function sealDateFor(level, kid) {
+  if (level?.sealKind === 'age18') {
+    if (!kid || kid.id === 'all' || kid.y == null) return null;
+    const until = new Date(kid.y + 18, (kid.m || 1) - 1, 1);
+    return { sealUntil: until.toISOString(), sealLabel: `${kid.name} 18 岁生日` };
+  }
+  return null; // 'date' 类由 UI 选完年月后调 makeSealDate
+}
+
+// 由用户选的年/月构造到期日与文案（time capsule 等）
+export function makeSealDate(y, m) {
+  return { sealUntil: new Date(y, m - 1, 1).toISOString(), sealLabel: `${y} 年 ${m} 月` };
+}
+
 export function allLevelsFrom(customLevels, levels) {
   return [...customLevels, ...levels];
 }
@@ -418,9 +459,33 @@ export function levelWeightFrom(kids, l, kid) {
   return w;
 }
 
-export function weightedShuffleFrom(kids, arr, kid) {
+// 稳定伪随机：同一 (seed, key) 永远得到同一个 [0,1) 值。
+// 用它替代 Math.random()，这样数据静默重载（refresh 换数组引用）时洗牌顺序不乱跳，
+// 只有 seed 改变（用户主动换一批）才会得到一套新顺序。
+function hashStr(s) {
+  let h = 2166136261;
+  const str = String(s);
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+function seededUnit(seed, key) {
+  let h = (hashStr(key) ^ Math.imul(seed | 0, 2654435761)) >>> 0;
+  h = Math.imul(h ^ (h >>> 15), 2246822507);
+  h = Math.imul(h ^ (h >>> 13), 3266489909);
+  h = (h ^ (h >>> 16)) >>> 0;
+  return h / 4294967296;
+}
+
+// seed 省略（0）时退回 Math.random()，保持老行为；HomeFeed 传 shuffleKey 让顺序稳定
+export function weightedShuffleFrom(kids, arr, kid, seed = 0) {
   return arr
-    .map(l => ({ l, k: Math.pow(Math.random(), 1 / Math.max(0.0001, levelWeightFrom(kids, l, kid))) }))
+    .map(l => {
+      const r = seed ? seededUnit(seed, `${l.perspective}|${l.num}`) : Math.random();
+      return { l, k: Math.pow(r, 1 / Math.max(0.0001, levelWeightFrom(kids, l, kid))) };
+    })
     .sort((a, b) => b.k - a.k)
     .map(x => x.l);
 }
@@ -441,7 +506,7 @@ export function yearReviewFrom(memories, mascots, wardrobe, kidId = 'all') {
   list.forEach(m => {
     byP[m.perspective] = (byP[m.perspective] || 0) + 1;
     byType[m.type] = (byType[m.type] || 0) + 1;
-    if (m.place) places[m.place] = (places[m.place] || 0) + 1;
+    if (m.place && !isMemoryLocked(m)) places[m.place] = (places[m.place] || 0) + 1; // 封存中不泄露地点
   });
   const top = Object.entries(places).sort((a, b) => (b[1] as number) - (a[1] as number))[0];
   const doneCount = kidId === 'all' ? memories.length : list.length;

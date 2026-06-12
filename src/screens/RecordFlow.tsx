@@ -19,10 +19,11 @@ import { useEvent, useEventListener } from 'expo';
 import { File as FSFile } from 'expo-file-system';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme, TONE, COLORS } from '../theme/tokens';
-import { PERSPECTIVES, meName, NOW_YM, getMyFamilyId } from '../data';
+import { PERSPECTIVES, meName, NOW_YM, getMyFamilyId, sealDateFor } from '../data';
 import { useData } from '../data/DataProvider';
 import { Icon, PhotoSlot } from '../components/Icons';
 import { LayerHeader, PrimaryButton, SecondaryButton, Chip, Sheet } from '../components/common';
+import SealDateSheet from '../components/SealDateSheet';
 import { supabase } from '../lib/supabase';
 
 /* ── VoiceRecorder ── */
@@ -152,6 +153,10 @@ export default function RecordFlow({ route, navigation }) {
   const recordingUriRef = useRef<string | null>(null);
   const elapsedRef = useRef(0);
   const savedMemRef = useRef(null); // 保存成功后的 memory，庆祝页结束时跳详情用
+
+  // 封存：date 类活动录完先选开启日，age18 类保存时按孩子生日自动算
+  const [sealInfo, setSealInfo] = useState(null);     // { sealUntil, sealLabel }
+  const [sealSheetVisible, setSealSheetVisible] = useState(false);
 
   // Photo — array of real URIs
   const [photos, setPhotos] = useState([]);
@@ -470,9 +475,18 @@ export default function RecordFlow({ route, navigation }) {
     : text.trim().length > 0;
 
 
-  const finish = async () => {
+  // 解析这条封存记录的到期日：date 类用选好的（或本次回传的 override），age18 类按孩子生日算
+  const resolveSeal = (override) => {
+    if (!level.sealed) return null;
+    if (override) return override;
+    if (level.sealKind === 'age18') return sealDateFor(level, kids.find(k => k.id === kidId));
+    return sealInfo;
+  };
+
+  const finish = async (sealOverride) => {
     if (saving) return;
     setSaving(true);
+    const seal = resolveSeal(sealOverride);
     try {
       if (type === 'voice' && recording) {
         await stopRecordingAction();
@@ -521,6 +535,7 @@ export default function RecordFlow({ route, navigation }) {
             : note || '这一刻，被记下来了。',
         transcript: type === 'voice' ? transcript.trim() : undefined,
         tone: level.tone,
+        ...(seal ? { sealed: true, sealUntil: seal.sealUntil, sealLabel: seal.sealLabel } : {}),
       });
       animateStep(2);
     } catch (e) {
@@ -529,6 +544,15 @@ export default function RecordFlow({ route, navigation }) {
     } finally {
       setSaving(false);
     }
+  };
+
+  // 封存且是 date 类（时间胶囊）：先选开启日再保存；其余直接保存
+  const handlePrimary = () => {
+    if (level.sealed && level.sealKind === 'date' && !sealInfo) {
+      setSealSheetVisible(true);
+      return;
+    }
+    finish();
   };
 
   const handleBack = () => {
@@ -555,7 +579,7 @@ export default function RecordFlow({ route, navigation }) {
     }
   };
 
-  const placeOptions = ['家里', '奶奶家', '小区楼下', '公园', '幼儿园', '路上'];
+  const placeOptions = ['家里', '小区楼下', '公园', '幼儿园', '路上'];
 
   const sealedStarters = [
     '亲爱的，等你看到这封信的时候…',
@@ -878,7 +902,6 @@ export default function RecordFlow({ route, navigation }) {
                       <PhotoSlot
                         tone={level.tone}
                         radius={24}
-                        label="轻点添加照片"
                         striped={false}
                         style={{
                           height: 300,
@@ -887,7 +910,19 @@ export default function RecordFlow({ route, navigation }) {
                           borderStyle: 'dashed',
                           borderColor: 'rgba(58,51,43,0.18)',
                         }}
-                      />
+                      >
+                        <View style={{ alignItems: 'center', gap: 10 }}>
+                          {Icon.camera(theme.ink, 30)}
+                          <Text style={{
+                            fontFamily: theme.fonts.body,
+                            fontSize: 16,
+                            fontWeight: '600',
+                            color: theme.ink,
+                          }}>
+                            轻点添加照片
+                          </Text>
+                        </View>
+                      </PhotoSlot>
                     </TouchableOpacity>
                   ) : (
                     <View>
@@ -1267,7 +1302,7 @@ export default function RecordFlow({ route, navigation }) {
               }]} />
               <TouchableOpacity
                 disabled={!captureReady || saving}
-                onPress={finish}
+                onPress={handlePrimary}
                 activeOpacity={0.8}
                 style={[
                   styles.submitBtn,
@@ -1340,6 +1375,12 @@ export default function RecordFlow({ route, navigation }) {
           </Animated.View>
         )}
       </Animated.View>
+
+      <SealDateSheet
+        visible={sealSheetVisible}
+        onClose={() => setSealSheetVisible(false)}
+        onConfirm={(info) => { setSealSheetVisible(false); finish(info); }}
+      />
     </View>
   );
 }
