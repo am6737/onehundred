@@ -19,6 +19,7 @@ import { useEvent, useEventListener } from 'expo';
 import { File as FSFile } from 'expo-file-system';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme, TONE, COLORS } from '../theme/tokens';
+import { useT } from '../i18n';
 import { PERSPECTIVES, meName, NOW_YM, getMyFamilyId, sealDateFor } from '../data';
 import { useData } from '../data/DataProvider';
 import { Icon, PhotoSlot } from '../components/Icons';
@@ -30,20 +31,21 @@ import { supabase } from '../lib/supabase';
 /* ── VoiceRecorder ── */
 
 function VoiceRecorder({ active, done, theme, elapsedRef }) {
-  const [t, setT] = useState(0);
+  const tr = useT();
+  const [sec, setSec] = useState(0);
   const counting = active;
 
   // 每次重新开始录音，计时归零
   useEffect(() => {
     if (active) {
-      setT(0);
+      setSec(0);
       if (elapsedRef) elapsedRef.current = 0;
     }
   }, [active]);
 
   useEffect(() => {
     if (!counting) return;
-    const id = setInterval(() => setT(x => {
+    const id = setInterval(() => setSec(x => {
       const next = x + 1;
       if (elapsedRef) elapsedRef.current = next;
       return next;
@@ -51,8 +53,8 @@ function VoiceRecorder({ active, done, theme, elapsedRef }) {
     return () => clearInterval(id);
   }, [counting]);
 
-  const mm = String(Math.floor(t / 60)).padStart(1, '0');
-  const ss = String(t % 60).padStart(2, '0');
+  const mm = String(Math.floor(sec / 60)).padStart(1, '0');
+  const ss = String(sec % 60).padStart(2, '0');
 
   const bars = [10, 22, 38, 18, 46, 28, 58, 34, 50, 24, 60, 26, 52, 30, 44, 20, 40, 16, 30, 14, 24];
 
@@ -61,7 +63,7 @@ function VoiceRecorder({ active, done, theme, elapsedRef }) {
       <View style={{ flexDirection: 'row', alignItems: 'flex-end', height: 64, gap: 4 }}>
         {bars.map((base, i) => {
           const h = counting
-            ? base * (0.55 + 0.45 * Math.abs(Math.sin((t + i) * 0.9)))
+            ? base * (0.55 + 0.45 * Math.abs(Math.sin((sec + i) * 0.9)))
             : base * 0.5;
           return (
             <View
@@ -93,7 +95,7 @@ function VoiceRecorder({ active, done, theme, elapsedRef }) {
         color: theme.inkSoft,
         marginTop: 8,
       }}>
-        {active ? '正在录音…' : done ? '已录好这一段' : '准备好了就开始'}
+        {active ? tr('record.recording') : done ? tr('record.recorded') : tr('record.ready')}
       </Text>
     </View>
   );
@@ -134,11 +136,12 @@ async function uploadToStorage(uri, familyId, memoryId, filename) {
 export default function RecordFlow({ route, navigation }) {
   const { level, kidId: rawKidId, me } = route.params;
   const { theme } = useTheme();
+  const t = useT();
   const { kids, addMemory } = useData();
   // 'all' 是合法的 kid_id（全家），兜底用它，避免 kid_id 为空导致保存失败
   const kidId = (rawKidId && rawKidId !== 'all') ? rawKidId : (kids[0]?.id || 'all');
   const insets = useSafeAreaInsets();
-  const t = TONE[level.tone] || TONE.orange;
+  const tn = TONE[level.tone] || TONE.orange;
 
   const [step, setStep] = useState(0);
   const [type, setType] = useState(level.suggest || 'voice');
@@ -256,7 +259,7 @@ export default function RecordFlow({ route, navigation }) {
     try {
       const { granted } = await requestRecordingPermissionsAsync();
       if (!granted) {
-        Alert.alert('需要麦克风权限', '请在设置中允许访问麦克风');
+        Alert.alert(t('record.micPermTitle'), t('record.micPermBody'));
         return false;
       }
       await setAudioModeAsync({
@@ -268,7 +271,7 @@ export default function RecordFlow({ route, navigation }) {
       return true;
     } catch (e) {
       console.error('Recording start failed:', e);
-      Alert.alert('录音失败', '请检查麦克风权限');
+      Alert.alert(t('record.recordFailTitle'), t('record.recordFailBody'));
       return false;
     }
   };
@@ -336,8 +339,7 @@ export default function RecordFlow({ route, navigation }) {
   };
 
   // Simulated transcription (real transcription needs an external ASR service)
-  const TRANSCRIPT_SEED =
-    '（自动转写）今天我们一起做了这件事，我想把当时说的话留下来……这一段，等很久以后再听，一定还是热的。';
+  const TRANSCRIPT_SEED = t('record.transcriptSeed');
 
   useEffect(() => {
     if (step !== 1 || type !== 'voice') return;
@@ -359,7 +361,7 @@ export default function RecordFlow({ route, navigation }) {
       if (fromCamera) {
         const { status } = await ImagePicker.requestCameraPermissionsAsync();
         if (status !== 'granted') {
-          Alert.alert('需要相机权限', '请在设置中允许访问相机');
+          Alert.alert(t('record.cameraPermTitle'), t('record.cameraPermBody'));
           return;
         }
         const result = await ImagePicker.launchCameraAsync({
@@ -373,7 +375,7 @@ export default function RecordFlow({ route, navigation }) {
       } else {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (status !== 'granted') {
-          Alert.alert('需要相册权限', '请在设置中允许访问相册');
+          Alert.alert(t('record.albumPermTitle'), t('record.albumPermBody'));
           return;
         }
         const remaining = MAX_SHOTS - photos.length;
@@ -401,10 +403,10 @@ export default function RecordFlow({ route, navigation }) {
   };
 
   const showPhotoOptions = () => {
-    Alert.alert('添加照片', '', [
-      { text: '拍照', onPress: () => addPhotos(true) },
-      { text: '从相册选择', onPress: () => addPhotos(false) },
-      { text: '取消', style: 'cancel' },
+    Alert.alert(t('record.addPhoto'), '', [
+      { text: t('record.takePhoto'), onPress: () => addPhotos(true) },
+      { text: t('record.chooseFromAlbum'), onPress: () => addPhotos(false) },
+      { text: t('common.cancel'), style: 'cancel' },
     ]);
   };
 
@@ -419,7 +421,7 @@ export default function RecordFlow({ route, navigation }) {
       if (fromCamera) {
         const { status } = await ImagePicker.requestCameraPermissionsAsync();
         if (status !== 'granted') {
-          Alert.alert('需要相机权限', '请在设置中允许访问相机');
+          Alert.alert(t('record.cameraPermTitle'), t('record.cameraPermBody'));
           return;
         }
         const result = await ImagePicker.launchCameraAsync({
@@ -434,7 +436,7 @@ export default function RecordFlow({ route, navigation }) {
       } else {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (status !== 'granted') {
-          Alert.alert('需要相册权限', '请在设置中允许访问相册');
+          Alert.alert(t('record.albumPermTitle'), t('record.albumPermBody'));
           return;
         }
         const result = await ImagePicker.launchImageLibraryAsync({
@@ -452,20 +454,20 @@ export default function RecordFlow({ route, navigation }) {
   };
 
   const showVideoOptions = () => {
-    Alert.alert('添加视频', '', [
-      { text: '拍摄视频', onPress: () => pickVideoMedia(true) },
-      { text: '从相册选择', onPress: () => pickVideoMedia(false) },
-      { text: '取消', style: 'cancel' },
+    Alert.alert(t('record.addVideo'), '', [
+      { text: t('record.shootVideo'), onPress: () => pickVideoMedia(true) },
+      { text: t('record.chooseFromAlbum'), onPress: () => pickVideoMedia(false) },
+      { text: t('common.cancel'), style: 'cancel' },
     ]);
   };
 
   /* ── Navigation & types ── */
 
   const types = [
-    { k: 'voice', label: '录一段语音', sub: '最省事，最珍贵', icon: Icon.mic },
-    { k: 'photo', label: '拍/选一张照片', sub: '留住此刻的样子', icon: Icon.camera },
-    { k: 'video', label: '拍/选一段视频', sub: '连声音和动作一起留住', icon: Icon.video },
-    { k: 'text', label: '写几句话', sub: '安静地写下来', icon: Icon.pen },
+    { k: 'voice', label: t('record.typeVoiceLabel'), sub: t('record.typeVoiceSub'), icon: Icon.mic },
+    { k: 'photo', label: t('record.typePhotoLabel'), sub: t('record.typePhotoSub'), icon: Icon.camera },
+    { k: 'video', label: t('record.typeVideoLabel'), sub: t('record.typeVideoSub'), icon: Icon.video },
+    { k: 'text', label: t('record.typeTextLabel'), sub: t('record.typeTextSub'), icon: Icon.pen },
   ];
 
   const startCapture = (k) => {
@@ -549,7 +551,7 @@ export default function RecordFlow({ route, navigation }) {
         caption:
           type === 'text' && text.trim()
             ? text.trim()
-            : note || '这一刻，被记下来了。',
+            : note || t('record.captionFallback'),
         transcript: type === 'voice' ? transcript.trim() : undefined,
         tone: level.tone,
         ...(seal ? { sealed: true, sealUntil: seal.sealUntil, sealLabel: seal.sealLabel } : {}),
@@ -557,7 +559,7 @@ export default function RecordFlow({ route, navigation }) {
       animateStep(2);
     } catch (e) {
       console.error('Failed to save memory:', e);
-      Alert.alert('没保存成功', '这条记录还没存上，请检查网络后再试一次。');
+      Alert.alert(t('record.saveFailTitle'), t('record.saveFailBody'));
     } finally {
       setSaving(false);
     }
@@ -596,24 +598,27 @@ export default function RecordFlow({ route, navigation }) {
     }
   };
 
-  const placeOptions = ['家里', '小区楼下', '公园', '幼儿园', '路上'];
+  const placeOptions = [
+    t('record.placeHome'), t('record.placeDownstairs'), t('record.placePark'),
+    t('record.placeKindergarten'), t('record.placeOnTheWay'),
+  ];
 
   const sealedStarters = [
-    '亲爱的，等你看到这封信的时候…',
-    '有件事我一直想对你说——',
-    '今天的你还很小，可我已经想象…',
+    t('record.sealedStarter1'),
+    t('record.sealedStarter2'),
+    t('record.sealedStarter3'),
   ];
   const normalStarters = [
-    '今天，我们一起',
-    '我永远会记得那一刻——',
-    'TA 听完之后，',
-    '最让我心头一软的是',
+    t('record.normalStarter1'),
+    t('record.normalStarter2'),
+    t('record.normalStarter3'),
+    t('record.normalStarter4'),
   ];
 
   return (
     <View style={[styles.container, { backgroundColor: theme.cream }]}>
       {step < 2 && (
-        <LayerHeader title="记录一下" onBack={handleBack} />
+        <LayerHeader title={t('record.header')} onBack={handleBack} />
       )}
 
       <Animated.View
@@ -669,9 +674,9 @@ export default function RecordFlow({ route, navigation }) {
                 >
                   <View style={[
                     styles.modalityIcon,
-                    { backgroundColor: rec ? theme.accent : t.soft },
+                    { backgroundColor: rec ? theme.accent : tn.soft },
                   ]}>
-                    {ty.icon(rec ? '#FFFDF7' : t.ink, 24)}
+                    {ty.icon(rec ? '#FFFDF7' : tn.ink, 24)}
                   </View>
 
                   <View style={{ flex: 1 }}>
@@ -693,13 +698,13 @@ export default function RecordFlow({ route, navigation }) {
                   </View>
 
                   {rec && (
-                    <View style={[styles.recBadge, { backgroundColor: t.soft }]}>
+                    <View style={[styles.recBadge, { backgroundColor: tn.soft }]}>
                       <Text style={{
                         fontFamily: theme.fonts.head,
                         fontSize: 12,
                         color: theme.accent,
                       }}>
-                        推荐
+                        {t('record.recommended')}
                       </Text>
                     </View>
                   )}
@@ -743,7 +748,7 @@ export default function RecordFlow({ route, navigation }) {
                         color: theme.inkSoft,
                         marginTop: 12,
                       }}>
-                        准备好了就开始 · 轻点录音
+                        {t('record.readyTapToRecord')}
                       </Text>
                     </View>
                   )}
@@ -767,7 +772,7 @@ export default function RecordFlow({ route, navigation }) {
                         color: theme.inkSoft,
                         marginTop: 12,
                       }}>
-                        正在录音 · 轻点结束
+                        {t('record.recordingTapToStop')}
                       </Text>
                     </View>
                   )}
@@ -802,7 +807,7 @@ export default function RecordFlow({ route, navigation }) {
                           <Text style={{
                             fontFamily: theme.fonts.head, fontSize: 15, color: '#FFFDF7',
                           }}>
-                            {playing ? '播放中' : '播放'}
+                            {playing ? t('record.playingLabel') : t('record.playLabel')}
                           </Text>
                         </TouchableOpacity>
 
@@ -821,14 +826,14 @@ export default function RecordFlow({ route, navigation }) {
                           <Text style={{
                             fontFamily: theme.fonts.head, fontSize: 15, color: theme.ink,
                           }}>
-                            重录
+                            {t('record.rerecord')}
                           </Text>
                         </TouchableOpacity>
                       </View>
                       <Text style={{
                         fontFamily: theme.fonts.body, fontSize: 12, color: theme.inkSoft, marginTop: 10,
                       }}>
-                        听一听 · 不满意可以重录
+                        {t('record.listenHint')}
                       </Text>
                     </View>
                   )}
@@ -844,7 +849,7 @@ export default function RecordFlow({ route, navigation }) {
                           color: theme.inkSoft,
                           marginLeft: 7,
                         }}>
-                          语音文字 · 自动转写
+                          {t('record.voiceTextLabel')}
                         </Text>
                         {transcribing ? (
                           <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 'auto' }}>
@@ -855,7 +860,7 @@ export default function RecordFlow({ route, navigation }) {
                               color: theme.accent,
                               marginLeft: 6,
                             }}>
-                              正在转文字…
+                              {t('record.transcribing')}
                             </Text>
                           </View>
                         ) : null}
@@ -884,7 +889,7 @@ export default function RecordFlow({ route, navigation }) {
                           <TextInput
                             value={transcript}
                             onChangeText={setTranscript}
-                            placeholder="录音的文字会出现在这里，可以随手改…"
+                            placeholder={t('record.transcriptPlaceholder')}
                             placeholderTextColor={theme.inkSoft}
                             multiline
                             maxLength={MAX_TEXT}
@@ -903,7 +908,7 @@ export default function RecordFlow({ route, navigation }) {
                             color: theme.inkSoft,
                             lineHeight: 19,
                           }}>
-                            自动转写可能不准，改两个字就好。原声会一起留着。
+                            {t('record.transcriptHint')}
                           </Text>
                         </>
                       )}
@@ -937,7 +942,7 @@ export default function RecordFlow({ route, navigation }) {
                             fontWeight: '600',
                             color: theme.ink,
                           }}>
-                            轻点添加照片
+                            {t('record.tapToAddPhoto')}
                           </Text>
                         </View>
                       </PhotoSlot>
@@ -948,9 +953,9 @@ export default function RecordFlow({ route, navigation }) {
                       <TouchableOpacity
                         activeOpacity={0.85}
                         onLongPress={() => {
-                          Alert.alert('移除封面照片？', '', [
-                            { text: '移除', style: 'destructive', onPress: () => removePhoto(0) },
-                            { text: '取消', style: 'cancel' },
+                          Alert.alert(t('record.removeCoverPhoto'), '', [
+                            { text: t('record.remove'), style: 'destructive', onPress: () => removePhoto(0) },
+                            { text: t('common.cancel'), style: 'cancel' },
                           ]);
                         }}
                         style={{ position: 'relative' }}
@@ -981,7 +986,7 @@ export default function RecordFlow({ route, navigation }) {
                               fontSize: 12,
                               color: '#FFFDF7',
                             }}>
-                              封面
+                              {t('record.cover')}
                             </Text>
                           </View>
                         </View>
@@ -994,9 +999,9 @@ export default function RecordFlow({ route, navigation }) {
                             key={i}
                             activeOpacity={0.85}
                             onLongPress={() => {
-                              Alert.alert('移除这张照片？', '', [
-                                { text: '移除', style: 'destructive', onPress: () => removePhoto(i + 1) },
-                                { text: '取消', style: 'cancel' },
+                              Alert.alert(t('record.removeThisPhoto'), '', [
+                                { text: t('record.remove'), style: 'destructive', onPress: () => removePhoto(i + 1) },
+                                { text: t('common.cancel'), style: 'cancel' },
                               ]);
                             }}
                             style={{
@@ -1029,7 +1034,7 @@ export default function RecordFlow({ route, navigation }) {
                               fontSize: 10.5,
                               color: theme.inkSoft,
                             }}>
-                              再加
+                              {t('record.addMore')}
                             </Text>
                           </TouchableOpacity>
                         )}
@@ -1044,8 +1049,8 @@ export default function RecordFlow({ route, navigation }) {
                         lineHeight: 20,
                       }}>
                         {photos.length >= MAX_SHOTS
-                          ? `已选 ${photos.length} 张 · 第一张作封面`
-                          : `已选 ${photos.length} 张 · 第一张作封面，最多 ${MAX_SHOTS} 张`}
+                          ? t('record.photoCountFull', { count: photos.length })
+                          : t('record.photoCount', { count: photos.length, max: MAX_SHOTS })}
                       </Text>
                     </View>
                   )}
@@ -1082,7 +1087,7 @@ export default function RecordFlow({ route, navigation }) {
                         {!isPlaying && (
                           <>
                             <View style={styles.videoIconCircle}>
-                              {Icon.play(t.deep, 26)}
+                              {Icon.play(tn.deep, 26)}
                             </View>
                             <View style={styles.videoLabel}>
                               <Text style={{
@@ -1090,7 +1095,7 @@ export default function RecordFlow({ route, navigation }) {
                                 fontSize: 13.5,
                                 color: theme.ink,
                               }}>
-                                {'已选好视频 · '}
+                                {t('record.videoChosen')}
                                 {Math.floor(videoDuration / 60)}:{String(videoDuration % 60).padStart(2, '0')}
                               </Text>
                             </View>
@@ -1111,7 +1116,7 @@ export default function RecordFlow({ route, navigation }) {
                           fontFamily: theme.fonts.body,
                           fontSize: 12.5,
                           color: theme.ink,
-                        }}>重选</Text>
+                        }}>{t('record.reselect')}</Text>
                       </TouchableOpacity>
                     </View>
                   ) : (
@@ -1131,7 +1136,7 @@ export default function RecordFlow({ route, navigation }) {
                       >
                         <View style={{ alignItems: 'center' }}>
                           <View style={styles.videoIconCircle}>
-                            {Icon.video(t.deep, 28)}
+                            {Icon.video(tn.deep, 28)}
                           </View>
                           <View style={styles.videoLabel}>
                             <Text style={{
@@ -1139,7 +1144,7 @@ export default function RecordFlow({ route, navigation }) {
                               fontSize: 13.5,
                               color: theme.ink,
                             }}>
-                              轻点拍摄或选择视频
+                              {t('record.tapToShootVideo')}
                             </Text>
                           </View>
                         </View>
@@ -1155,7 +1160,7 @@ export default function RecordFlow({ route, navigation }) {
                     color: theme.inkSoft,
                     lineHeight: 20,
                   }}>
-                    {videoUri ? '轻点画面播放或暂停 · 右上角可重选' : '短短一小段就好，几十秒最耐看。'}
+                    {videoUri ? t('record.videoHintChosen') : t('record.videoHintEmpty')}
                   </Text>
                 </View>
               )}
@@ -1173,8 +1178,8 @@ export default function RecordFlow({ route, navigation }) {
                         paddingLeft: 2,
                       }}>
                         {level.sealed
-                          ? '不知从哪写起？轻点一句开头'
-                          : '不知从哪写起？轻点一句，帮你起个头'}
+                          ? t('record.textHintSealed')
+                          : t('record.textHintNormal')}
                       </Text>
                       <View style={styles.starterRow}>
                         {(level.sealed ? sealedStarters : normalStarters).map(s => (
@@ -1208,8 +1213,8 @@ export default function RecordFlow({ route, navigation }) {
                     maxLength={MAX_TEXT}
                     placeholder={
                       level.sealed
-                        ? '亲爱的，等你看到这封信的时候…'
-                        : '随便写写，几句话就够了…'
+                        ? t('record.textPlaceholderSealed')
+                        : t('record.textPlaceholderNormal')
                     }
                     placeholderTextColor={theme.inkSoft}
                     style={[styles.textArea, {
@@ -1229,8 +1234,8 @@ export default function RecordFlow({ route, navigation }) {
                     marginTop: 6,
                   }}>
                     {text.length >= MAX_TEXT - 200
-                      ? `${text.length} / ${MAX_TEXT} 字`
-                      : `${text.length} 字`}
+                      ? t('record.charCountMax', { len: text.length, max: MAX_TEXT })
+                      : t('record.charCount', { len: text.length })}
                   </Text>
                 </View>
               )}
@@ -1246,7 +1251,7 @@ export default function RecordFlow({ route, navigation }) {
                       color: theme.inkSoft,
                       marginLeft: 7,
                     }}>
-                      配一句话
+                      {t('record.captionLabel')}
                     </Text>
                   </View>
                   <TextInput
@@ -1257,8 +1262,8 @@ export default function RecordFlow({ route, navigation }) {
                     maxLength={MAX_CAPTION}
                     placeholder={
                       level.suggest === 'photo'
-                        ? '比如：咸得离谱的一盘，却是最热闹的一顿…'
-                        : '比如：她回头喊「爸爸你松手啦」那一秒…'
+                        ? t('record.captionPlaceholderPhoto')
+                        : t('record.captionPlaceholderVideo')
                     }
                     placeholderTextColor={theme.inkSoft}
                     style={[styles.captionInput, {
@@ -1281,13 +1286,13 @@ export default function RecordFlow({ route, navigation }) {
                     color: theme.inkSoft,
                     marginLeft: 7,
                   }}>
-                    在哪儿？
+                    {t('record.placeLabel')}
                   </Text>
                 </View>
                 <TextInput
                   value={place}
                   onChangeText={setPlace}
-                  placeholder="比如：奶奶家的院子、小区楼下…"
+                  placeholder={t('record.placePlaceholder')}
                   maxLength={MAX_PLACE}
                   placeholderTextColor={theme.inkSoft}
                   style={[styles.placeInput, {
@@ -1349,7 +1354,7 @@ export default function RecordFlow({ route, navigation }) {
                     fontSize: 17,
                     color: captureReady ? '#FFFDF7' : theme.inkSoft,
                   }}>
-                    {level.sealed ? '封存这封信' : '就这样，收好它'}
+                    {level.sealed ? t('record.submitSealed') : t('record.submitNormal')}
                   </Text>
                 )}
               </TouchableOpacity>
@@ -1375,7 +1380,7 @@ export default function RecordFlow({ route, navigation }) {
                 fontSize: 15,
                 color: COLORS.green,
               }}>
-                已加入你们的回忆册
+                {t('record.addedToBook')}
               </Text>
             </View>
 
@@ -1387,7 +1392,7 @@ export default function RecordFlow({ route, navigation }) {
               textAlign: 'center',
               marginTop: 12,
             }}>
-              {level.sealed ? '信，已经封好了' : '这件事，做到了'}
+              {level.sealed ? t('record.celebSealed') : t('record.celebNormal')}
             </Text>
 
             {level.sealed && (
@@ -1399,7 +1404,7 @@ export default function RecordFlow({ route, navigation }) {
                 textAlign: 'center',
                 marginTop: 10,
               }}>
-                等约定的那天，它会自己出现。
+                {t('record.celebSealedHint')}
               </Text>
             )}
           </Animated.View>

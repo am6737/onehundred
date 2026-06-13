@@ -19,6 +19,7 @@ import Animated, {
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme, TONE } from '../theme/tokens';
+import { useT } from '../i18n';
 import { PERSPECTIVES, meName, kidAge, suitsNow } from '../data';
 import { useData } from '../data/DataProvider';
 import { Icon, PhotoSlot, KidAvatar } from '../components/Icons';
@@ -67,6 +68,7 @@ function KidFace({ id, size = 30 }) {
 
 function KidSwitcher({ kidId, onSelect }) {
   const { theme } = useTheme();
+  const t = useT();
   const { kids, getKid } = useData();
   const [open, setOpen] = useState(false);
   const rows = [...kids.map(k => k.id), 'all'];
@@ -75,7 +77,7 @@ function KidSwitcher({ kidId, onSelect }) {
     <View style={{ position: 'relative', width: 44, flexShrink: 0 }}>
       <TouchableOpacity
         onPress={() => setOpen(o => !o)}
-        accessibilityLabel="切换孩子"
+        accessibilityLabel={t('home.switchKid')}
         style={{
           width: 44, height: 44,
           alignItems: 'center', justifyContent: 'center',
@@ -100,15 +102,15 @@ function KidSwitcher({ kidId, onSelect }) {
                 fontFamily: theme.fonts.body, fontSize: 12,
                 color: theme.inkSoft, letterSpacing: 0.5,
               }}>
-                在陪谁长大？
+                {t('home.whoGrowing')}
               </Text>
 
               {rows.map(id => {
                 const on = kidId === id;
                 const k = getKid(id);
                 const age = k ? kidAge(k) : null;
-                const sub = id === 'all' ? '爸爸妈妈和孩子们' : (age != null ? `${age} 岁` : '');
-                const label = id === 'all' ? '全家' : (k ? k.name : '');
+                const sub = id === 'all' ? t('home.parentsAndKids') : (age != null ? t('common.ageYears', { age }) : '');
+                const label = id === 'all' ? t('family.all') : (k ? k.name : '');
 
                 return (
                   <TouchableOpacity
@@ -154,6 +156,7 @@ function KidSwitcher({ kidId, onSelect }) {
 
 function TopBar({ perspective, setPerspective, onMore, kidId, onSelectKid }) {
   const { theme } = useTheme();
+  const t = useT();
   const insets = useSafeAreaInsets();
   const ps = ['parent', 'child', 'together'];
   const isAll = kidId === 'all';
@@ -166,7 +169,7 @@ function TopBar({ perspective, setPerspective, onMore, kidId, onSelectKid }) {
       {/* Menu button */}
       <TouchableOpacity
         onPress={onMore}
-        accessibilityLabel="更多"
+        accessibilityLabel={t('home.more')}
         style={{
           width: 44, height: 44, flexShrink: 0, marginLeft: -6,
           alignItems: 'center', justifyContent: 'center',
@@ -220,11 +223,12 @@ function TopBar({ perspective, setPerspective, onMore, kidId, onSelectKid }) {
    ════════════════════════════════════════════════════════════ */
 
 function SuggestChip({ suggest, theme }) {
+  const t = useT();
   const map = {
-    voice: { ic: Icon.mic, txt: '适合录一段语音' },
-    photo: { ic: Icon.camera, txt: '适合拍一张照片' },
-    video: { ic: Icon.video, txt: '适合录一段视频' },
-    text:  { ic: Icon.pen, txt: '适合写几句话' },
+    voice: { ic: Icon.mic, txt: t('home.suggestVoice') },
+    photo: { ic: Icon.camera, txt: t('home.suggestPhoto') },
+    video: { ic: Icon.video, txt: t('home.suggestVideo') },
+    text:  { ic: Icon.pen, txt: t('home.suggestText') },
   };
   const s = map[suggest] || map.voice;
   return (
@@ -289,8 +293,9 @@ function LevelCardSkeleton({ theme, tone }) {
 
 function LevelCard({ level, onOpen, onSkip, kidId, meLabel, cardHeight }) {
   const { theme } = useTheme();
+  const t = useT();
   const { frameLabel } = useData();
-  const t = TONE[level.tone] || TONE.orange;
+  const tn = TONE[level.tone] || TONE.orange;
   const suits = suitsNow(level);
 
   // 插画与文字同时出现：有插画时先等它加载完，整张卡在此之前都是 loading
@@ -328,7 +333,7 @@ function LevelCard({ level, onOpen, onSkip, kidId, meLabel, cardHeight }) {
         width: '100%', height: '40%', minHeight: 208,
         borderRadius: 30, overflow: 'hidden',
         borderWidth: 1, borderColor: theme.line,
-        backgroundColor: t.soft,
+        backgroundColor: tn.soft,
         shadowColor: '#3A332B', shadowOpacity: 0.2, shadowRadius: 20,
         shadowOffset: { width: 0, height: 12 }, elevation: 8,
         justifyContent: 'center', alignItems: 'center',
@@ -349,9 +354,9 @@ function LevelCard({ level, onOpen, onSkip, kidId, meLabel, cardHeight }) {
             paddingVertical: 5, paddingHorizontal: 11, borderRadius: 999,
             backgroundColor: 'rgba(255,253,247,0.86)',
           }}>
-            {Icon.seed(t.deep, 14)}
+            {Icon.seed(tn.deep, 14)}
             <Text style={{ fontFamily: theme.fonts.body, fontSize: 12, color: theme.inkSoft }}>
-              我们家自己的事
+              {t('home.badgeCustom')}
             </Text>
           </View>
         )}
@@ -362,9 +367,9 @@ function LevelCard({ level, onOpen, onSkip, kidId, meLabel, cardHeight }) {
             paddingVertical: 5, paddingHorizontal: 11, borderRadius: 999,
             backgroundColor: 'rgba(255,253,247,0.86)',
           }}>
-            {Icon.seed(t.deep, 14)}
+            {Icon.seed(tn.deep, 14)}
             <Text style={{ fontFamily: theme.fonts.body, fontSize: 12, color: theme.inkSoft }}>
-              季节限定
+              {t('home.badgeSeasonal')}
             </Text>
           </View>
         )}
@@ -375,9 +380,9 @@ function LevelCard({ level, onOpen, onSkip, kidId, meLabel, cardHeight }) {
             paddingVertical: 5, paddingHorizontal: 11, borderRadius: 999,
             backgroundColor: 'rgba(255,253,247,0.86)',
           }}>
-            {Icon.lock(t.deep, 13)}
+            {Icon.lock(tn.deep, 13)}
             <Text style={{ fontFamily: theme.fonts.body, fontSize: 12, color: theme.inkSoft }}>
-              会被封存
+              {t('home.badgeSealed')}
             </Text>
           </View>
         )}
@@ -394,10 +399,10 @@ function LevelCard({ level, onOpen, onSkip, kidId, meLabel, cardHeight }) {
             <View style={{
               flexDirection: 'row', alignItems: 'center', gap: 5,
               paddingVertical: 3, paddingHorizontal: 10, borderRadius: 999,
-              backgroundColor: t.soft,
+              backgroundColor: tn.soft,
             }}>
-              {Icon.seed(t.ink, 12)}
-              <Text style={{ fontFamily: theme.fonts.body, fontSize: 12, color: t.ink }}>
+              {Icon.seed(tn.ink, 12)}
+              <Text style={{ fontFamily: theme.fonts.body, fontSize: 12, color: tn.ink }}>
                 {suits}
               </Text>
             </View>
@@ -433,7 +438,7 @@ function LevelCard({ level, onOpen, onSkip, kidId, meLabel, cardHeight }) {
           {/* Skip / next button */}
           <TouchableOpacity
             onPress={onSkip}
-            accessibilityLabel="换一件事"
+            accessibilityLabel={t('home.swapNext')}
             style={{
               flexShrink: 0, width: 74, borderRadius: 24,
               backgroundColor: theme.paper,
@@ -447,7 +452,7 @@ function LevelCard({ level, onOpen, onSkip, kidId, meLabel, cardHeight }) {
             {Icon.chevDown(theme.accent, 20)}
             <Text style={{
               fontFamily: theme.fonts.head, fontSize: 13, color: theme.inkSoft,
-            }}>换一件</Text>
+            }}>{t('home.swapOne')}</Text>
           </TouchableOpacity>
 
           {/* Do this! primary button */}
@@ -464,7 +469,7 @@ function LevelCard({ level, onOpen, onSkip, kidId, meLabel, cardHeight }) {
           >
             <Text style={{
               fontFamily: theme.fonts.head, fontSize: 17, color: '#FFFDF7',
-            }}>做这件事</Text>
+            }}>{t('home.doThis')}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -487,6 +492,7 @@ function LevelCard({ level, onOpen, onSkip, kidId, meLabel, cardHeight }) {
 
 function EndCard({ onBook, onReshuffle, onAddOwn, cardHeight, allDone }) {
   const { theme } = useTheme();
+  const t = useT();
 
   return (
     <View style={{
@@ -498,9 +504,7 @@ function EndCard({ onBook, onReshuffle, onAddOwn, cardHeight, allDone }) {
         fontFamily: theme.fonts.hand, fontSize: 21, lineHeight: 38,
         color: theme.ink, textAlign: 'center',
       }}>
-        {allDone
-          ? '这里的事，你们都做完啦。\n翻翻回忆册，或者加一件你们家自己的事。'
-          : '这一轮先到这。\n换一批，也许会遇见刚好想做的那件。'}
+        {allDone ? t('home.endAllDone') : t('home.endRound')}
       </Text>
 
       <View style={{ marginTop: 24, width: '100%', maxWidth: 300, gap: 12 }}>
@@ -519,7 +523,7 @@ function EndCard({ onBook, onReshuffle, onAddOwn, cardHeight, allDone }) {
           >
             <Text style={{
               fontFamily: theme.fonts.head, fontSize: 16, color: '#FFFDF7',
-            }}>换一批，继续翻</Text>
+            }}>{t('home.reshuffle')}</Text>
           </TouchableOpacity>
         )}
 
@@ -536,7 +540,7 @@ function EndCard({ onBook, onReshuffle, onAddOwn, cardHeight, allDone }) {
         >
           <Text style={{
             fontFamily: theme.fonts.head, fontSize: 16, color: theme.ink,
-          }}>加一件我们家自己的事</Text>
+          }}>{t('home.addOwn')}</Text>
         </TouchableOpacity>
 
         {/* Open book */}
@@ -550,7 +554,7 @@ function EndCard({ onBook, onReshuffle, onAddOwn, cardHeight, allDone }) {
         >
           <Text style={{
             fontFamily: theme.fonts.head, fontSize: 15, color: theme.inkSoft,
-          }}>翻翻已经做过的</Text>
+          }}>{t('home.openBook')}</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -563,6 +567,7 @@ function EndCard({ onBook, onReshuffle, onAddOwn, cardHeight, allDone }) {
 
 export default function HomeFeed({ navigation, onOpenDrawer, perspective, setPerspective, kidId, setKidId, me }) {
   const { theme } = useTheme();
+  const t = useT();
   const insets = useSafeAreaInsets();
   const { kidDone, memoriesForKid, allLevels, weightedShuffle, refresh } = useData();
 
@@ -909,7 +914,7 @@ export default function HomeFeed({ navigation, onOpenDrawer, perspective, setPer
       >
         <ActivityIndicator size="small" color={theme.accent} />
         <Text style={{ fontFamily: theme.fonts.body, fontSize: 12.5, color: theme.inkSoft }}>
-          {refreshing ? '正在为你换一批…' : (readyToRefresh ? '松开刷新' : '下拉刷新')}
+          {refreshing ? t('home.refreshing') : (readyToRefresh ? t('home.releaseToRefresh') : t('home.pullToRefresh'))}
         </Text>
       </Animated.View>
 

@@ -10,6 +10,7 @@ import { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
 import * as MediaLibrary from 'expo-media-library';
 import { useTheme, TONE } from '../theme/tokens';
+import { useT, t, getLang } from '../i18n';
 import { PERSPECTIVES, isMemoryLocked, isMemoryUnsealed } from '../data';
 import { useData } from '../data/DataProvider';
 import { useMemoryMedia } from '../lib/media';
@@ -37,11 +38,14 @@ function memSeq(m, memories) {
   return memories.length - i;
 }
 
+const MEM_MONTHS_EN = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
 /** Pretty date for the share card — replace relative words with a full date. */
 function shareDate(d) {
   if (d === '今天' || d === '刚刚' || !d) {
     const now = new Date();
-    return `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日`;
+    const y = now.getFullYear(), m = now.getMonth() + 1, day = now.getDate();
+    return t('memory.shareDateFmt', { y, m, d: day, mon: MEM_MONTHS_EN[m - 1] });
   }
   return d;
 }
@@ -67,7 +71,7 @@ function bookFilter(memories, f) {
 
 /** Label for who participated. */
 function whoTag(kid, getKid) {
-  return kid === 'all' ? '全家' : (getKid(kid)?.name || '孩子');
+  return kid === 'all' ? t('family.all') : (getKid(kid)?.name || t('drawer.child'));
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -76,6 +80,7 @@ function whoTag(kid, getKid) {
 
 function TypeBadge({ type = 'voice', dur }) {
   const { theme } = useTheme();
+  const t = useT();
   const isVoice = type === 'voice';
   const isVideo = type === 'video';
   const icon = isVoice
@@ -84,10 +89,10 @@ function TypeBadge({ type = 'voice', dur }) {
       ? Icon.video('#FFFDF7', 13)
       : Icon.camera('#FFFDF7', 13);
   const label = isVoice
-    ? (dur || '语音')
+    ? (dur || t('ownLevels.sugVoice'))
     : isVideo
-      ? (dur || '视频')
-      : '照片';
+      ? (dur || t('ownLevels.sugVideo'))
+      : t('common.photo');
 
   return (
     <View style={badgeStyles.container}>
@@ -135,7 +140,7 @@ const badgeStyles = StyleSheet.create({
    ════════════════════════════════════════════════════════════ */
 
 function MemoryVideo({ url, tone }) {
-  const t = TONE[tone] || TONE.orange;
+  const tn = TONE[tone] || TONE.orange;
   const player = useVideoPlayer(url);
   const { isPlaying } = useEvent(player, 'playingChange', { isPlaying: player.playing });
   useEventListener(player, 'playToEnd', () => {
@@ -162,7 +167,7 @@ function MemoryVideo({ url, tone }) {
             justifyContent: 'center', alignItems: 'center',
             backgroundColor: 'rgba(255,253,247,0.93)',
           }}>
-            {Icon.play(t.deep, 26)}
+            {Icon.play(tn.deep, 26)}
           </View>
         )}
       </TouchableOpacity>
@@ -176,7 +181,8 @@ function MemoryVideo({ url, tone }) {
 
 function MemoryAudio({ url, tone }) {
   const { theme } = useTheme();
-  const t = TONE[tone] || TONE.orange;
+  const t = useT();
+  const tn = TONE[tone] || TONE.orange;
   const playerRef = useRef(null);
   const [playing, setPlaying] = useState(false);
 
@@ -222,7 +228,7 @@ function MemoryAudio({ url, tone }) {
   const bars = [14, 28, 20, 40, 26, 52, 34, 46, 22, 38, 30, 50, 24, 44, 18, 36, 28, 48, 20, 32, 16];
 
   return (
-    <View style={{ height: 300, backgroundColor: t.soft, justifyContent: 'center', alignItems: 'center' }}>
+    <View style={{ height: 300, backgroundColor: tn.soft, justifyContent: 'center', alignItems: 'center' }}>
       <View style={{
         flexDirection: 'row', alignItems: 'center',
         height: 60, gap: 4, marginBottom: 28, paddingHorizontal: 28,
@@ -230,7 +236,7 @@ function MemoryAudio({ url, tone }) {
         {bars.map((h, i) => (
           <View key={i} style={{
             width: 4, height: h, borderRadius: 4,
-            backgroundColor: t.deep, opacity: playing ? 0.8 : 0.32,
+            backgroundColor: tn.deep, opacity: playing ? 0.8 : 0.32,
           }} />
         ))}
       </View>
@@ -239,7 +245,7 @@ function MemoryAudio({ url, tone }) {
         activeOpacity={0.85}
         style={{
           width: 72, height: 72, borderRadius: 36,
-          backgroundColor: t.deep,
+          backgroundColor: tn.deep,
           justifyContent: 'center', alignItems: 'center',
           shadowColor: '#3A332B',
           shadowOffset: { width: 0, height: 8 },
@@ -262,9 +268,9 @@ function MemoryAudio({ url, tone }) {
       </TouchableOpacity>
       <Text style={{
         marginTop: 16,
-        fontFamily: theme.fonts.body, fontSize: 13, color: t.ink,
+        fontFamily: theme.fonts.body, fontSize: 13, color: tn.ink,
       }}>
-        {playing ? '播放中…' : '轻点播放这段录音'}
+        {playing ? t('memory.playing') : t('memory.tapToPlay')}
       </Text>
     </View>
   );
@@ -276,8 +282,9 @@ function MemoryAudio({ url, tone }) {
 
 function ShareSheet({ m, visible, onClose }) {
   const { theme } = useTheme();
+  const t = useT();
   const { getKid, memories } = useData();
-  const t = TONE[m.tone] || TONE.orange;
+  const tn = TONE[m.tone] || TONE.orange;
   const perspective = PERSPECTIVES[m.perspective];
   const locked = isMemoryLocked(m);   // 封存中：分享只透出标题与到期，不泄露内容
   const cardRef = useRef(null);       // 指向上方的分享卡片，用来截图成图片
@@ -297,15 +304,15 @@ function ShareSheet({ m, visible, onClose }) {
         await Sharing.shareAsync(uri, {
           mimeType: 'image/png',
           UTI: 'public.png',
-          dialogTitle: '分享这一页',
+          dialogTitle: t('memory.shareDialogTitle'),
         });
       } else {
         // 极少数平台不支持文件分享，退回纯文字
-        const who = m.kid === 'all' ? '我们一家' : `${getKid(m.kid)?.name || '孩子'}与我`;
+        const who = m.kid === 'all' ? t('memory.ourFamily') : t('memory.kidAndMe', { name: getKid(m.kid)?.name || t('drawer.child') });
         await Share.share({
           message: locked
-            ? `我把「${m.title}」封存起来了，等${m.sealLabel || '约定的那天'}才舍得打开。\n\n— 一百件事`
-            : `「${m.caption}」\n\n— ${who} · 第 ${memSeq(m, memories)} 件事 · ${shareDate(m.date)} · 一百件事`,
+            ? t('memory.shareLockedMsg', { title: m.title, label: m.sealLabel || t('drawer.theAppointedDay') })
+            : t('memory.shareMsg', { caption: m.caption, who, n: memSeq(m, memories), date: shareDate(m.date) }),
         });
       }
     } catch (e) {
@@ -322,21 +329,21 @@ function ShareSheet({ m, visible, onClose }) {
     try {
       const perm = await MediaLibrary.requestPermissionsAsync(true); // writeOnly：只要写入权限
       if (!perm.granted) {
-        Alert.alert('需要相册权限', '请在系统设置里允许「一百件事」把照片保存到相册。');
+        Alert.alert(t('memory.albumPermTitle'), t('memory.albumPermBody'));
         return;
       }
       const uri = await captureCard();
       await MediaLibrary.Asset.create(uri);
-      Alert.alert('已存到相册', '这一页已经保存到你的相册里了。');
+      Alert.alert(t('memory.savedTitle'), t('memory.savedBody'));
     } catch (e) {
-      Alert.alert('没能保存', '保存到相册时出了点问题，待会儿再试一次。');
+      Alert.alert(t('memory.saveFailTitle'), t('memory.saveFailBody'));
     } finally {
       setBusy(false);
     }
   };
 
   return (
-    <Sheet visible={visible} onClose={onClose} title={locked ? '这份封存，说给家人听' : '这一页，分享出去'}>
+    <Sheet visible={visible} onClose={onClose} title={locked ? t('memory.shareTitleLocked') : t('memory.shareTitle')}>
       {/* Share card preview — 包一层 ref，用来截图成图片分享/保存 */}
       <View ref={cardRef} collapsable={false} style={{ marginBottom: 18 }}>
       {locked ? (
@@ -347,10 +354,10 @@ function ShareSheet({ m, visible, onClose }) {
           padding: 24, alignItems: 'center',
         }}>
           <View style={{
-            width: 56, height: 56, borderRadius: 28, backgroundColor: t.soft,
+            width: 56, height: 56, borderRadius: 28, backgroundColor: tn.soft,
             justifyContent: 'center', alignItems: 'center',
           }}>
-            {Icon.lock(t.deep, 26)}
+            {Icon.lock(tn.deep, 26)}
           </View>
           <Text style={{
             marginTop: 14, fontFamily: theme.fonts.head, fontSize: 18, lineHeight: 26,
@@ -362,13 +369,13 @@ function ShareSheet({ m, visible, onClose }) {
           }}>
             {Icon.seed(theme.accent, 14)}
             <Text style={{ fontFamily: theme.fonts.head, fontSize: 13, color: theme.accent }}>
-              等{m.sealLabel || '约定日期'}
+              {t('sealedPage.waitFor', { label: m.sealLabel || t('sealedPage.waitDefault') })}
             </Text>
           </View>
           <Text style={{
             marginTop: 14, maxWidth: 260, textAlign: 'center',
             fontFamily: theme.fonts.body, fontSize: 13, lineHeight: 22, color: theme.inkSoft,
-          }}>封存中的内容还藏着，分享出去的只是这份等待。</Text>
+          }}>{t('memory.lockedShareHint')}</Text>
         </View>
       ) : (
       <View style={{
@@ -381,19 +388,19 @@ function ShareSheet({ m, visible, onClose }) {
         shadowRadius: 20,
         elevation: 6,
       }}>
-        <MemoryCover memory={m} mode="hero" label="照片" style={{ width: '100%', height: 200, aspectRatio: undefined }} />
+        <MemoryCover memory={m} mode="hero" label={t('common.photo')} style={{ width: '100%', height: 200, aspectRatio: undefined }} />
         <View style={{ padding: 18, paddingHorizontal: 20, paddingBottom: 20 }}>
           <View style={{
             alignSelf: 'flex-start',
-            backgroundColor: t.soft,
+            backgroundColor: tn.soft,
             paddingHorizontal: 10,
             paddingVertical: 4,
             borderRadius: 999,
           }}>
             <Text style={{
-              fontFamily: theme.fonts.head, fontSize: 12, color: t.ink,
+              fontFamily: theme.fonts.head, fontSize: 12, color: tn.ink,
             }}>
-              {'第 '}{memSeq(m, memories)}{' 件事 · '}{perspective ? perspective.long : ''}
+              {t('memory.nthThingDot', { n: memSeq(m, memories) })}{perspective ? perspective.long : ''}
             </Text>
           </View>
           <Text style={{
@@ -401,14 +408,14 @@ function ShareSheet({ m, visible, onClose }) {
             fontFamily: theme.fonts.hand, fontSize: 19, lineHeight: 34,
             color: theme.ink,
           }}>
-            {'「'}{m.caption}{'」'}
+            {t('memory.quoted', { text: m.caption })}
           </Text>
           <View style={{ marginTop: 14, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <Text style={{
               fontFamily: theme.fonts.body, fontSize: 12, color: theme.inkSoft,
             }}>
-              {m.kid === 'all' ? '我们一家' : `${getKid(m.kid)?.name || '孩子'}与我`}
-              {' · '}{shareDate(m.date)}{' · 一百件事'}
+              {m.kid === 'all' ? t('memory.ourFamily') : t('memory.kidAndMe', { name: getKid(m.kid)?.name || t('drawer.child') })}
+              {' · '}{shareDate(m.date)}{t('memory.brandSuffix')}
             </Text>
           </View>
         </View>
@@ -432,7 +439,7 @@ function ShareSheet({ m, visible, onClose }) {
         >
           <Text style={{
             fontFamily: theme.fonts.head, fontSize: 15, color: theme.ink,
-          }}>保存到相册</Text>
+          }}>{t('memory.saveToAlbum')}</Text>
         </TouchableOpacity>
         <TouchableOpacity
           onPress={onShare}
@@ -447,7 +454,7 @@ function ShareSheet({ m, visible, onClose }) {
         >
           <Text style={{
             fontFamily: theme.fonts.head, fontSize: 15, color: '#FFFDF7',
-          }}>分享</Text>
+          }}>{t('memory.share')}</Text>
         </TouchableOpacity>
       </View>
     </Sheet>
@@ -462,8 +469,9 @@ export function MemoryPage({ route, navigation }) {
   const m = route?.params?.memory;
   const locked = isMemoryLocked(m);            // 封存中：不取媒体、不渲染内容
   const { theme } = useTheme();
+  const t = useT();
   const { removeMemory, allLevels, memories } = useData();
-  const t = TONE[m?.tone] || TONE.orange;
+  const tn = TONE[m?.tone] || TONE.orange;
   const [shareVisible, setShareVisible] = useState(false);
   const [openText, setOpenText] = useState(false);
   const [heroIndex, setHeroIndex] = useState(0);
@@ -479,12 +487,12 @@ export function MemoryPage({ route, navigation }) {
 
   const confirmDelete = () => {
     Alert.alert(
-      '删除这条回忆？',
-      '删掉就找不回来了，这件事会重新回到「一百件事」里。',
+      t('memory.deleteTitle'),
+      t('memory.deleteBody'),
       [
-        { text: '取消', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: '删除',
+          text: t('common.delete'),
           style: 'destructive',
           onPress: async () => {
             setDeleting(true);
@@ -493,7 +501,7 @@ export function MemoryPage({ route, navigation }) {
               navigation.goBack();
             } catch (e) {
               setDeleting(false);
-              Alert.alert('删除失败', '没能删掉，稍后再试一次。');
+              Alert.alert(t('memory.deleteFailTitle'), t('memory.deleteFailBody'));
             }
           },
         },
@@ -523,7 +531,7 @@ export function MemoryPage({ route, navigation }) {
   if (locked) {
     return (
       <View style={{ flex: 1, backgroundColor: theme.cream }}>
-        <LayerHeader title="封存中" onBack={() => navigation.goBack()} right={deleteButton} />
+        <LayerHeader title={t('drawer.sealed')} onBack={() => navigation.goBack()} right={deleteButton} />
         <ScrollView
           style={{ flex: 1 }}
           contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', padding: 36, paddingBottom: 50 }}
@@ -531,10 +539,10 @@ export function MemoryPage({ route, navigation }) {
         >
           <View style={{ alignItems: 'center' }}>
             <View style={{
-              width: 72, height: 72, borderRadius: 36, backgroundColor: t.soft,
+              width: 72, height: 72, borderRadius: 36, backgroundColor: tn.soft,
               justifyContent: 'center', alignItems: 'center',
             }}>
-              {Icon.lock(t.deep, 32)}
+              {Icon.lock(tn.deep, 32)}
             </View>
             <Text style={{
               marginTop: 20, fontFamily: theme.fonts.head, fontSize: 22, color: theme.ink, textAlign: 'center',
@@ -543,11 +551,11 @@ export function MemoryPage({ route, navigation }) {
               marginTop: 12, maxWidth: 280, textAlign: 'center',
               fontFamily: theme.fonts.body, fontSize: 15, lineHeight: 26, color: theme.inkSoft,
             }}>
-              这一封还封存着。等{m.sealLabel || '约定的那天'}，它会自己回来找你们。
+              {t('memory.lockedDetail', { label: m.sealLabel || t('drawer.theAppointedDay') })}
             </Text>
 
             <PrimaryButton
-              label="分享这份封存"
+              label={t('memory.shareSealed')}
               icon={Icon.share('#FFFDF7', 18)}
               onPress={() => setShareVisible(true)}
               style={{
@@ -638,10 +646,10 @@ export function MemoryPage({ route, navigation }) {
                 shadowRadius: 9,
                 elevation: 4,
               }}>
-                {Icon.camera(t.deep, 14)}
+                {Icon.camera(tn.deep, 14)}
                 <Text style={{
                   fontFamily: theme.fonts.body, fontSize: 13, color: theme.ink,
-                }}>{shots} 张</Text>
+                }}>{t('memory.shotsCount', { n: shots })}</Text>
               </View>
             )}
           </View>
@@ -677,7 +685,7 @@ export function MemoryPage({ route, navigation }) {
                     }}>
                       <Text style={{
                         fontFamily: theme.fonts.head, fontSize: 9.5, color: '#FFFDF7',
-                      }}>封面</Text>
+                      }}>{t('record.cover')}</Text>
                     </View>
                   )}
                   {img.livePhotoUrl && <LiveDot placement="top-right" />}
@@ -714,7 +722,7 @@ export function MemoryPage({ route, navigation }) {
                     }}>
                       <Text style={{
                         fontFamily: theme.fonts.head, fontSize: 9.5, color: '#FFFDF7',
-                      }}>封面</Text>
+                      }}>{t('record.cover')}</Text>
                     </View>
                   )}
                 </View>
@@ -728,12 +736,12 @@ export function MemoryPage({ route, navigation }) {
           {/* Sequence badge */}
           <View style={{
             alignSelf: 'flex-start',
-            backgroundColor: t.soft, paddingHorizontal: 11, paddingVertical: 5,
+            backgroundColor: tn.soft, paddingHorizontal: 11, paddingVertical: 5,
             borderRadius: 999,
           }}>
             <Text style={{
-              fontFamily: theme.fonts.head, fontSize: 13, color: t.ink,
-            }}>{'第 '}{memSeq(m, memories)}{' 件事'}</Text>
+              fontFamily: theme.fonts.head, fontSize: 13, color: tn.ink,
+            }}>{t('memory.nthThingFull', { n: memSeq(m, memories) })}</Text>
           </View>
 
           {/* Title */}
@@ -748,7 +756,7 @@ export function MemoryPage({ route, navigation }) {
             <Text style={{
               position: 'absolute', top: -14, left: -6,
               fontFamily: theme.fonts.head, fontSize: 64,
-              color: t.soft, lineHeight: 64,
+              color: tn.soft, lineHeight: 64,
             }}>{'“'}</Text>
             <Text style={{
               fontFamily: theme.fonts.hand, fontSize: 24, lineHeight: 47,
@@ -786,18 +794,18 @@ export function MemoryPage({ route, navigation }) {
               }}>
                 <View style={{
                   width: 26, height: 26, borderRadius: 13,
-                  backgroundColor: t.soft,
+                  backgroundColor: tn.soft,
                   justifyContent: 'center', alignItems: 'center',
                 }}>
-                  {Icon.pen(t.ink, 14)}
+                  {Icon.pen(tn.ink, 14)}
                 </View>
                 <Text style={{
                   fontFamily: theme.fonts.head, fontSize: 14.5, color: theme.ink,
-                }}>录音文字</Text>
+                }}>{t('memory.voiceText')}</Text>
                 <Text style={{
                   marginLeft: 'auto',
                   fontFamily: theme.fonts.body, fontSize: 11.5, color: theme.inkSoft,
-                }}>自动转写</Text>
+                }}>{t('memory.autoTranscript')}</Text>
               </View>
 
               {/* Body */}
@@ -825,7 +833,7 @@ export function MemoryPage({ route, navigation }) {
                 >
                   <Text style={{
                     fontFamily: theme.fonts.body, fontSize: 13, color: theme.accent,
-                  }}>{openText ? '收起' : '看全文'}</Text>
+                  }}>{openText ? t('mascot.collapse') : t('memory.readFull')}</Text>
                   <View style={{
                     transform: [{ rotate: openText ? '180deg' : '0deg' }],
                   }}>
@@ -838,7 +846,7 @@ export function MemoryPage({ route, navigation }) {
 
           {/* ── Share button ── */}
           <PrimaryButton
-            label="做成一张卡片"
+            label={t('memory.makeCardBtn')}
             icon={Icon.share('#FFFDF7', 18)}
             onPress={() => setShareVisible(true)}
             style={{
@@ -865,11 +873,12 @@ export function MemoryPage({ route, navigation }) {
 
 export function KidFilterChips({ value, onChange }) {
   const { theme } = useTheme();
+  const t = useT();
   const { kids } = useData();
   const chips = [
-    { k: 'everything', label: '全部' },
+    { k: 'everything', label: t('records.filterAll') },
     ...kids.map(k => ({ k: k.id, label: k.name })),
-    { k: 'all', label: '一起' },
+    { k: 'all', label: t('perspective.together.label') },
   ];
 
   return (
@@ -916,8 +925,9 @@ export function KidFilterChips({ value, onChange }) {
 
 function MemoryThreadItem({ m, onOpen, showWho, showDate = true }) {
   const { theme } = useTheme();
+  const t = useT();
   const { getKid, memories } = useData();
-  const t = TONE[m.tone] || TONE.orange;
+  const tn = TONE[m.tone] || TONE.orange;
   const type = normalType(m.type);
   const shots = shotCount(m);
   const locked = isMemoryLocked(m);          // 封存中：内容打不开
@@ -941,8 +951,8 @@ function MemoryThreadItem({ m, onOpen, showWho, showDate = true }) {
       }}>
         <View style={{
           width: 11, height: 11, borderRadius: 5.5,
-          backgroundColor: t.deep,
-          shadowColor: t.soft,
+          backgroundColor: tn.deep,
+          shadowColor: tn.soft,
           shadowOffset: { width: 0, height: 0 },
           shadowOpacity: 1,
           shadowRadius: 3,
@@ -977,7 +987,7 @@ function MemoryThreadItem({ m, onOpen, showWho, showDate = true }) {
           flexDirection: 'row',
           borderRadius: 18, overflow: 'hidden',
           backgroundColor: theme.paper,
-          borderWidth: 1, borderColor: justOpenable ? t.deep : theme.line,
+          borderWidth: 1, borderColor: justOpenable ? tn.deep : theme.line,
           borderStyle: locked ? 'dashed' : 'solid',
           shadowColor: '#3A332B',
           shadowOffset: { width: 0, height: 8 },
@@ -992,9 +1002,9 @@ function MemoryThreadItem({ m, onOpen, showWho, showDate = true }) {
             // 封存中：不渲染真实封面，用封蜡占位避免内容泄露
             <View style={{
               position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-              backgroundColor: t.soft, justifyContent: 'center', alignItems: 'center',
+              backgroundColor: tn.soft, justifyContent: 'center', alignItems: 'center',
             }}>
-              {Icon.lock(t.deep, 26)}
+              {Icon.lock(tn.deep, 26)}
             </View>
           ) : (
             <>
@@ -1008,7 +1018,7 @@ function MemoryThreadItem({ m, onOpen, showWho, showDate = true }) {
                   backgroundColor: 'rgba(255,253,247,0.92)',
                   justifyContent: 'center', alignItems: 'center',
                 }}>
-                  {type === 'video' ? Icon.video(t.deep, 11) : Icon.play(t.deep, 10)}
+                  {type === 'video' ? Icon.video(tn.deep, 11) : Icon.play(tn.deep, 10)}
                 </View>
               )}
               {type === 'photo' && shots > 1 && (
@@ -1018,9 +1028,9 @@ function MemoryThreadItem({ m, onOpen, showWho, showDate = true }) {
                   paddingHorizontal: 6, paddingVertical: 2, borderRadius: 999,
                   backgroundColor: 'rgba(255,253,247,0.92)',
                 }}>
-                  {Icon.camera(t.deep, 10)}
+                  {Icon.camera(tn.deep, 10)}
                   <Text style={{
-                    fontFamily: theme.fonts.body, fontSize: 10, color: t.ink,
+                    fontFamily: theme.fonts.body, fontSize: 10, color: tn.ink,
                   }}>{shots}</Text>
                 </View>
               )}
@@ -1034,12 +1044,12 @@ function MemoryThreadItem({ m, onOpen, showWho, showDate = true }) {
             flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap',
           }}>
             <View style={{
-              backgroundColor: t.soft,
+              backgroundColor: tn.soft,
               paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999,
             }}>
               <Text style={{
-                fontFamily: theme.fonts.head, fontSize: 11, color: t.ink,
-              }}>{'第 '}{memSeq(m, memories)}{' 件'}</Text>
+                fontFamily: theme.fonts.head, fontSize: 11, color: tn.ink,
+              }}>{t('records.nthThing', { n: memSeq(m, memories) })}</Text>
             </View>
             {showWho && (
               <View style={{
@@ -1056,22 +1066,22 @@ function MemoryThreadItem({ m, onOpen, showWho, showDate = true }) {
             {locked && (
               <View style={{
                 flexDirection: 'row', alignItems: 'center', gap: 4,
-                backgroundColor: t.soft,
+                backgroundColor: tn.soft,
                 paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999,
               }}>
-                {Icon.lock(t.ink, 10)}
-                <Text style={{ fontFamily: theme.fonts.body, fontSize: 10.5, color: t.ink }}>
-                  等{m.sealLabel || '约定的那天'}
+                {Icon.lock(tn.ink, 10)}
+                <Text style={{ fontFamily: theme.fonts.body, fontSize: 10.5, color: tn.ink }}>
+                  {t('sealedPage.waitFor', { label: m.sealLabel || t('drawer.theAppointedDay') })}
                 </Text>
               </View>
             )}
             {justOpenable && (
               <View style={{
-                backgroundColor: t.deep,
+                backgroundColor: tn.deep,
                 paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999,
               }}>
                 <Text style={{ fontFamily: theme.fonts.head, fontSize: 10.5, color: '#FFFDF7' }}>
-                  可以打开了
+                  {t('sealedPage.canOpen')}
                 </Text>
               </View>
             )}
@@ -1085,7 +1095,7 @@ function MemoryThreadItem({ m, onOpen, showWho, showDate = true }) {
             marginTop: 4,
             fontFamily: theme.fonts.body, fontSize: 12.5, lineHeight: 19,
             color: theme.inkSoft,
-          }}>{locked ? '封存中，到约定的那天才能打开。' : m.caption}</Text>
+          }}>{locked ? t('memory.lockedShort') : m.caption}</Text>
         </View>
       </TouchableOpacity>
     </View>
@@ -1099,15 +1109,16 @@ function MemoryThreadItem({ m, onOpen, showWho, showDate = true }) {
 export function MemoryBook({ route, navigation }) {
   const kidId = route?.params?.kidId || 'all';
   const { theme } = useTheme();
+  const t = useT();
   const { memories, getKid } = useData();
   const [filter, setFilter] = useState(kidId === 'all' ? 'everything' : kidId);
   const list = bookFilter(memories, filter);
 
   const lead = filter === 'everything'
-    ? '你们一家一起走过的'
+    ? t('memory.bookSubAll')
     : filter === 'all'
-      ? '你们一起走过的'
-      : `你和${getKid(filter)?.name || '孩子'}一起走过的`;
+      ? t('memory.bookSubTogether')
+      : t('memory.bookSubKid', { name: getKid(filter)?.name || t('drawer.child') });
 
   const handleOpenMemory = (m) => {
     navigation.navigate('Memory', { memory: m });
@@ -1164,7 +1175,7 @@ export function MemoryBook({ route, navigation }) {
           }}>{list.length}</Text>
           <Text style={{
             fontFamily: theme.fonts.head, fontSize: 20, color: theme.ink,
-          }}>段回忆</Text>
+          }}>{t('memory.memoriesUnit')}</Text>
         </View>
       </View>
 
@@ -1191,7 +1202,7 @@ export function MemoryBook({ route, navigation }) {
           }} />
           <Text style={{
             fontFamily: theme.fonts.hand, fontSize: 16, color: theme.inkSoft,
-          }}>{'还在慢慢变长……'}</Text>
+          }}>{t('memory.growingHint')}</Text>
         </View>
       )}
     </View>
@@ -1203,7 +1214,7 @@ export function MemoryBook({ route, navigation }) {
         fontFamily: theme.fonts.hand, fontSize: 18, color: theme.inkSoft,
         lineHeight: 32, textAlign: 'center',
       }}>
-        {'这里还空着，\n等你们一起填满它。'}
+        {t('memory.emptyHint')}
       </Text>
     </View>
   );
@@ -1229,14 +1240,14 @@ export function MemoryBook({ route, navigation }) {
         </View>
         <Text style={{
           fontFamily: theme.fonts.hand, fontSize: 17, color: theme.inkSoft,
-        }}>一切，从这里开始</Text>
+        }}>{t('memory.emptyStart')}</Text>
       </View>
     );
   };
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.cream }}>
-      <LayerHeader title="回忆册" onBack={() => navigation.goBack()} right={addButton} />
+      <LayerHeader title={t('memory.bookTitle')} onBack={() => navigation.goBack()} right={addButton} />
       <FlatList
         data={list}
         keyExtractor={item => item.id}

@@ -2,14 +2,16 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme, TONE } from '../theme/tokens';
+import { useI18n } from '../i18n';
 import { useData } from '../data/DataProvider';
 import { isMemoryLocked } from '../data';
 import { Icon } from '../components/Icons';
 import { MemoryCover } from '../components/MemoryCover';
 import { LayerHeader, Chip } from '../components/common';
 
-const REC_WK = ['一', '二', '三', '四', '五', '六', '日'];
+const REC_WK_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 const REC_CN_MONTH = ['一', '二', '三', '四', '五', '六', '七', '八', '九', '十', '十一', '十二'];
+const REC_EN_MONTH = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const REC_YEAR = 2026;
 
 function parseMem(s) {
@@ -29,11 +31,11 @@ function bookFilter(memories, filter) {
 
 function typeMeta(type) {
   const map = {
-    voice: { ic: Icon.mic, txt: '语音' },
-    audio: { ic: Icon.mic, txt: '语音' },
-    photo: { ic: Icon.camera, txt: '照片' },
-    video: { ic: Icon.video, txt: '视频' },
-    text: { ic: Icon.pen, txt: '文字' },
+    voice: { ic: Icon.mic, key: 'ownLevels.sugVoice' },
+    audio: { ic: Icon.mic, key: 'ownLevels.sugVoice' },
+    photo: { ic: Icon.camera, key: 'common.photo' },
+    video: { ic: Icon.video, key: 'ownLevels.sugVideo' },
+    text: { ic: Icon.pen, key: 'ownLevels.sugText' },
   };
   return map[type] || map.text;
 }
@@ -44,8 +46,11 @@ function memSeq(m) {
 
 export default function RecordsCalendar({ navigation, route }) {
   const { theme } = useTheme();
+  const { t, lang } = useI18n();
   const { memories, kids, getKid } = useData();
   const insets = useSafeAreaInsets();
+  const REC_WK = REC_WK_KEYS.map(k => t('weekday.' + k));
+  const monthHeader = (m) => lang === 'zh' ? `${REC_CN_MONTH[m - 1]}月` : REC_EN_MONTH[m - 1];
   const kidId = route?.params?.kidId || 'all';
   const initialMonth = route?.params?.initialMonth;
 
@@ -101,13 +106,13 @@ export default function RecordsCalendar({ navigation, route }) {
   const selected = (day && monthMap[day]) || [];
 
   const filterOptions = [
-    { id: 'everything', label: '全部' },
+    { id: 'everything', label: t('records.filterAll') },
     ...kids.map(k => ({ id: k.id, label: k.name })),
   ];
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.cream }}>
-      <LayerHeader title="记录日历" onBack={() => navigation.goBack()} />
+      <LayerHeader title={t('records.title')} onBack={() => navigation.goBack()} />
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{ padding: 20, paddingBottom: insets.bottom + 48 }}
@@ -147,10 +152,10 @@ export default function RecordsCalendar({ navigation, route }) {
             </TouchableOpacity>
             <View style={{ alignItems: 'center' }}>
               <Text style={{ fontFamily: theme.fonts.head, fontSize: 20, color: theme.ink }}>
-                {REC_CN_MONTH[month - 1]}月
+                {monthHeader(month)}
               </Text>
               <Text style={{ fontFamily: theme.fonts.body, fontSize: 12, color: theme.inkSoft, marginTop: 1 }}>
-                {REC_YEAR} 年
+                {t('records.yearLabel', { y: REC_YEAR })}
               </Text>
             </View>
             <TouchableOpacity
@@ -227,10 +232,10 @@ export default function RecordsCalendar({ navigation, route }) {
             flexDirection: 'row', justifyContent: 'space-between',
           }}>
             <Text style={{ fontFamily: theme.fonts.body, fontSize: 13, color: theme.inkSoft }}>
-              记录了 <Text style={{ fontFamily: theme.fonts.head, fontSize: 15, color: theme.ink }}>{monthDays} 天</Text>
+              {t('drawer.recordedPrefix')} <Text style={{ fontFamily: theme.fonts.head, fontSize: 15, color: theme.ink }}>{t('common.daysCount', { count: monthDays })}</Text>
             </Text>
             <Text style={{ fontFamily: theme.fonts.body, fontSize: 13, color: theme.inkSoft }}>
-              完成了 <Text style={{ fontFamily: theme.fonts.head, fontSize: 15, color: theme.accent }}>{monthCount} 件事</Text>
+              {t('drawer.completedPrefix')} <Text style={{ fontFamily: theme.fonts.head, fontSize: 15, color: theme.accent }}>{t('common.thingsCount', { count: monthCount })}</Text>
             </Text>
           </View>
         </View>
@@ -244,14 +249,14 @@ export default function RecordsCalendar({ navigation, route }) {
                 <View key={d}>
                   <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8, marginBottom: 12, marginHorizontal: 2 }}>
                     <Text style={{ fontFamily: theme.fonts.head, fontSize: 17, color: theme.ink }}>
-                      {month} 月 {d} 日
+                      {t('records.dayHeader', { m: month, d, mon: REC_EN_MONTH[month - 1] })}
                     </Text>
                     <Text style={{ fontFamily: theme.fonts.body, fontSize: 13, color: theme.inkSoft }}>
-                      {dayMemories.length} 件事
+                      {t('common.thingsCount', { count: dayMemories.length })}
                     </Text>
                   </View>
                   {dayMemories.map((m) => {
-                    const t = TONE[m.tone] || TONE.orange;
+                    const tn = TONE[m.tone] || TONE.orange;
                     const tm = typeMeta(m.type);
                     const locked = isMemoryLocked(m);
                     return (
@@ -269,10 +274,10 @@ export default function RecordsCalendar({ navigation, route }) {
                         <View style={{ width: 100 }}>
                           {locked ? (
                             <View style={{
-                              width: 100, height: 100, backgroundColor: t.soft,
+                              width: 100, height: 100, backgroundColor: tn.soft,
                               justifyContent: 'center', alignItems: 'center',
                             }}>
-                              {Icon.lock(t.deep, 26)}
+                              {Icon.lock(tn.deep, 26)}
                             </View>
                           ) : (
                             <>
@@ -283,9 +288,9 @@ export default function RecordsCalendar({ navigation, route }) {
                                 paddingHorizontal: 7, paddingVertical: 3, borderRadius: 999,
                                 backgroundColor: 'rgba(255,253,247,0.92)',
                               }}>
-                                {tm.ic(t.deep, 12)}
-                                <Text style={{ fontFamily: theme.fonts.body, fontSize: 11, color: t.ink }}>
-                                  {(m.type === 'voice' || m.type === 'audio' || m.type === 'video') ? m.dur : tm.txt}
+                                {tm.ic(tn.deep, 12)}
+                                <Text style={{ fontFamily: theme.fonts.body, fontSize: 11, color: tn.ink }}>
+                                  {(m.type === 'voice' || m.type === 'audio' || m.type === 'video') ? m.dur : t(tm.key)}
                                 </Text>
                               </View>
                             </>
@@ -295,10 +300,10 @@ export default function RecordsCalendar({ navigation, route }) {
                           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 4 }}>
                             <View style={{
                               paddingHorizontal: 7, paddingVertical: 2, borderRadius: 999,
-                              backgroundColor: t.soft,
+                              backgroundColor: tn.soft,
                             }}>
-                              <Text style={{ fontFamily: theme.fonts.head, fontSize: 11, color: t.ink }}>
-                                第 {memSeq(m)} 件
+                              <Text style={{ fontFamily: theme.fonts.head, fontSize: 11, color: tn.ink }}>
+                                {t('records.nthThing', { n: memSeq(m) })}
                               </Text>
                             </View>
                             {m.place && (
@@ -312,7 +317,7 @@ export default function RecordsCalendar({ navigation, route }) {
                           }}>{m.title}</Text>
                           <Text numberOfLines={1} style={{
                             marginTop: 3, fontFamily: theme.fonts.body, fontSize: 12.5, lineHeight: 18, color: theme.inkSoft,
-                          }}>{locked ? `封存中 · 等${m.sealLabel || '约定的那天'}` : m.caption}</Text>
+                          }}>{locked ? t('records.lockedCaption', { label: m.sealLabel || t('drawer.theAppointedDay') }) : m.caption}</Text>
                         </View>
                       </TouchableOpacity>
                     );
@@ -324,7 +329,7 @@ export default function RecordsCalendar({ navigation, route }) {
             <Text style={{
               textAlign: 'center', marginTop: 12,
               fontFamily: theme.fonts.hand, fontSize: 17, color: theme.inkSoft,
-            }}>点亮的日子，是你们一起记下的。</Text>
+            }}>{t('records.emptyHint')}</Text>
           )}
         </View>
       </ScrollView>

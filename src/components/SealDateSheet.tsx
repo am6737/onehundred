@@ -7,9 +7,12 @@ import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Modal, ScrollView, Animated } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/tokens';
+import { useT } from '../i18n';
 import { Icon } from './Icons';
 import { LayerHeader } from './common';
 import { makeSealDate } from '../data';
+
+const MONTHS_EN = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
 const NOW = new Date();
 const CUR_Y = NOW.getFullYear();
@@ -20,10 +23,10 @@ const daysInMonth = (y, m) => new Date(y, m, 0).getDate(); // m 为 1-based
 
 // 主屏的"约定"——人话的时间跨度，比挑数字更像许下一个承诺。
 const PRESETS = [
-  { n: 1, label: '一年后' },
-  { n: 3, label: '三年后' },
-  { n: 5, label: '五年后' },
-  { n: 10, label: '十年后' },
+  { n: 1, key: 'preset1' },
+  { n: 3, key: 'preset3' },
+  { n: 5, key: 'preset5' },
+  { n: 10, key: 'preset10' },
 ];
 
 // 滚轮几何：奇数可见行、中间为选中行，上下补白让首尾也能滚到中间。
@@ -82,9 +85,12 @@ function Wheel({ data, value, onChange, format }) {
   );
 }
 
-export default function SealDateSheet({ visible, onClose, onConfirm, title = '约定一个开启的日子' }) {
+export default function SealDateSheet({ visible, onClose, onConfirm, title = undefined }) {
   const { theme } = useTheme();
+  const t = useT();
   const insets = useSafeAreaInsets();
+  const sheetTitle = title || t('seal.title');
+  const fmtYMD = (y, m, d) => t('seal.dateYMD', { y, m, d, mon: MONTHS_EN[m - 1] });
   const [year, setYear] = useState(CUR_Y + 5);  // 默认"五年后的今天"
   const [month, setMonth] = useState(CUR_M);
   const [day, setDay] = useState(CUR_D);
@@ -116,8 +122,8 @@ export default function SealDateSheet({ visible, onClose, onConfirm, title = '�
   // 距今多久——给约定一点分量感。
   const totalMonths = (year - CUR_Y) * 12 + (month - CUR_M);
   const away = totalMonths >= 12
-    ? `约 ${Math.round(totalMonths / 12)} 年后`
-    : `约 ${Math.max(totalMonths, 1)} 个月后`;
+    ? t('seal.awayYears', { n: Math.round(totalMonths / 12) })
+    : t('seal.awayMonths', { n: Math.max(totalMonths, 1) });
 
   const confirm = () => {
     onConfirm(makeSealDate(year, month, day));
@@ -133,13 +139,13 @@ export default function SealDateSheet({ visible, onClose, onConfirm, title = '�
     <Modal visible animationType="slide" onRequestClose={onClose}>
       <View style={{ flex: 1, backgroundColor: theme.cream }}>
         <LayerHeader
-          title={title}
+          title={sheetTitle}
           onBack={onClose}
           right={
             <TouchableOpacity onPress={confirm} activeOpacity={0.7} style={{
               paddingVertical: 8, paddingHorizontal: 16, borderRadius: 999, backgroundColor: theme.accent,
             }}>
-              <Text style={{ fontFamily: theme.fonts.head, fontSize: 14, color: '#FFFDF7' }}>封存</Text>
+              <Text style={{ fontFamily: theme.fonts.head, fontSize: 14, color: '#FFFDF7' }}>{t('seal.confirm')}</Text>
             </TouchableOpacity>
           }
         />
@@ -148,7 +154,7 @@ export default function SealDateSheet({ visible, onClose, onConfirm, title = '�
             marginTop: 2, marginHorizontal: 4,
             fontFamily: theme.fonts.body, fontSize: 14.5, lineHeight: 25, color: theme.inkSoft,
           }}>
-            选一个未来的日子。在那天到来前，连你自己也打不开它。
+            {t('seal.intro')}
           </Text>
 
           {/* 约定卡：竖排，每张写明落到哪一年 */}
@@ -171,10 +177,10 @@ export default function SealDateSheet({ visible, onClose, onConfirm, title = '�
                   <View style={{ flex: 1 }}>
                     <Text style={{
                       fontFamily: theme.fonts.head, fontSize: 18, color: on ? theme.accentInk : theme.ink,
-                    }}>{p.label}</Text>
+                    }}>{t('seal.' + p.key)}</Text>
                     <Text style={{
                       marginTop: 3, fontFamily: theme.fonts.body, fontSize: 13, color: theme.inkSoft,
-                    }}>{y} 年 {CUR_M} 月 {CUR_D} 日</Text>
+                    }}>{fmtYMD(y, CUR_M, CUR_D)}</Text>
                   </View>
                   <View style={{
                     width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center',
@@ -197,7 +203,7 @@ export default function SealDateSheet({ visible, onClose, onConfirm, title = '�
             <Text style={{
               fontFamily: theme.fonts.body, fontSize: 13.5, color: custom ? theme.accentInk : theme.inkSoft,
             }}>
-              {custom ? `自己挑的日子 · ${year} 年 ${month} 月 ${day} 日` : '自己挑个日子'}
+              {custom ? t('seal.customPicked', { date: fmtYMD(year, month, day) }) : t('seal.pickOwn')}
             </Text>
             <View style={{ transform: [{ rotate: tuning ? '180deg' : '0deg' }] }}>
               {Icon.chevDown(theme.inkSoft, 16)}
@@ -207,9 +213,9 @@ export default function SealDateSheet({ visible, onClose, onConfirm, title = '�
           {tuning && (
             <View style={{ marginTop: 6 }}>
               <View style={{ flexDirection: 'row' }}>
-                <Text style={colCap}>哪一年</Text>
-                <Text style={colCap}>哪个月</Text>
-                <Text style={colCap}>哪一天</Text>
+                <Text style={colCap}>{t('seal.whichYear')}</Text>
+                <Text style={colCap}>{t('seal.whichMonth')}</Text>
+                <Text style={colCap}>{t('seal.whichDay')}</Text>
               </View>
               <View style={{ height: WHEEL_H, marginTop: 2 }}>
                 {/* 居中选择带：accent 框住中间那行 */}
@@ -220,8 +226,8 @@ export default function SealDateSheet({ visible, onClose, onConfirm, title = '�
                 }} />
                 <View style={{ flexDirection: 'row', flex: 1 }}>
                   <Wheel data={years} value={year} onChange={setYear} />
-                  <Wheel data={months} value={month} onChange={setMonth} format={m => `${m} 月`} />
-                  <Wheel data={days} value={day} onChange={setDay} format={d => `${d} 日`} />
+                  <Wheel data={months} value={month} onChange={setMonth} format={m => t('onboarding.monthFmt', { v: m })} />
+                  <Wheel data={days} value={day} onChange={setDay} format={d => t('seal.dayFmt', { v: d })} />
                 </View>
               </View>
             </View>
@@ -233,13 +239,13 @@ export default function SealDateSheet({ visible, onClose, onConfirm, title = '�
               {Icon.lock(theme.accent, 22)}
               <Text style={{
                 marginTop: 10, fontFamily: theme.fonts.head, fontSize: 22, color: theme.ink,
-              }}>{year} 年 {month} 月 {day} 日</Text>
+              }}>{fmtYMD(year, month, day)}</Text>
               <Text style={{
                 marginTop: 5, fontFamily: theme.fonts.body, fontSize: 12.5, color: theme.accentInk,
               }}>{away}</Text>
               <Text style={{
                 marginTop: 8, fontFamily: theme.fonts.body, fontSize: 13, color: theme.inkSoft,
-              }}>到了那天，它会自己回来找你们</Text>
+              }}>{t('seal.previewHint')}</Text>
             </View>
           </Animated.View>
 
@@ -247,14 +253,14 @@ export default function SealDateSheet({ visible, onClose, onConfirm, title = '�
           {__DEV__ && (
             <TouchableOpacity
               onPress={() => {
-                onConfirm({ sealUntil: new Date(Date.now() + 60000).toISOString(), sealLabel: '1 分钟后(测试)' });
+                onConfirm({ sealUntil: new Date(Date.now() + 60000).toISOString(), sealLabel: t('seal.testLabel') });
                 onClose && onClose();
               }}
               activeOpacity={0.7}
               style={{ marginTop: 18, alignItems: 'center', paddingVertical: 10 }}
             >
               <Text style={{ fontFamily: theme.fonts.body, fontSize: 12, color: theme.inkSoft }}>
-                · 测试：1 分钟后解封 ·
+                {t('seal.testButton')}
               </Text>
             </TouchableOpacity>
           )}

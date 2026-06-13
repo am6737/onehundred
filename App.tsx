@@ -8,6 +8,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { ThemeProvider, useTheme } from './src/theme/tokens';
+import { I18nProvider, loadSavedLang, type Lang } from './src/i18n';
 import { DataProvider, useData } from './src/data/DataProvider';
 import { DEFAULT_ME, meName } from './src/data';
 import { getMe, setMe as persistMe } from './src/utils/storage';
@@ -258,7 +259,13 @@ export default function App() {
     MaShanZheng: require('./assets/fonts/MaShanZheng-Regular.ttf'),
   });
 
-  if (!fontsLoaded) {
+  // 首帧前确定语言（已保存的偏好；没有则跟随系统），避免文案闪烁
+  const [lang, setLang] = useState<Lang | null>(null);
+  useEffect(() => {
+    loadSavedLang().then(setLang);
+  }, []);
+
+  if (!fontsLoaded || !lang) {
     return (
       <View style={{ flex: 1, backgroundColor: '#FAF3E6', justifyContent: 'center', alignItems: 'center' }}>
         <ActivityIndicator color="#DE8C57" />
@@ -269,9 +276,11 @@ export default function App() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <ThemeProvider initialPreset="融合·暖" initialAccent="orange">
-          <AuthGate />
-        </ThemeProvider>
+        <I18nProvider initialLang={lang}>
+          <ThemeProvider initialPreset="融合·暖" initialAccent="orange">
+            <AuthGate />
+          </ThemeProvider>
+        </I18nProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

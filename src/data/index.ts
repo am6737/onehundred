@@ -4,18 +4,31 @@
 
 import { supabase } from '../lib/supabase';
 import { File as FSFile } from 'expo-file-system';
+import { t, getLang } from '../i18n';
 
 // ── Pure constants (no DB dependency) ──
 
+// 用 getter：每次读取 label/long/hint 都按当前语言翻译，调用点无需改动。
 export const PERSPECTIVES = {
-  parent:   { key: 'parent',   label: '为你', long: '家长 → 孩子', hint: '我想为孩子做的事' },
-  child:    { key: 'child',    label: '为我', long: '孩子 → 家长', hint: '孩子想为我做的事' },
-  together: { key: 'together', label: '一起', long: '一起做',      hint: '我们一起完成的事' },
+  parent:   { key: 'parent',   get label() { return t('perspective.parent.label'); },   get long() { return t('perspective.parent.long'); },   get hint() { return t('perspective.parent.hint'); } },
+  child:    { key: 'child',    get label() { return t('perspective.child.label'); },    get long() { return t('perspective.child.long'); },    get hint() { return t('perspective.child.hint'); } },
+  together: { key: 'together', get label() { return t('perspective.together.label'); }, get long() { return t('perspective.together.long'); }, get hint() { return t('perspective.together.hint'); } },
 };
 
-export const FAMILY = { id: 'all', name: '全家', tone: 'pink' };
+export const FAMILY = { id: 'all', get name() { return t('family.all'); }, tone: 'pink' };
 
+// role 在 DB 里以中文存储并用于判等（如 === '其他'），故保持中文为「规范标识」，仅展示时翻译。
 export const ROLES = ['爸爸', '妈妈', '爷爷', '奶奶', '外公', '外婆'];
+const ROLE_LABEL_KEYS: Record<string, string> = {
+  '爸爸': 'dad', '妈妈': 'mom', '爷爷': 'grandpaP', '奶奶': 'grandmaP',
+  '外公': 'grandpaM', '外婆': 'grandmaM', '其他': 'other',
+};
+// 把存储用的角色标识翻成展示文案；自定义角色（自由文本）原样返回。
+export function roleLabel(role?: string): string {
+  if (!role) return '';
+  const k = ROLE_LABEL_KEYS[role];
+  return k ? t(`role.${k}`) : role;
+}
 export const DEFAULT_ME = { role: '爸爸', custom: '' };
 
 export const NOW_YM = { y: 2026, m: 6 };
@@ -28,13 +41,15 @@ export const SHOW_MASCOT = false;
 // ── Pure functions (no DB dependency) ──
 
 export function meName(me) {
-  if (!me) return '家长';
-  return me.role === '其他' ? (me.custom || '我') : me.role;
+  if (!me) return t('role.parentFallback');
+  return me.role === '其他' ? (me.custom || t('role.selfFallback')) : roleLabel(me.role);
 }
 
 export function meChar(me) {
   const n = meName(me);
-  return (me && me.role !== '其他') ? n[n.length - 1] : n[0];
+  if (!n) return '';
+  // 中文取末字（「爸爸」→「爸」），英文取首字母
+  return getLang() === 'zh' ? n[n.length - 1] : (n[0] || '').toUpperCase();
 }
 
 export function durationSince(sinceStr) {
@@ -58,10 +73,10 @@ export function durationSince(sinceStr) {
     months += 12;
   }
   const parts = [];
-  if (years > 0) parts.push(`${years} 年`);
-  if (months > 0) parts.push(`${months} 个月`);
-  if (days > 0) parts.push(`${days} 天`);
-  return parts.join(' ') || '1 天';
+  if (years > 0) parts.push(t('duration.years', { count: years }));
+  if (months > 0) parts.push(t('duration.months', { count: months }));
+  if (days > 0) parts.push(t('duration.days', { count: days }));
+  return parts.join(' ') || t('duration.fallback');
 }
 
 export function kidAge(k) {
@@ -81,11 +96,11 @@ export function nowCtx() {
 
 export function suitsNow(l) {
   const ctx = nowCtx();
-  if (l.custom) return '你们家自己的事';
-  if (l.seasonal && (ctx.season === 'spring' || ctx.season === 'summer')) return '这个季节正合适';
-  if ((ctx.slot === 'evening' || ctx.slot === 'night') && (l.suggest === 'voice' || l.suggest === 'text')) return '安静的晚上，适合慢慢说';
-  if (ctx.weekend && l.suggest === 'photo') return '周末，适合出门做';
-  if (ctx.slot === 'afternoon' && l.suggest === 'photo') return '光线正好，适合拍';
+  if (l.custom) return t('suits.custom');
+  if (l.seasonal && (ctx.season === 'spring' || ctx.season === 'summer')) return t('suits.season');
+  if ((ctx.slot === 'evening' || ctx.slot === 'night') && (l.suggest === 'voice' || l.suggest === 'text')) return t('suits.evening');
+  if (ctx.weekend && l.suggest === 'photo') return t('suits.weekend');
+  if (ctx.slot === 'afternoon' && l.suggest === 'photo') return t('suits.afternoon');
   return null;
 }
 
@@ -192,7 +207,7 @@ export async function insertCustomLevel({
     family_id: familyId,
     user_id: session.user.id,
     num, title, perspective, tone, suggest,
-    why: why || '这是你们家自己的事，记下来就不会忘。',
+    why: why || t('customLevel.defaultWhy'),
     how, record_hint: record,
     illustration_path: illustrationPath,
   }).select().single();
@@ -482,14 +497,18 @@ export function sealDateFor(level, kid) {
   if (level?.sealKind === 'age18') {
     if (!kid || kid.id === 'all' || kid.y == null) return null;
     const until = new Date(kid.y + 18, (kid.m || 1) - 1, 1);
-    return { sealUntil: until.toISOString(), sealLabel: `${kid.name} 18 岁生日` };
+    return { sealUntil: until.toISOString(), sealLabel: t('seal.age18Label', { name: kid.name }) };
   }
   return null; // 'date' 类由 UI 选完年月后调 makeSealDate
 }
 
-// 由用户选的年/月构造到期日与文案（time capsule 等）
+const MONTHS_EN = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+// 由用户选的年/月构造到期日与文案（time capsule 等）。
+// sealLabel 是创建时按当前语言生成并存进 DB 的快照，之后不随语言切换重写。
 export function makeSealDate(y, m, d = 1) {
-  return { sealUntil: new Date(y, m - 1, d).toISOString(), sealLabel: `${y} 年 ${m} 月 ${d} 日` };
+  const sealLabel = t('seal.dateLabel', { y, m, d, mon: MONTHS_EN[m - 1] });
+  return { sealUntil: new Date(y, m - 1, d).toISOString(), sealLabel };
 }
 
 export function allLevelsFrom(customLevels, levels) {
@@ -517,7 +536,7 @@ export function throwbackFrom(memories, kidId = 'all') {
   const list = kidId === 'all' ? memories : memories.filter(m => m.kid === kidId || m.kid === 'all');
   if (list.length < 2) return null;
   const m = list[list.length - 1];
-  return { m, label: '去年的这个时候', sub: '你们一起做的第 1 件事' };
+  return { m, label: t('throwback.label'), sub: t('throwback.sub') };
 }
 
 const LEVEL_AGE = { '12': 6, '04': 4, '17': 5, '31': 5, '23': 4 };
@@ -566,7 +585,7 @@ export function weightedShuffleFrom(kids, arr, kid, seed = 0) {
     .map(x => x.l);
 }
 
-export function frameLabelFrom(kids, perspective, kidId, meLabel = '家长') {
+export function frameLabelFrom(kids, perspective, kidId, meLabel = t('role.parentFallback')) {
   if (perspective === 'together' || kidId === 'all') return PERSPECTIVES[perspective].long;
   const name = getKidFrom(kids, kidId).name;
   if (perspective === 'parent') return `${meLabel} → ${name}`;

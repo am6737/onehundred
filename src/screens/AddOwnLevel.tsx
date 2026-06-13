@@ -6,6 +6,7 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme, TONE } from '../theme/tokens';
+import { useT } from '../i18n';
 import { useData } from '../data/DataProvider';
 import { uploadIllustration } from '../data';
 import { Icon } from '../components/Icons';
@@ -14,17 +15,20 @@ import { LayerHeader } from '../components/common';
 
 const { height: SCREEN_H } = Dimensions.get('window');
 const TONE_BY_P = { parent: 'orange', child: 'green', together: 'pink' };
-const PERSPS = [['parent', '为孩子做'], ['child', '孩子为你做'], ['together', '一起做']];
+const PERSPS = ['parent', 'child', 'together'] as const;
 const SUGGESTS = [
-  ['photo', '拍照', (c: string) => Icon.camera(c, 18)],
-  ['video', '视频', (c: string) => Icon.video(c, 18)],
-  ['voice', '语音', (c: string) => Icon.mic(c, 18)],
-  ['text', '文字', (c: string) => Icon.pen(c, 18)],
+  ['photo', (c: string) => Icon.camera(c, 18)],
+  ['video', (c: string) => Icon.video(c, 18)],
+  ['voice', (c: string) => Icon.mic(c, 18)],
+  ['text', (c: string) => Icon.pen(c, 18)],
 ] as const;
 
 export default function AddOwnLevel({ route, navigation }) {
   const { theme } = useTheme();
+  const t = useT();
   const insets = useSafeAreaInsets();
+  const PERSP_LABEL = { parent: t('addOwnLevel.perspParent'), child: t('addOwnLevel.perspChild'), together: t('addOwnLevel.perspTogether') };
+  const SUG_LABEL = { photo: t('ownLevels.sugPhoto'), video: t('ownLevels.sugVideo'), voice: t('ownLevels.sugVoice'), text: t('ownLevels.sugText') };
   const { addCustomLevel, editCustomLevel, removeCustomLevel } = useData();
   const { onCreated, level: editing } = route.params || {};
   const isEdit = !!editing;
@@ -56,27 +60,27 @@ export default function AddOwnLevel({ route, navigation }) {
       };
       if (fromCamera) {
         const { status } = await ImagePicker.requestCameraPermissionsAsync();
-        if (status !== 'granted') { Alert.alert('需要相机权限才能拍照'); return; }
+        if (status !== 'granted') { Alert.alert(t('addOwnLevel.cameraPerm')); return; }
         const r = await ImagePicker.launchCameraAsync(opts);
         if (!r.canceled && r.assets?.[0]) { setCoverUri(r.assets[0].uri); setCoverRemoved(false); }
       } else {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-        if (status !== 'granted') { Alert.alert('需要相册权限才能选图'); return; }
+        if (status !== 'granted') { Alert.alert(t('addOwnLevel.albumPerm')); return; }
         const r = await ImagePicker.launchImageLibraryAsync(opts);
         if (!r.canceled && r.assets?.[0]) { setCoverUri(r.assets[0].uri); setCoverRemoved(false); }
       }
     } catch (e) {
-      Alert.alert('选择图片失败', '请再试一次');
+      Alert.alert(t('addOwnLevel.pickFailTitle'), t('addOwnLevel.pickFailBody'));
     }
   };
 
   const pickCover = () => {
     Keyboard.dismiss();
-    Alert.alert('设置封面', '', [
-      { text: '拍一张', onPress: () => launch(true) },
-      { text: '从相册选择', onPress: () => launch(false) },
-      ...(hasCover ? [{ text: '移除封面', style: 'destructive' as const, onPress: () => { setCoverUri(null); setCoverRemoved(true); } }] : []),
-      { text: '取消', style: 'cancel' },
+    Alert.alert(t('addOwnLevel.setCover'), '', [
+      { text: t('addOwnLevel.takeOne'), onPress: () => launch(true) },
+      { text: t('record.chooseFromAlbum'), onPress: () => launch(false) },
+      ...(hasCover ? [{ text: t('addOwnLevel.removeCover'), style: 'destructive' as const, onPress: () => { setCoverUri(null); setCoverRemoved(true); } }] : []),
+      { text: t('common.cancel'), style: 'cancel' },
     ]);
   };
 
@@ -109,7 +113,7 @@ export default function AddOwnLevel({ route, navigation }) {
       navigation.goBack();
     } catch (e) {
       setSaving(false);
-      Alert.alert(isEdit ? '没能保存' : '没能加进去', '请稍后再试一次');
+      Alert.alert(isEdit ? t('addOwnLevel.saveFailEdit') : t('addOwnLevel.saveFailAdd'), t('addOwnLevel.saveFailBody'));
     }
   };
 
@@ -117,12 +121,12 @@ export default function AddOwnLevel({ route, navigation }) {
     if (!isEdit) return;
     Keyboard.dismiss();
     Alert.alert(
-      '删掉这件事？',
-      `「${editing.title}」会从你们家自己的事里移除。已经记下的回忆还在。`,
+      t('ownLevels.deleteTitle'),
+      t('ownLevels.deleteBody', { title: editing.title }),
       [
-        { text: '取消', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: '删除',
+          text: t('common.delete'),
           style: 'destructive',
           onPress: async () => {
             setDeleting(true);
@@ -132,7 +136,7 @@ export default function AddOwnLevel({ route, navigation }) {
               navigation.goBack();
             } catch (e) {
               setDeleting(false);
-              Alert.alert('删除失败', '没能删掉，稍后再试一次。');
+              Alert.alert(t('ownLevels.deleteFailTitle'), t('ownLevels.deleteFailBody'));
             }
           },
         },
@@ -154,14 +158,14 @@ export default function AddOwnLevel({ route, navigation }) {
 
   // 封面没设时：编辑态若还留着原封面就显示它，否则回退到 motif 插画（和首页卡片一致）
   const previewLevel = {
-    title: title.trim() || '我们家自己的事',
+    title: title.trim() || t('home.badgeCustom'),
     tone,
     illustrationPath: keptOldCover ? editing.illustrationPath : undefined,
   };
 
   return (
     <View style={[styles.container, { backgroundColor: theme.cream }]}>
-      <LayerHeader title={isEdit ? '改一件我们家自己的事' : '加一件我们家自己的事'} onBack={() => navigation.goBack()} right={deleteButton} />
+      <LayerHeader title={isEdit ? t('addOwnLevel.titleEdit') : t('addOwnLevel.titleAdd')} onBack={() => navigation.goBack()} right={deleteButton} />
 
       <ScrollView
         style={styles.scroller}
@@ -185,7 +189,7 @@ export default function AddOwnLevel({ route, navigation }) {
             <View style={[styles.coverPill, { backgroundColor: theme.paper, borderColor: theme.line }]}>
               {Icon.camera(theme.ink, 15)}
               <Text style={[styles.coverPillText, { color: theme.ink, fontFamily: theme.fonts.head }]}>
-                {hasCover ? '换封面' : '设置封面'}
+                {hasCover ? t('addOwnLevel.changeCover') : t('addOwnLevel.setCover')}
               </Text>
             </View>
           </TouchableOpacity>
@@ -195,15 +199,15 @@ export default function AddOwnLevel({ route, navigation }) {
             value={title}
             onChangeText={setTitle}
             multiline
-            placeholder="给这件事起个名字"
+            placeholder={t('addOwnLevel.titlePlaceholder')}
             placeholderTextColor={theme.inkSoft}
             style={[styles.titleInput, { color: theme.ink, fontFamily: theme.fonts.head }]}
           />
 
           {/* 这是谁为谁做的 */}
-          <Field label="这是谁为谁做的" theme={theme}>
+          <Field label={t('addOwnLevel.whoForWhom')} theme={theme}>
             <View style={styles.chipRow}>
-              {PERSPS.map(([k, label]) => {
+              {PERSPS.map((k) => {
                 const on = persp === k;
                 return (
                   <TouchableOpacity
@@ -215,7 +219,7 @@ export default function AddOwnLevel({ route, navigation }) {
                     }]}
                   >
                     <Text style={{ fontFamily: theme.fonts.head, fontSize: 14, color: on ? '#FFFDF7' : theme.ink }}>
-                      {label}
+                      {PERSP_LABEL[k]}
                     </Text>
                   </TouchableOpacity>
                 );
@@ -223,17 +227,17 @@ export default function AddOwnLevel({ route, navigation }) {
             </View>
           </Field>
 
-          <EditField label="为什么值得做" value={why} onChange={setWhy}
-            placeholder="写给以后的自己——为什么想记下这件事？" theme={theme} />
-          <EditField label="可以怎么做" value={how} onChange={setHow}
-            placeholder="可以怎么开始？有什么小点子？" theme={theme} />
-          <EditField label="记录些什么" value={record} onChange={setRecord}
-            placeholder="拍下什么、说点什么、或写下哪一句话？" theme={theme} />
+          <EditField label={t('levelDetail.whyKicker')} value={why} onChange={setWhy}
+            placeholder={t('addOwnLevel.whyPlaceholder')} theme={theme} />
+          <EditField label={t('levelDetail.howKicker')} value={how} onChange={setHow}
+            placeholder={t('addOwnLevel.howPlaceholder')} theme={theme} />
+          <EditField label={t('levelDetail.recordKicker')} value={record} onChange={setRecord}
+            placeholder={t('addOwnLevel.recordPlaceholder')} theme={theme} />
 
           {/* 适合什么记录 */}
-          <Field label="适合什么记录" theme={theme}>
+          <Field label={t('addOwnLevel.suitFor')} theme={theme}>
             <View style={styles.chipRow}>
-              {SUGGESTS.map(([k, label, icon]) => {
+              {SUGGESTS.map(([k, icon]) => {
                 const on = suggest === k;
                 return (
                   <TouchableOpacity
@@ -246,7 +250,7 @@ export default function AddOwnLevel({ route, navigation }) {
                   >
                     {icon(on ? '#FFFDF7' : theme.ink)}
                     <Text style={{ fontFamily: theme.fonts.head, fontSize: 14, color: on ? '#FFFDF7' : theme.ink }}>
-                      {label}
+                      {SUG_LABEL[k]}
                     </Text>
                   </TouchableOpacity>
                 );
@@ -269,7 +273,7 @@ export default function AddOwnLevel({ route, navigation }) {
               <ActivityIndicator color="#FFFDF7" />
             ) : (
               <Text style={{ fontFamily: theme.fonts.head, fontSize: 17, color: ready ? '#FFFDF7' : theme.inkSoft }}>
-                {isEdit ? '保存修改' : '加进我们的一百件事'}
+                {isEdit ? t('addOwnLevel.saveEdit') : t('addOwnLevel.saveAdd')}
               </Text>
             )}
           </TouchableOpacity>

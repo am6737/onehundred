@@ -10,6 +10,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Image, Text, Platform, StyleSheet } from 'react-native';
 import { File, Paths } from 'expo-file-system';
 import { requireOptionalNativeModule } from 'expo-modules-core';
+import { useT } from '../i18n';
 
 // 懒加载：dev client 还没重建（原生没链接）时 require 不抛，退化为静态图。
 let LivePhotoView: any = null;
@@ -34,6 +35,7 @@ export const livePhotoSupported: boolean =
   })();
 
 export function LiveBadge({ placement = 'top-left' }: { placement?: 'top-left' | 'bottom-left' }) {
+  const t = useT();
   return (
     <View
       pointerEvents="none"
@@ -42,7 +44,7 @@ export function LiveBadge({ placement = 'top-left' }: { placement?: 'top-left' |
       <View style={styles.ring}>
         <View style={styles.dot} />
       </View>
-      <Text style={styles.badgeText}>实况</Text>
+      <Text style={styles.badgeText}>{t('common.live')}</Text>
     </View>
   );
 }

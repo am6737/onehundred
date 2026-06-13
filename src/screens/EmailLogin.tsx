@@ -4,6 +4,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/tokens';
+import { useT } from '../i18n';
 import { Icon } from '../components/Icons';
 import { signIn, signUp } from '../lib/auth';
 
@@ -26,6 +27,7 @@ function BackButton({ onPress }) {
 
 export default function EmailLogin({ navigation }) {
   const { theme } = useTheme();
+  const t = useT();
   const insets = useSafeAreaInsets();
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
@@ -45,7 +47,7 @@ export default function EmailLogin({ navigation }) {
       if (mode === 'register') {
         const { session } = await signUp(email, password);
         if (!session) {
-          setError('注册成功，请检查邮箱确认后登录');
+          setError(t('emailLogin.registerSuccess'));
           setMode('login');
           setLoading(false);
           return;
@@ -55,7 +57,7 @@ export default function EmailLogin({ navigation }) {
       }
       navigation.replace('Home');
     } catch (e: any) {
-      setError(e.message || '操作失败，请重试');
+      setError(e.message || t('emailLogin.genericError'));
     } finally {
       setLoading(false);
     }
@@ -92,7 +94,7 @@ export default function EmailLogin({ navigation }) {
           fontFamily: theme.fonts.head,
           fontSize: 22,
           color: theme.ink,
-        }}>{mode === 'login' ? '邮箱登录' : '注册账号'}</Text>
+        }}>{mode === 'login' ? t('emailLogin.titleLogin') : t('emailLogin.titleRegister')}</Text>
       </View>
 
       <View style={{ flex: 1, paddingHorizontal: 24, marginTop: 28, gap: 14 }}>
@@ -100,7 +102,7 @@ export default function EmailLogin({ navigation }) {
           <TextInput
             value={email}
             onChangeText={setEmail}
-            placeholder="请输入邮箱"
+            placeholder={t('emailLogin.emailPlaceholder')}
             placeholderTextColor={theme.inkSoft}
             keyboardType="email-address"
             autoCapitalize="none"
@@ -112,7 +114,7 @@ export default function EmailLogin({ navigation }) {
           <TextInput
             value={password}
             onChangeText={setPassword}
-            placeholder="请输入密码（至少 6 位）"
+            placeholder={t('emailLogin.passwordPlaceholder')}
             placeholderTextColor={theme.inkSoft}
             secureTextEntry
             style={inputStyle}
@@ -124,7 +126,7 @@ export default function EmailLogin({ navigation }) {
             <TextInput
               value={confirmPassword}
               onChangeText={setConfirmPassword}
-              placeholder="确认密码"
+              placeholder={t('emailLogin.confirmPlaceholder')}
               placeholderTextColor={theme.inkSoft}
               secureTextEntry
               style={inputStyle}
@@ -153,7 +155,7 @@ export default function EmailLogin({ navigation }) {
             fontFamily: theme.fonts.body,
             fontSize: 14,
             color: theme.accent,
-          }}>{mode === 'login' ? '没有账号？注册' : '已有账号？登录'}</Text>
+          }}>{mode === 'login' ? t('emailLogin.toRegister') : t('emailLogin.toLogin')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -175,7 +177,7 @@ export default function EmailLogin({ navigation }) {
             fontFamily: theme.fonts.head,
             fontSize: 17,
             color: canSubmit && !loading ? '#FFFDF7' : theme.inkSoft,
-          }}>{loading ? '请稍候...' : (mode === 'login' ? '登录' : '注册')}</Text>
+          }}>{loading ? t('emailLogin.submitting') : (mode === 'login' ? t('emailLogin.login') : t('emailLogin.register'))}</Text>
         </TouchableOpacity>
       </View>
     </View>

@@ -12,6 +12,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import { useTheme, TONE } from '../theme/tokens';
+import { useT } from '../i18n';
 import { meName, meChar, PET_BODY, SHOW_MASCOT, durationSince, sealedLockedFrom, sealedAllFrom, isMemoryUnsealed } from '../data';
 import { useData } from '../data/DataProvider';
 import { Icon } from '../components/Icons';
@@ -22,7 +23,7 @@ const ANIM_DURATION_IN = 380;
 const ANIM_DURATION_OUT = 300;
 
 const HEAT_YEAR = 2026;
-const WK = ['一', '二', '三', '四', '五', '六', '日'];
+const WK_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 
 /* ── helper: heat cell colour ── */
 
@@ -146,7 +147,9 @@ const rowStyles = StyleSheet.create({
 
 function MonthHeatmap({ onOpen, kidId = 'all' }) {
   const { theme } = useTheme();
+  const t = useT();
   const { memories, memoriesForKid } = useData();
+  const WK = WK_KEYS.map((k) => t(`weekday.${k}`));
 
   const { month, weekCells, byKey, recordedDays, weekDone } = useMemo(() => {
     const parse = (s) => {
@@ -225,7 +228,7 @@ function MonthHeatmap({ onOpen, kidId = 'all' }) {
             { fontFamily: theme.fonts.head, color: theme.ink },
           ]}
         >
-          这一周的记录
+          {t('drawer.weekTitle')}
         </Text>
         <View style={heatStyles.headerRight}>
           <Text
@@ -234,7 +237,7 @@ function MonthHeatmap({ onOpen, kidId = 'all' }) {
               { fontFamily: theme.fonts.body, color: theme.accent },
             ]}
           >
-            全部记录
+            {t('drawer.allRecords')}
           </Text>
           {Icon.chevR(theme.accent, 15)}
         </View>
@@ -298,7 +301,7 @@ function MonthHeatmap({ onOpen, kidId = 'all' }) {
             { fontFamily: theme.fonts.body, color: theme.inkSoft },
           ]}
         >
-          记录了{' '}
+          {t('drawer.recordedPrefix')}{' '}
           <Text
             style={{
               fontFamily: theme.fonts.head,
@@ -306,7 +309,7 @@ function MonthHeatmap({ onOpen, kidId = 'all' }) {
               color: theme.ink,
             }}
           >
-            {recordedDays} 天
+            {t('common.daysCount', { count: recordedDays })}
           </Text>
         </Text>
         <Text
@@ -315,7 +318,7 @@ function MonthHeatmap({ onOpen, kidId = 'all' }) {
             { fontFamily: theme.fonts.body, color: theme.inkSoft },
           ]}
         >
-          完成了{' '}
+          {t('drawer.completedPrefix')}{' '}
           <Text
             style={{
               fontFamily: theme.fonts.head,
@@ -323,7 +326,7 @@ function MonthHeatmap({ onOpen, kidId = 'all' }) {
               color: theme.accent,
             }}
           >
-            {weekDone} 件事
+            {t('common.thingsCount', { count: weekDone })}
           </Text>
         </Text>
       </View>
@@ -397,6 +400,7 @@ const heatStyles = StyleSheet.create({
 
 export default function Drawer({ visible, onClose, onNavigate, kidId = 'all', me }) {
   const { theme } = useTheme();
+  const t = useT();
   const { kids, levels, memories, wardrobe, customLevels, FAMILY, getKid, kidDone, memoriesForKid, getMascot, wardrobeState } = useData();
   const slideAnim = useRef(new Animated.Value(-DRAWER_WIDTH)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -446,7 +450,7 @@ export default function Drawer({ visible, onClose, onNavigate, kidId = 'all', me
   // ── Computed values ──
 
   const isAll = kidId === 'all';
-  const focusName = isAll ? '孩子们' : (getKid(kidId)?.name || '孩子');
+  const focusName = isAll ? t('drawer.kids') : (getKid(kidId)?.name || t('drawer.child'));
   const done = isAll
     ? memories.length
     : memoriesForKid(kidId).length;
@@ -470,10 +474,10 @@ export default function Drawer({ visible, onClose, onNavigate, kidId = 'all', me
   const sealedCount = sealedAll.length;
   const openableCount = sealedAll.filter(isMemoryUnsealed).length;
   const sealedSub = openableCount > 0
-    ? `${openableCount} 个可以打开了`
+    ? t('drawer.sealedOpenable', { count: openableCount })
     : sealedLocked[0]
-      ? `等${sealedLocked[0].sealLabel || '约定的那天'}`
-      : '还没有封存的东西';
+      ? t('drawer.sealedWaiting', { label: sealedLocked[0].sealLabel || t('drawer.theAppointedDay') })
+      : t('drawer.sealedNone');
 
   // Mascot info
   const petKid = isAll ? (kids[0]?.id || 'duo') : kidId;
@@ -526,7 +530,7 @@ export default function Drawer({ visible, onClose, onNavigate, kidId = 'all', me
               { fontFamily: theme.fonts.head, color: theme.ink },
             ]}
           >
-            {isAll ? '陪孩子们长大' : `陪${focusName}长大`}
+            {isAll ? t('drawer.growWithKids') : t('drawer.growWith', { name: focusName })}
           </Text>
           <Text
             style={[
@@ -534,7 +538,7 @@ export default function Drawer({ visible, onClose, onNavigate, kidId = 'all', me
               { fontFamily: theme.fonts.hand, color: theme.accent },
             ]}
           >
-            {empty ? '从今天，慢慢开始' : `一起记录了 ${togetherFor || '1 天'}`}
+            {empty ? t('drawer.startToday') : t('drawer.recordedTogether', { dur: togetherFor || t('duration.fallback') })}
           </Text>
 
         </View>
@@ -563,7 +567,7 @@ export default function Drawer({ visible, onClose, onNavigate, kidId = 'all', me
                 { fontFamily: theme.fonts.body, color: theme.inkSoft },
               ]}
             >
-              {isAll ? '全家的一百件事' : `和${focusName}的一百件事`}
+              {isAll ? t('drawer.familyHundred') : t('drawer.hundredWith', { name: focusName })}
             </Text>
             <View style={drawerStyles.heroNumbers}>
               <Text
@@ -580,7 +584,7 @@ export default function Drawer({ visible, onClose, onNavigate, kidId = 'all', me
                   { fontFamily: theme.fonts.body, color: theme.inkSoft },
                 ]}
               >
-                / {total} 件
+                {t('drawer.slashTotal', { total })}
               </Text>
             </View>
             {/* Progress bar */}
@@ -607,8 +611,8 @@ export default function Drawer({ visible, onClose, onNavigate, kidId = 'all', me
               ]}
             >
               {empty
-                ? '还没有开始。挑一件此刻最想做的，记下第一件吧。'
-                : `已经做到 ${done} 件，还有 ${total - done} 件在等你们。慢慢来。`}
+                ? t('drawer.emptyHint')
+                : t('drawer.progressHint', { done, remain: total - done })}
             </Text>
           </TouchableOpacity>
 
@@ -657,7 +661,7 @@ export default function Drawer({ visible, onClose, onNavigate, kidId = 'all', me
                       { fontFamily: theme.fonts.head, color: theme.ink },
                     ]}
                   >
-                    {mascot.name}的小衣橱
+                    {t('drawer.petWardrobe', { name: mascot.name })}
                   </Text>
                   <View
                     style={[
@@ -682,8 +686,8 @@ export default function Drawer({ visible, onClose, onNavigate, kidId = 'all', me
                   ]}
                 >
                   {unlockInfo.next
-                    ? `再做 ${unlockInfo.remain} 件，解锁「${unlockInfo.next.name}」`
-                    : '所有装扮都集齐啦'}
+                    ? t('drawer.petUnlock', { remain: unlockInfo.remain, name: unlockInfo.next.name })
+                    : t('drawer.petAllDone')}
                 </Text>
               </View>
               {Icon.chevR(theme.inkSoft, 20)}
@@ -694,16 +698,16 @@ export default function Drawer({ visible, onClose, onNavigate, kidId = 'all', me
           <View style={{ marginTop: 10 }}>
             <DrawerRow
               icon={Icon.pen(theme.accent, 19)}
-              title="我们家自己的事"
-              sub={customLevels.length ? '随时增删改这些事' : '加一件只属于你们家的事'}
-              value={customLevels.length ? `${customLevels.length} 件` : undefined}
+              title={t('drawer.ownLevels')}
+              sub={customLevels.length ? t('drawer.ownLevelsSubHas') : t('drawer.ownLevelsSubEmpty')}
+              value={customLevels.length ? t('common.itemsCount', { count: customLevels.length }) : undefined}
               onPress={() => go('ownlevels')}
             />
             <DrawerRow
               icon={Icon.lock(theme.accent, 19)}
-              title="封存中"
+              title={t('drawer.sealed')}
               sub={sealedSub}
-              value={`${sealedCount} 件`}
+              value={t('common.itemsCount', { count: sealedCount })}
               onPress={() => go('sealed')}
             />
           </View>
@@ -735,7 +739,7 @@ export default function Drawer({ visible, onClose, onNavigate, kidId = 'all', me
                 { fontFamily: theme.fonts.body, color: theme.ink },
               ]}
             >
-              设置
+              {t('drawer.settings')}
             </Text>
             {Icon.chevR(theme.inkSoft, 17)}
           </TouchableOpacity>

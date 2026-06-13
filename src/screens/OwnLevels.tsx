@@ -12,40 +12,45 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScrollView, TouchableOpacity } from 'react-native-gesture-handler';
 import ReanimatedSwipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { useTheme, TONE } from '../theme/tokens';
+import { useT } from '../i18n';
 import { useData } from '../data/DataProvider';
 import { PERSPECTIVES } from '../data';
 import { Icon } from '../components/Icons';
 import { SceneSlot, illustrationUrl } from '../components/Motifs';
 import { LayerHeader } from '../components/common';
 
-const SUGGEST_LABEL = { photo: '拍照', video: '视频', voice: '语音', text: '文字' };
-
 /* 「我们家自己的事」管理：看全部、加（右上角 +）、改（点卡片）、删（左滑 / 长按）。
    卡片样式对齐回忆册时间线里的那种条目。 */
 export default function OwnLevels({ navigation }) {
   const { theme } = useTheme();
+  const t = useT();
   const insets = useSafeAreaInsets();
   const { customLevels, removeCustomLevel } = useData();
   const [deletingId, setDeletingId] = useState(null);
+
+  const SUGGEST_LABEL = {
+    photo: t('ownLevels.sugPhoto'), video: t('ownLevels.sugVideo'),
+    voice: t('ownLevels.sugVoice'), text: t('ownLevels.sugText'),
+  };
 
   const goAdd = () => navigation.navigate('AddOwnLevel', {});
   const goEdit = (l) => navigation.navigate('AddOwnLevel', { level: l });
 
   const confirmDelete = (l) => {
     Alert.alert(
-      '删掉这件事？',
-      `「${l.title}」会从你们家自己的事里移除。已经记下的回忆还在。`,
+      t('ownLevels.deleteTitle'),
+      t('ownLevels.deleteBody', { title: l.title }),
       [
-        { text: '取消', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: '删除',
+          text: t('common.delete'),
           style: 'destructive',
           onPress: async () => {
             setDeletingId(l.id);
             try {
               await removeCustomLevel(l.id, l.illustrationPath);
             } catch (e) {
-              Alert.alert('删除失败', '没能删掉，稍后再试一次。');
+              Alert.alert(t('ownLevels.deleteFailTitle'), t('ownLevels.deleteFailBody'));
             } finally {
               setDeletingId(null);
             }
@@ -67,7 +72,7 @@ export default function OwnLevels({ navigation }) {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.cream }]}>
-      <LayerHeader title="我们家自己的事" onBack={() => navigation.goBack()} right={addButton} />
+      <LayerHeader title={t('drawer.ownLevels')} onBack={() => navigation.goBack()} right={addButton} />
 
       <ScrollView
         style={styles.scroller}
@@ -77,10 +82,10 @@ export default function OwnLevels({ navigation }) {
         {customLevels.length === 0 ? (
           <View style={styles.empty}>
             <Text style={[styles.emptyTitle, { color: theme.ink, fontFamily: theme.fonts.head }]}>
-              还没有你们家自己的事
+              {t('ownLevels.emptyTitle')}
             </Text>
             <Text style={[styles.emptyHint, { color: theme.inkSoft, fontFamily: theme.fonts.body }]}>
-              一百件事之外，加一件只属于你们家的——它会一起出现在首页里。
+              {t('ownLevels.emptyHint')}
             </Text>
             <TouchableOpacity
               onPress={goAdd}
@@ -88,7 +93,7 @@ export default function OwnLevels({ navigation }) {
               style={[styles.emptyBtn, { backgroundColor: theme.accent }]}
             >
               <Text style={{ fontFamily: theme.fonts.head, fontSize: 16, color: '#FFFDF7' }}>
-                加一件我们家自己的事
+                {t('home.addOwn')}
               </Text>
             </TouchableOpacity>
           </View>
@@ -97,22 +102,22 @@ export default function OwnLevels({ navigation }) {
             {/* ── 顶部统计（对齐回忆册） ── */}
             <View style={styles.statBlock}>
               <Text style={[styles.statLead, { color: theme.inkSoft, fontFamily: theme.fonts.body }]}>
-                只属于你们家的事
+                {t('ownLevels.statLead')}
               </Text>
               <View style={styles.statNumRow}>
                 <Text style={[styles.statBig, { color: theme.accent, fontFamily: theme.fonts.head }]}>
                   {customLevels.length}
                 </Text>
-                <Text style={[styles.statUnit, { color: theme.ink, fontFamily: theme.fonts.head }]}>件</Text>
+                <Text style={[styles.statUnit, { color: theme.ink, fontFamily: theme.fonts.head }]}>{t('ownLevels.unit')}</Text>
               </View>
             </View>
 
             {customLevels.map((l) => {
-              const t = TONE[l.tone] || TONE.orange;
+              const tn = TONE[l.tone] || TONE.orange;
               const illo = illustrationUrl(l);
-              const persp = PERSPECTIVES[l.perspective]?.label || '一起';
-              const sug = SUGGEST_LABEL[l.suggest] || '记录';
-              const desc = l.why || l.record || '记下来，就不会忘。';
+              const persp = PERSPECTIVES[l.perspective]?.label || t('perspective.together.label');
+              const sug = SUGGEST_LABEL[l.suggest] || t('ownLevels.sugDefault');
+              const desc = l.why || l.record || t('ownLevels.descDefault');
               const busy = deletingId === l.id;
               return (
                 <View key={l.id} style={[styles.cardShadow, { backgroundColor: theme.paper }]}>
@@ -131,7 +136,7 @@ export default function OwnLevels({ navigation }) {
                         {busy
                           ? <ActivityIndicator color="#FFFDF7" />
                           : Icon.trash('#FFFDF7', 22)}
-                        <Text style={[styles.swipeDeleteText, { fontFamily: theme.fonts.head }]}>删除</Text>
+                        <Text style={[styles.swipeDeleteText, { fontFamily: theme.fonts.head }]}>{t('common.delete')}</Text>
                       </RNTouchableOpacity>
                     )}
                   >
@@ -148,7 +153,7 @@ export default function OwnLevels({ navigation }) {
                       delayLongPress={300}
                     >
                       {/* 封面缩略图 */}
-                      <View style={[styles.cover, { backgroundColor: t.soft }]}>
+                      <View style={[styles.cover, { backgroundColor: tn.soft }]}>
                         {illo ? (
                           <View style={styles.coverFill}>
                             <Image source={{ uri: illo }} style={styles.coverImg} resizeMode="cover" />
@@ -161,8 +166,8 @@ export default function OwnLevels({ navigation }) {
                       {/* 文字内容 */}
                       <View style={styles.cardText}>
                         <View style={styles.pillRow}>
-                          <View style={[styles.pill, { backgroundColor: t.soft }]}>
-                            <Text style={[styles.pillStrong, { color: t.ink, fontFamily: theme.fonts.head }]}>
+                          <View style={[styles.pill, { backgroundColor: tn.soft }]}>
+                            <Text style={[styles.pillStrong, { color: tn.ink, fontFamily: theme.fonts.head }]}>
                               {l.num}
                             </Text>
                           </View>

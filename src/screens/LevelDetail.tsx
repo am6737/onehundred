@@ -5,6 +5,7 @@ import {
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme, TONE } from '../theme/tokens';
+import { useT } from '../i18n';
 import { PERSPECTIVES } from '../data';
 import { useData } from '../data/DataProvider';
 import { Icon } from '../components/Icons';
@@ -15,6 +16,7 @@ const { height: SCREEN_H } = Dimensions.get('window');
 
 export default function LevelDetail({ route, navigation }) {
   const { theme } = useTheme();
+  const t = useT();
   const { customLevels } = useData();
   const insets = useSafeAreaInsets();
   const { level, kidId, me } = route.params;
@@ -27,13 +29,13 @@ export default function LevelDetail({ route, navigation }) {
   }, [liveLevel, level.custom]);
   const L = liveLevel || level;
 
-  const t = TONE[L.tone] || TONE.orange;
+  const tn = TONE[L.tone] || TONE.orange;
   const perspective = PERSPECTIVES[L.perspective];
   const sugMap = {
-    voice: { label: '用语音录下来', icon: () => Icon.mic(t.ink, 22) },
-    photo: { label: '拍一张照片', icon: () => Icon.camera(t.ink, 22) },
-    video: { label: '录一段视频', icon: () => Icon.video(t.ink, 22) },
-    text:  { label: '写下来', icon: () => Icon.pen(t.ink, 22) },
+    voice: { label: t('levelDetail.sugVoice'), icon: () => Icon.mic(tn.ink, 22) },
+    photo: { label: t('levelDetail.sugPhoto'), icon: () => Icon.camera(tn.ink, 22) },
+    video: { label: t('levelDetail.sugVideo'), icon: () => Icon.video(tn.ink, 22) },
+    text:  { label: t('levelDetail.sugText'), icon: () => Icon.pen(tn.ink, 22) },
   };
   const sug = sugMap[L.suggest] || null;
 
@@ -62,13 +64,13 @@ export default function LevelDetail({ route, navigation }) {
         showsVerticalScrollIndicator={false}
       >
         {/* Hero 封面 —— 与首页卡片同款：圆角 30、tone.soft 底、有插画铺满、无插画用 motif */}
-        <View style={[styles.hero, { backgroundColor: t.soft, borderColor: theme.line }]}>
+        <View style={[styles.hero, { backgroundColor: tn.soft, borderColor: theme.line }]}>
           <SceneSlot level={L} tone={L.tone} size={160} />
           {L.custom && (
             <View style={styles.heroBadge}>
-              {Icon.seed(t.deep, 14)}
+              {Icon.seed(tn.deep, 14)}
               <Text style={[styles.heroBadgeText, { color: theme.inkSoft, fontFamily: theme.fonts.body }]}>
-                我们家自己的事
+                {t('home.badgeCustom')}
               </Text>
             </View>
           )}
@@ -84,29 +86,29 @@ export default function LevelDetail({ route, navigation }) {
           <View style={[styles.sealedBox, { borderColor: theme.line }]}>
             <View style={styles.sealedIcon}>{Icon.lock(theme.inkSoft, 18)}</View>
             <Text style={[styles.sealedText, { color: theme.inkSoft, fontFamily: theme.fonts.body }]}>
-              这一封会被封存，直到约定的那天才打开
+              {t('levelDetail.sealedNotice')}
             </Text>
           </View>
         )}
 
         {/* 维度小节——空的就不渲染，避免出现只有标题、底下一片空白的区块 */}
         {!!(L.why && L.why.trim()) && (
-          <SectionBlock kicker="为什么值得做" body={L.why} theme={theme} />
+          <SectionBlock kicker={t('levelDetail.whyKicker')} body={L.why} theme={theme} />
         )}
         {!!(L.how && L.how.trim()) && (
-          <SectionBlock kicker="可以怎么做" body={L.how} theme={theme} />
+          <SectionBlock kicker={t('levelDetail.howKicker')} body={L.how} theme={theme} />
         )}
         {!!(L.record && L.record.trim()) && (
-          <SectionBlock kicker="记录些什么" body={L.record} theme={theme} />
+          <SectionBlock kicker={t('levelDetail.recordKicker')} body={L.record} theme={theme} />
         )}
 
         {/* Suggestion chip */}
         {sug && (
           <View style={[styles.suggestCard, { backgroundColor: theme.paper, borderColor: theme.line }]}>
-            <View style={[styles.suggestIcon, { backgroundColor: t.soft }]}>{sug.icon()}</View>
+            <View style={[styles.suggestIcon, { backgroundColor: tn.soft }]}>{sug.icon()}</View>
             <View style={styles.suggestTextWrap}>
               <Text style={[styles.suggestLabel, { color: theme.inkSoft, fontFamily: theme.fonts.body }]}>
-                这一关最适合
+                {t('levelDetail.bestFor')}
               </Text>
               <Text style={[styles.suggestValue, { color: theme.ink, fontFamily: theme.fonts.head }]}>
                 {sug.label}
@@ -129,12 +131,12 @@ export default function LevelDetail({ route, navigation }) {
         </Svg>
         <View style={styles.bottomButtons}>
           <SecondaryButton
-            label="以后再说"
+            label={t('levelDetail.later')}
             onPress={() => navigation.goBack()}
             style={styles.laterBtn}
           />
           <PrimaryButton
-            label="做完了，记录一下"
+            label={t('levelDetail.doneRecord')}
             onPress={() => navigation.navigate('Record', { level: L, kidId, me })}
             style={styles.recordBtn}
           />

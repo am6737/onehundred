@@ -6,7 +6,8 @@ import {
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme, COLORS } from '../theme/tokens';
-import { ROLES, NOW_YM } from '../data';
+import { useT } from '../i18n';
+import { ROLES, NOW_YM, roleLabel } from '../data';
 import { useData } from '../data/DataProvider';
 import { Icon, KidAvatar } from '../components/Icons';
 
@@ -138,6 +139,7 @@ function Stepper({ value, min, max, onChange, fmt = (v) => String(v), wrap = fal
 
 function WelcomeStep({ onNext, onJoin }) {
   const { theme } = useTheme();
+  const t = useT();
   return (
     <>
       <View style={{
@@ -147,12 +149,12 @@ function WelcomeStep({ onNext, onJoin }) {
         <Animated.Text entering={FadeIn.duration(500)} style={{
           fontFamily: theme.fonts.hand, fontSize: 19,
           color: theme.accent, letterSpacing: 2,
-        }}>一百件事</Animated.Text>
+        }}>{t('onboarding.brand')}</Animated.Text>
 
         <Animated.Text entering={FadeIn.duration(500).delay(100)} style={{
           marginTop: 18, fontFamily: theme.fonts.head, fontSize: 32,
           lineHeight: 46, color: theme.ink, textAlign: 'center',
-        }}>{'慢慢来，\n一起长大'}</Animated.Text>
+        }}>{t('onboarding.welcomeTitle')}</Animated.Text>
 
         <Animated.View entering={FadeIn.duration(500).delay(180)} style={{
           width: 36, height: 3, borderRadius: 999,
@@ -162,13 +164,13 @@ function WelcomeStep({ onNext, onJoin }) {
         <Animated.Text entering={FadeIn.duration(500).delay(260)} style={{
           maxWidth: 280, fontSize: 16, lineHeight: 31,
           color: theme.inkSoft, textAlign: 'center',
-        }}>{'把它们一件件记下来，\n慢慢写成一本回忆录。'}</Animated.Text>
+        }}>{t('onboarding.welcomeBody')}</Animated.Text>
       </View>
 
-      <CTA label="好，开始吧" onPress={onNext} hint="花一分钟，让它认识你们" />
+      <CTA label={t('onboarding.start')} onPress={onNext} hint={t('onboarding.startHint')} />
       <TouchableOpacity onPress={onJoin} activeOpacity={0.7} style={{ paddingBottom: 24, alignItems: 'center' }}>
         <Text style={{ fontFamily: theme.fonts.body, fontSize: 14.5, color: theme.inkSoft }}>
-          已经有家人在用了？<Text style={{ color: theme.accent }}>输入邀请码加入</Text>
+          {t('onboarding.haveFamily')}<Text style={{ color: theme.accent }}>{t('onboarding.enterInvite')}</Text>
         </Text>
       </TouchableOpacity>
     </>
@@ -179,21 +181,22 @@ function WelcomeStep({ onNext, onJoin }) {
 
 function MeStep({ value, onChange, onNext }) {
   const { theme } = useTheme();
+  const t = useT();
   return (
     <>
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 24, paddingTop: 6 }}>
         <Text style={{
           fontFamily: theme.fonts.hand, fontSize: 17,
           color: theme.accent, marginBottom: 8,
-        }}>第一件事</Text>
+        }}>{t('onboarding.firstThing')}</Text>
         <Text style={{
           fontFamily: theme.fonts.head, fontSize: 27,
           lineHeight: 38, color: theme.ink,
-        }}>孩子叫你什么？</Text>
+        }}>{t('onboarding.whatCallYou')}</Text>
         <Text style={{
           marginTop: 12, fontSize: 15, lineHeight: 28,
           color: theme.inkSoft,
-        }}>「为你」「为我」，都要先知道是谁在为谁。</Text>
+        }}>{t('onboarding.whatCallYouHint')}</Text>
 
         <View style={{
           marginTop: 26, flexDirection: 'row', flexWrap: 'wrap', gap: 11,
@@ -220,7 +223,7 @@ function MeStep({ value, onChange, onNext }) {
                 <Text style={{
                   fontFamily: theme.fonts.head, fontSize: 19,
                   color: on ? '#FFFDF7' : theme.ink,
-                }}>{r}</Text>
+                }}>{roleLabel(r)}</Text>
               </TouchableOpacity>
             );
           })}
@@ -229,7 +232,7 @@ function MeStep({ value, onChange, onNext }) {
       </ScrollView>
 
       <CTA
-        label={value ? `我是${value}` : '选一个'}
+        label={value ? t('onboarding.iAm', { role: roleLabel(value) }) : t('onboarding.pickOne')}
         onPress={onNext}
         disabled={!value}
       />
@@ -241,6 +244,7 @@ function MeStep({ value, onChange, onNext }) {
 
 function ChildStep({ child, onChange, onNext }) {
   const { theme } = useTheme();
+  const t = useT();
   const set = (patch) => onChange({ ...child, ...patch });
   const age = ageFrom(child.y, child.m);
   const named = child.name.trim().length > 0;
@@ -251,11 +255,11 @@ function ChildStep({ child, onChange, onNext }) {
         <Text style={{
           fontFamily: theme.fonts.head, fontSize: 27,
           lineHeight: 38, color: theme.ink,
-        }}>这个家的小朋友</Text>
+        }}>{t('onboarding.childTitle')}</Text>
         <Text style={{
           marginTop: 12, fontSize: 15, lineHeight: 28,
           color: theme.inkSoft,
-        }}>先从一个开始。TA 叫什么，又是哪个月来到你们身边的。</Text>
+        }}>{t('onboarding.childHint')}</Text>
 
         <View style={{ alignItems: 'center', marginTop: 22 }}>
           <KidAvatar name={child.name} tone="orange" size={78} />
@@ -263,8 +267,8 @@ function ChildStep({ child, onChange, onNext }) {
 
         <TextInput
           value={child.name}
-          onChangeText={(t) => set({ name: t })}
-          placeholder="写下孩子的名字或小名"
+          onChangeText={(v) => set({ name: v })}
+          placeholder={t('onboarding.childNamePlaceholder')}
           placeholderTextColor={theme.inkSoft}
           maxLength={8}
           autoFocus
@@ -287,15 +291,15 @@ function ChildStep({ child, onChange, onNext }) {
             paddingVertical: 16, paddingHorizontal: 18,
             borderBottomWidth: 1, borderBottomColor: theme.line,
           }}>
-            <Text style={{ fontSize: 15.5, color: theme.ink }}>出生年份</Text>
-            <Stepper value={child.y} min={2008} max={NOW_YM.y} onChange={v => set({ y: v })} fmt={v => v + ' 年'} />
+            <Text style={{ fontSize: 15.5, color: theme.ink }}>{t('onboarding.birthYear')}</Text>
+            <Stepper value={child.y} min={2008} max={NOW_YM.y} onChange={v => set({ y: v })} fmt={v => t('onboarding.yearFmt', { v })} />
           </View>
           <View style={{
             flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
             paddingVertical: 16, paddingHorizontal: 18,
           }}>
-            <Text style={{ fontSize: 15.5, color: theme.ink }}>出生月份</Text>
-            <Stepper value={child.m} min={1} max={12} wrap onChange={v => set({ m: v })} fmt={v => v + ' 月'} />
+            <Text style={{ fontSize: 15.5, color: theme.ink }}>{t('onboarding.birthMonth')}</Text>
+            <Stepper value={child.m} min={1} max={12} wrap onChange={v => set({ m: v })} fmt={v => t('onboarding.monthFmt', { v })} />
           </View>
         </View>
 
@@ -304,13 +308,13 @@ function ChildStep({ child, onChange, onNext }) {
           backgroundColor: theme.sand, alignItems: 'center',
         }}>
           <Text style={{ fontFamily: theme.fonts.head, fontSize: 22, color: theme.ink }}>
-            {named ? `${child.name.trim()}，今年 ${age} 岁` : `今年 ${age} 岁`}
+            {named ? t('onboarding.ageRecapNamed', { name: child.name.trim(), age }) : t('onboarding.ageRecap', { age })}
           </Text>
         </View>
       </ScrollView>
 
       <CTA
-        label={named ? '记下了' : '先写下名字'}
+        label={named ? t('onboarding.gotIt') : t('onboarding.writeNameFirst')}
         onPress={onNext}
         disabled={!named}
       />
@@ -322,8 +326,9 @@ function ChildStep({ child, onChange, onNext }) {
 
 function DoneStep({ me, child, onEnter, loading }) {
   const { theme } = useTheme();
+  const t = useT();
   const age = ageFrom(child.y, child.m);
-  const recap = [`你是${me}`, `${child.name.trim()} ${age} 岁`];
+  const recap = [t('onboarding.recapYou', { role: roleLabel(me) }), t('onboarding.recapChild', { name: child.name.trim(), age })];
 
   return (
     <>
@@ -334,18 +339,18 @@ function DoneStep({ me, child, onEnter, loading }) {
         <Animated.Text entering={FadeIn.duration(400).delay(80)} style={{
           marginTop: 14, fontFamily: theme.fonts.head, fontSize: 28,
           lineHeight: 41, color: theme.ink, textAlign: 'center',
-        }}>{`${child.name.trim()}，\n在这里等你们的第一件事`}</Animated.Text>
+        }}>{t('onboarding.doneTitle', { name: child.name.trim() })}</Animated.Text>
 
         <Animated.View entering={FadeIn.duration(400).delay(160)} style={{
           marginTop: 22, flexDirection: 'row', flexWrap: 'wrap',
           gap: 8, justifyContent: 'center',
         }}>
-          {recap.map(t => (
-            <View key={t} style={{
+          {recap.map(r => (
+            <View key={r} style={{
               paddingVertical: 8, paddingHorizontal: 15,
               borderRadius: 999, backgroundColor: theme.sand,
             }}>
-              <Text style={{ fontSize: 13.5, color: theme.ink }}>{t}</Text>
+              <Text style={{ fontSize: 13.5, color: theme.ink }}>{r}</Text>
             </View>
           ))}
         </Animated.View>
@@ -353,11 +358,11 @@ function DoneStep({ me, child, onEnter, loading }) {
         <Animated.Text entering={FadeIn.duration(400).delay(240)} style={{
           marginTop: 24, fontFamily: theme.fonts.hand, fontSize: 16,
           color: theme.inkSoft, lineHeight: 29,
-        }}>剩下的，慢慢来就好。</Animated.Text>
+        }}>{t('onboarding.doneHint')}</Animated.Text>
       </View>
 
       <CTA
-        label={loading ? '准备中...' : '进入「一百件事」'}
+        label={loading ? t('onboarding.preparing') : t('onboarding.enterApp')}
         onPress={onEnter}
         disabled={loading}
       />
@@ -368,19 +373,20 @@ function DoneStep({ me, child, onEnter, loading }) {
 /* ── Join step A: 邀请码 ── */
 function JoinCodeStep({ code, onChange, onNext }) {
   const { theme } = useTheme();
+  const t = useT();
   const ok = code.trim().length > 0;
   return (
     <>
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 24, paddingTop: 6 }}>
-        <Text style={{ fontFamily: theme.fonts.hand, fontSize: 17, color: theme.accent, marginBottom: 8 }}>加入家人的家</Text>
-        <Text style={{ fontFamily: theme.fonts.head, fontSize: 27, lineHeight: 38, color: theme.ink }}>输入邀请码</Text>
+        <Text style={{ fontFamily: theme.fonts.hand, fontSize: 17, color: theme.accent, marginBottom: 8 }}>{t('onboarding.joinTitle')}</Text>
+        <Text style={{ fontFamily: theme.fonts.head, fontSize: 27, lineHeight: 38, color: theme.ink }}>{t('onboarding.enterCode')}</Text>
         <Text style={{ marginTop: 12, fontSize: 15, lineHeight: 28, color: theme.inkSoft }}>
-          家人在「邀请家人」里能看到这串口令。
+          {t('onboarding.joinHint')}
         </Text>
         <TextInput
           value={code}
-          onChangeText={(t) => onChange(t.toUpperCase())}
-          placeholder="邀请码"
+          onChangeText={(v) => onChange(v.toUpperCase())}
+          placeholder={t('onboarding.codePlaceholder')}
           placeholderTextColor={theme.inkSoft}
           autoCapitalize="characters"
           autoCorrect={false}
@@ -394,7 +400,7 @@ function JoinCodeStep({ code, onChange, onNext }) {
           }}
         />
       </ScrollView>
-      <CTA label="下一步" onPress={onNext} disabled={!ok} />
+      <CTA label={t('common.next')} onPress={onNext} disabled={!ok} />
     </>
   );
 }
@@ -402,12 +408,13 @@ function JoinCodeStep({ code, onChange, onNext }) {
 /* ── Join step B: 选自己的角色（孩子叫你什么）── */
 function JoinRoleStep({ value, onChange, onEnter, loading }) {
   const { theme } = useTheme();
+  const t = useT();
   return (
     <>
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 24, paddingTop: 6 }}>
-        <Text style={{ fontFamily: theme.fonts.head, fontSize: 27, lineHeight: 38, color: theme.ink }}>孩子叫你什么？</Text>
+        <Text style={{ fontFamily: theme.fonts.head, fontSize: 27, lineHeight: 38, color: theme.ink }}>{t('onboarding.whatCallYou')}</Text>
         <Text style={{ marginTop: 12, fontSize: 15, lineHeight: 28, color: theme.inkSoft }}>
-          这个是你自己的角色，选一次就好。
+          {t('onboarding.joinRoleHint')}
         </Text>
         <View style={{ marginTop: 26, flexDirection: 'row', flexWrap: 'wrap', gap: 11 }}>
           {ROLES.map(r => {
@@ -429,13 +436,13 @@ function JoinRoleStep({ value, onChange, onEnter, loading }) {
                   elevation: on ? 4 : 0,
                 }}
               >
-                <Text style={{ fontFamily: theme.fonts.head, fontSize: 19, color: on ? '#FFFDF7' : theme.ink }}>{r}</Text>
+                <Text style={{ fontFamily: theme.fonts.head, fontSize: 19, color: on ? '#FFFDF7' : theme.ink }}>{roleLabel(r)}</Text>
               </TouchableOpacity>
             );
           })}
         </View>
       </ScrollView>
-      <CTA label={loading ? '加入中...' : (value ? `我是${value}，加入` : '选一个')} onPress={onEnter} disabled={!value || loading} />
+      <CTA label={loading ? t('onboarding.joining') : (value ? t('onboarding.iAmJoin', { role: roleLabel(value) }) : t('onboarding.pickOne'))} onPress={onEnter} disabled={!value || loading} />
     </>
   );
 }
@@ -445,6 +452,7 @@ function JoinRoleStep({ value, onChange, onEnter, loading }) {
 export default function OnboardingScreen({ navigation }) {
   const { addKid, createFamily, joinFamily, updateMe } = useData();
   const { theme } = useTheme();
+  const t = useT();
 
   const [mode, setMode] = useState<'create' | 'join'>('create');
   const [page, setPage] = useState<typeof FLOW[number]>('welcome');
@@ -468,7 +476,7 @@ export default function OnboardingScreen({ navigation }) {
       navigation.replace('Home');
     } catch (e: any) {
       console.error('Onboarding create error:', e);
-      Alert.alert('保存失败', '请检查网络后重试');
+      Alert.alert(t('onboarding.saveFailTitle'), t('onboarding.networkRetry'));
       setSaving(false);
     }
   };
@@ -485,10 +493,10 @@ export default function OnboardingScreen({ navigation }) {
       const msg = e?.message || '';
       if (msg.includes('invalid_code')) {
         setJoinStep('code');
-        Alert.alert('加入失败', '邀请码不对，请再确认一下');
+        Alert.alert(t('onboarding.joinFailTitle'), t('onboarding.invalidCode'));
       } else {
-        const hint = msg.includes('already_in_family') ? '你已经在一个家里了' : '请检查网络后重试';
-        Alert.alert('加入失败', hint);
+        const hint = msg.includes('already_in_family') ? t('onboarding.alreadyInFamily') : t('onboarding.networkRetry');
+        Alert.alert(t('onboarding.joinFailTitle'), hint);
       }
       setSaving(false);
     }

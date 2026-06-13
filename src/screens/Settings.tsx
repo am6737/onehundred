@@ -9,7 +9,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme, COLORS } from '../theme/tokens';
-import { ROLES, DEFAULT_ME, meName, meChar, NOW_YM } from '../data';
+import { useI18n, useT } from '../i18n';
+import { ROLES, DEFAULT_ME, meName, meChar, roleLabel, NOW_YM } from '../data';
 import { useData } from '../data/DataProvider';
 import { signOut, isAnonymous, bindEmail, deleteAccount } from '../lib/auth';
 import { Icon, KidAvatar } from '../components/Icons';
@@ -234,6 +235,7 @@ function RoleAvatar({ ch, size = 48, on }) {
 
 function IdentityRow({ me, options, onSelect, divider = false }) {
   const { theme } = useTheme();
+  const t = useT();
   const [open, setOpen] = useState(false);
   const triggerRef = useRef(null);
   const [pos, setPos] = useState({ top: 0, right: 20 });
@@ -264,7 +266,7 @@ function IdentityRow({ me, options, onSelect, divider = false }) {
         }}
       >
         <Text style={{ flex: 1, fontFamily: theme.fonts.body, fontSize: 15.5, color: theme.ink }}>
-          我是
+          {t('settings.iAm')}
         </Text>
         <Text style={{
           fontFamily: theme.fonts.body, fontSize: 14.5,
@@ -289,7 +291,7 @@ function IdentityRow({ me, options, onSelect, divider = false }) {
               shadowOpacity: 0.18, shadowRadius: 24, elevation: 8,
             }}>
               {options.map(o => {
-                const on = meName(me) === o;
+                const on = me.role === o;
                 return (
                   <TouchableOpacity
                     key={o}
@@ -305,7 +307,7 @@ function IdentityRow({ me, options, onSelect, divider = false }) {
                     <Text style={{
                       flex: 1, fontFamily: theme.fonts.body, fontSize: 14.5,
                       color: on ? theme.accent : theme.ink,
-                    }}>{o}</Text>
+                    }}>{roleLabel(o)}</Text>
                     {on ? Icon.check(theme.accent, 14) : null}
                   </TouchableOpacity>
                 );
@@ -327,6 +329,10 @@ function SelectRow({ icon = null, title, sub = null, options, value, onSelect, l
   const [open, setOpen] = useState(false);
   const triggerRef = useRef(null);
   const [pos, setPos] = useState({ top: 0, right: 20 });
+  // options 可为字符串数组或 {key,label} 数组：用 key 判等、label 显示
+  const norm = (o) => (typeof o === 'string' ? { key: o, label: o } : o);
+  const current = options.map(norm).find(o => o.key === value);
+  const valueLabel = current ? current.label : value;
 
   const handleOpen = () => {
     if (open) { setOpen(false); return; }
@@ -369,7 +375,7 @@ function SelectRow({ icon = null, title, sub = null, options, value, onSelect, l
         <Text style={{
           fontFamily: theme.fonts.body, fontSize: 14,
           color: open ? theme.accent : theme.inkSoft,
-        }}>{value}</Text>
+        }}>{valueLabel}</Text>
         <View style={{ transform: [{ rotate: open ? '180deg' : '0deg' }] }}>
           {Icon.chevDown(open ? theme.accent : theme.inkSoft, 18)}
         </View>
@@ -388,12 +394,12 @@ function SelectRow({ icon = null, title, sub = null, options, value, onSelect, l
               shadowColor: theme.ink, shadowOffset: { width: 0, height: 12 },
               shadowOpacity: 0.18, shadowRadius: 24, elevation: 8,
             }}>
-              {options.map(o => {
-                const on = value === o;
+              {options.map(norm).map(o => {
+                const on = value === o.key;
                 return (
                   <TouchableOpacity
-                    key={o}
-                    onPress={() => { onSelect(o); setOpen(false); }}
+                    key={o.key}
+                    onPress={() => { onSelect(o.key); setOpen(false); }}
                     activeOpacity={0.7}
                     style={{
                       flexDirection: 'row', alignItems: 'center',
@@ -405,7 +411,7 @@ function SelectRow({ icon = null, title, sub = null, options, value, onSelect, l
                     <Text style={{
                       flex: 1, fontFamily: theme.fonts.body, fontSize: 14.5,
                       color: on ? theme.accent : theme.ink,
-                    }}>{o}</Text>
+                    }}>{o.label}</Text>
                     {on ? Icon.check(theme.accent, 14) : null}
                   </TouchableOpacity>
                 );
@@ -424,6 +430,7 @@ function SelectRow({ icon = null, title, sub = null, options, value, onSelect, l
 
 function ChildProfileSheet({ kid, onChange, onClose }) {
   const { theme } = useTheme();
+  const t = useT();
   const insets = useSafeAreaInsets();
   const [y, setY] = useState(kid.y);
   const [m, setM] = useState(kid.m);
@@ -435,14 +442,14 @@ function ChildProfileSheet({ kid, onChange, onClose }) {
     <Modal visible animationType="slide" onRequestClose={onClose}>
       <View style={{ flex: 1, backgroundColor: theme.cream }}>
         <LayerHeader
-          title={`${kid.name}的小档案`}
+          title={t('settings.kidProfileTitle', { name: kid.name })}
           onBack={onClose}
           right={
             <TouchableOpacity onPress={save} activeOpacity={0.7} style={{
               paddingVertical: 8, paddingHorizontal: 16, borderRadius: 999,
               backgroundColor: theme.accent,
             }}>
-              <Text style={{ fontFamily: theme.fonts.head, fontSize: 14, color: '#FFFDF7' }}>记下</Text>
+              <Text style={{ fontFamily: theme.fonts.head, fontSize: 14, color: '#FFFDF7' }}>{t('settings.recordIt')}</Text>
             </TouchableOpacity>
           }
         />
@@ -458,7 +465,7 @@ function ChildProfileSheet({ kid, onChange, onClose }) {
             marginTop: 18, marginHorizontal: 4,
             fontFamily: theme.fonts.body, fontSize: 14.5, lineHeight: 25, color: theme.inkSoft,
           }}>
-            TA 是哪个月来到你们身边的？年龄会自己长大，你不用每年来改。
+            {t('settings.kidProfileDesc')}
           </Text>
 
           {/* Birthday steppers */}
@@ -471,15 +478,15 @@ function ChildProfileSheet({ kid, onChange, onClose }) {
               paddingVertical: 16, paddingHorizontal: 18,
               borderBottomWidth: 1, borderBottomColor: theme.line,
             }}>
-              <Text style={{ fontFamily: theme.fonts.body, fontSize: 15.5, color: theme.ink }}>出生年份</Text>
-              <Stepper value={y} min={2008} max={NOW.y} onChange={setY} fmt={v => v + ' 年'} />
+              <Text style={{ fontFamily: theme.fonts.body, fontSize: 15.5, color: theme.ink }}>{t('onboarding.birthYear')}</Text>
+              <Stepper value={y} min={2008} max={NOW.y} onChange={setY} fmt={v => t('onboarding.yearFmt', { v })} />
             </View>
             <View style={{
               flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
               paddingVertical: 16, paddingHorizontal: 18,
             }}>
-              <Text style={{ fontFamily: theme.fonts.body, fontSize: 15.5, color: theme.ink }}>出生月份</Text>
-              <Stepper value={m} min={1} max={12} wrap onChange={setM} fmt={v => v + ' 月'} />
+              <Text style={{ fontFamily: theme.fonts.body, fontSize: 15.5, color: theme.ink }}>{t('onboarding.birthMonth')}</Text>
+              <Stepper value={m} min={1} max={12} wrap onChange={setM} fmt={v => t('onboarding.monthFmt', { v })} />
             </View>
           </View>
 
@@ -489,13 +496,13 @@ function ChildProfileSheet({ kid, onChange, onClose }) {
             borderRadius: 22, backgroundColor: theme.sand, alignItems: 'center',
           }}>
             <Text style={{ fontFamily: theme.fonts.head, fontSize: 24, color: theme.ink }}>
-              今年 {age} 岁啦
+              {t('settings.ageNow', { age })}
             </Text>
             <Text style={{
               marginTop: 6, fontFamily: theme.fonts.body, fontSize: 13.5,
               lineHeight: 23, color: theme.inkSoft, textAlign: 'center',
             }}>
-              距离 TA 满 18 岁，还有 {toEighteen} 年{'\n'}那封信，正在等那一天
+              {t('settings.toEighteen', { years: toEighteen })}
             </Text>
           </View>
         </ScrollView>
@@ -510,6 +517,7 @@ function ChildProfileSheet({ kid, onChange, onClose }) {
 
 function AddChildSheet({ onAdd, onClose }) {
   const { theme } = useTheme();
+  const t = useT();
   const insets = useSafeAreaInsets();
   const [name, setName] = useState('');
   const [y, setY] = useState(2024);
@@ -519,13 +527,13 @@ function AddChildSheet({ onAdd, onClose }) {
   const canSave = name.trim().length > 0;
   const save = () => { if (!canSave) return; onAdd({ name: name.trim(), y, m, tone }); onClose(); };
 
-  const tones = [['orange', '暖橘'], ['green', '森绿'], ['pink', '藕粉']];
+  const tones = [['orange', t('settings.toneOrange')], ['green', t('settings.toneGreen')], ['pink', t('settings.tonePink')]];
 
   return (
     <Modal visible animationType="slide" onRequestClose={onClose}>
       <View style={{ flex: 1, backgroundColor: theme.cream }}>
         <LayerHeader
-          title="再添一个孩子"
+          title={t('settings.addChild')}
           onBack={onClose}
           right={
             <TouchableOpacity
@@ -540,7 +548,7 @@ function AddChildSheet({ onAdd, onClose }) {
               <Text style={{
                 fontFamily: theme.fonts.head, fontSize: 14,
                 color: canSave ? '#FFFDF7' : theme.inkSoft,
-              }}>记下</Text>
+              }}>{t('settings.recordIt')}</Text>
             </TouchableOpacity>
           }
         />
@@ -551,7 +559,7 @@ function AddChildSheet({ onAdd, onClose }) {
             <Text style={{
               marginTop: 12, fontFamily: theme.fonts.hand, fontSize: 18,
               color: theme.inkSoft, lineHeight: 30,
-            }}>写下名字，就为 TA 开一条回忆线</Text>
+            }}>{t('settings.addChildTagline')}</Text>
           </View>
 
           {/* Name input */}
@@ -559,11 +567,11 @@ function AddChildSheet({ onAdd, onClose }) {
             <Text style={{
               paddingHorizontal: 4, paddingBottom: 8,
               fontFamily: theme.fonts.head, fontSize: 14, color: theme.inkSoft,
-            }}>TA 叫什么</Text>
+            }}>{t('settings.kidNameLabel')}</Text>
             <TextInput
               value={name}
               onChangeText={setName}
-              placeholder="写下孩子的名字或小名"
+              placeholder={t('onboarding.childNamePlaceholder')}
               placeholderTextColor={theme.inkSoft}
               maxLength={8}
               autoFocus
@@ -586,15 +594,15 @@ function AddChildSheet({ onAdd, onClose }) {
               paddingVertical: 16, paddingHorizontal: 18,
               borderBottomWidth: 1, borderBottomColor: theme.line,
             }}>
-              <Text style={{ fontFamily: theme.fonts.body, fontSize: 15.5, color: theme.ink }}>出生年份</Text>
-              <Stepper value={y} min={2008} max={NOW.y} onChange={setY} fmt={v => v + ' 年'} />
+              <Text style={{ fontFamily: theme.fonts.body, fontSize: 15.5, color: theme.ink }}>{t('onboarding.birthYear')}</Text>
+              <Stepper value={y} min={2008} max={NOW.y} onChange={setY} fmt={v => t('onboarding.yearFmt', { v })} />
             </View>
             <View style={{
               flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
               paddingVertical: 16, paddingHorizontal: 18,
             }}>
-              <Text style={{ fontFamily: theme.fonts.body, fontSize: 15.5, color: theme.ink }}>出生月份</Text>
-              <Stepper value={m} min={1} max={12} wrap onChange={setM} fmt={v => v + ' 月'} />
+              <Text style={{ fontFamily: theme.fonts.body, fontSize: 15.5, color: theme.ink }}>{t('onboarding.birthMonth')}</Text>
+              <Stepper value={m} min={1} max={12} wrap onChange={setM} fmt={v => t('onboarding.monthFmt', { v })} />
             </View>
           </View>
 
@@ -603,7 +611,7 @@ function AddChildSheet({ onAdd, onClose }) {
             <Text style={{
               paddingHorizontal: 4, paddingBottom: 10,
               fontFamily: theme.fonts.head, fontSize: 14, color: theme.inkSoft,
-            }}>给 TA 挑一个主色</Text>
+            }}>{t('settings.pickColor')}</Text>
             <View style={{ flexDirection: 'row', gap: 10 }}>
               {tones.map(([key, label]) => {
                 const c = COLORS[key];
@@ -643,12 +651,12 @@ function AddChildSheet({ onAdd, onClose }) {
             backgroundColor: theme.sand, alignItems: 'center',
           }}>
             <Text style={{ fontFamily: theme.fonts.head, fontSize: 22, color: theme.ink }}>
-              {canSave ? `${name.trim()}，今年 ${age} 岁` : `今年 ${age} 岁`}
+              {canSave ? t('onboarding.ageRecapNamed', { name: name.trim(), age }) : t('onboarding.ageRecap', { age })}
             </Text>
             <Text style={{
               marginTop: 6, fontFamily: theme.fonts.body, fontSize: 13,
               lineHeight: 23, color: theme.inkSoft,
-            }}>记下之后，TA 也会有一条只属于你们俩的回忆线</Text>
+            }}>{t('settings.addChildHint')}</Text>
           </View>
         </ScrollView>
       </View>
@@ -690,20 +698,21 @@ function MemberRow({ avatar, name, role, last = false }) {
 
 function InviteSheet({ kids, me, onClose }) {
   const { theme } = useTheme();
+  const t = useT();
   const insets = useSafeAreaInsets();
   const [copied, setCopied] = useState(false);
   const { family } = useData();
   const code = family?.inviteCode || '——';
 
-  const myName = me.role === '其他' ? (me.custom || '我') : me.role;
-  const myChar = me.role === '其他' ? (me.custom || '我')[0] : me.role[me.role.length - 1];
+  const myName = meName(me);
+  const myChar = meChar(me);
   const isParent = me.role === '爸爸' || me.role === '妈妈';
   const adults = (family?.members || []).map(m => {
-    const nm = m.role === '其他' ? (m.customRole || '家人') : m.role;
+    const nm = m.role === '其他' ? (m.customRole || t('role.familyMember')) : roleLabel(m.role);
     return {
-      ch: nm[nm.length - 1],
+      ch: nm.slice(0, 1),
       name: nm,
-      role: m.isMe ? '你' + (family?.isCreator ? ' · 管理员' : '') : '家长',
+      role: m.isMe ? t('settings.you') + (family?.isCreator ? t('settings.admin') : '') : t('settings.parentRole'),
     };
   });
   const peopleCount = adults.length + kids.length;
@@ -716,13 +725,13 @@ function InviteSheet({ kids, me, onClose }) {
   return (
     <Modal visible animationType="slide" onRequestClose={onClose}>
       <View style={{ flex: 1, backgroundColor: theme.cream }}>
-        <LayerHeader title="家庭成员" onBack={onClose} />
+        <LayerHeader title={t('settings.familyMembers')} onBack={onClose} />
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 22, paddingBottom: 48 + insets.bottom }}>
           <Text style={{
             marginTop: 2, marginHorizontal: 4,
             fontFamily: theme.fonts.body, fontSize: 14.5, lineHeight: 25, color: theme.inkSoft,
           }}>
-            这个家现在有 {peopleCount} 个人。被邀请进来的人，才能看见你们的回忆。
+            {t('settings.familyCountDesc', { count: peopleCount })}
           </Text>
 
           {/* Members list */}
@@ -737,7 +746,7 @@ function InviteSheet({ kids, me, onClose }) {
               <MemberRow
                 key={k.id}
                 avatar={<KidAvatar name={k.name} tone={k.tone} size={34} />}
-                name={k.name} role="孩子" last={i === kids.length - 1}
+                name={k.name} role={t('settings.childRole')} last={i === kids.length - 1}
               />
             ))}
           </View>
@@ -753,12 +762,12 @@ function InviteSheet({ kids, me, onClose }) {
             {Icon.users(theme.accent, 26)}
             <Text style={{
               marginTop: 10, fontFamily: theme.fonts.head, fontSize: 18, color: theme.ink,
-            }}>邀请家人一起记</Text>
+            }}>{t('settings.inviteTitle')}</Text>
             <Text style={{
               marginTop: 8, fontFamily: theme.fonts.body, fontSize: 13.5,
               lineHeight: 23, color: theme.inkSoft, textAlign: 'center',
             }}>
-              把这串口令发给奶奶、外公或另一半，{'\n'}他们输入后就能加入这个家。
+              {t('settings.inviteDesc')}
             </Text>
             <View style={{
               marginTop: 16, padding: 14, borderRadius: 16,
@@ -781,7 +790,7 @@ function InviteSheet({ kids, me, onClose }) {
               <Text style={{
                 fontFamily: theme.fonts.head, fontSize: 16,
                 color: copied ? theme.accent : '#FFFDF7',
-              }}>{copied ? '已记下' : '记下邀请码'}</Text>
+              }}>{copied ? t('settings.codeCopied') : t('settings.copyCode')}</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -796,26 +805,28 @@ function InviteSheet({ kids, me, onClose }) {
 
 function ReminderTimeSheet({ value, onChange, onClose }) {
   const { theme } = useTheme();
+  const t = useT();
   const insets = useSafeAreaInsets();
-  const DAYS = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
-  const TIMES = ['早上', '中午', '下午', '晚上'];
-  const [d0, t0] = (value || '周日 晚上').split(' ');
-  const [day, setDay] = useState(DAYS.includes(d0) ? d0 : '周日');
-  const [time, setTime] = useState(TIMES.includes(t0) ? t0 : '晚上');
+  // 用稳定的 key 存值（如 'sun evening'），展示时再翻译，切语言不丢选中态
+  const DAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+  const TIME_KEYS = ['morning', 'noon', 'afternoon', 'evening'];
+  const [d0, t0] = (value || 'sun evening').split(' ');
+  const [day, setDay] = useState(DAY_KEYS.includes(d0) ? d0 : 'sun');
+  const [time, setTime] = useState(TIME_KEYS.includes(t0) ? t0 : 'evening');
   const save = () => { onChange(`${day} ${time}`); onClose(); };
 
   return (
     <Modal visible animationType="slide" onRequestClose={onClose}>
       <View style={{ flex: 1, backgroundColor: theme.cream }}>
         <LayerHeader
-          title="提醒时间"
+          title={t('settings.remindTime')}
           onBack={onClose}
           right={
             <TouchableOpacity onPress={save} activeOpacity={0.7} style={{
               paddingVertical: 8, paddingHorizontal: 16, borderRadius: 999,
               backgroundColor: theme.accent,
             }}>
-              <Text style={{ fontFamily: theme.fonts.head, fontSize: 14, color: '#FFFDF7' }}>记下</Text>
+              <Text style={{ fontFamily: theme.fonts.head, fontSize: 14, color: '#FFFDF7' }}>{t('settings.recordIt')}</Text>
             </TouchableOpacity>
           }
         />
@@ -824,16 +835,16 @@ function ReminderTimeSheet({ value, onChange, onClose }) {
             marginTop: 2, marginHorizontal: 4,
             fontFamily: theme.fonts.body, fontSize: 14.5, lineHeight: 25, color: theme.inkSoft,
           }}>
-            挑一个你们都松弛下来的时刻。它只会很轻地招呼一声，不会催你。
+            {t('settings.reminderSheetDesc')}
           </Text>
 
           {/* Day picker */}
           <Text style={{
             marginTop: 22, paddingHorizontal: 4, paddingBottom: 10,
             fontFamily: theme.fonts.head, fontSize: 14, color: theme.inkSoft,
-          }}>哪一天</Text>
+          }}>{t('settings.whichDay')}</Text>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 9 }}>
-            {DAYS.map(d => {
+            {DAY_KEYS.map(d => {
               const on = day === d;
               return (
                 <TouchableOpacity
@@ -850,7 +861,7 @@ function ReminderTimeSheet({ value, onChange, onClose }) {
                   <Text style={{
                     fontFamily: theme.fonts.body, fontSize: 14.5,
                     color: on ? '#FFFDF7' : theme.ink,
-                  }}>{d}</Text>
+                  }}>{t('settings.day.' + d)}</Text>
                 </TouchableOpacity>
               );
             })}
@@ -860,9 +871,9 @@ function ReminderTimeSheet({ value, onChange, onClose }) {
           <Text style={{
             marginTop: 24, paddingHorizontal: 4, paddingBottom: 10,
             fontFamily: theme.fonts.head, fontSize: 14, color: theme.inkSoft,
-          }}>哪个时段</Text>
+          }}>{t('settings.whichTime')}</Text>
           <View style={{ flexDirection: 'row', gap: 9 }}>
-            {TIMES.map(tm => {
+            {TIME_KEYS.map(tm => {
               const on = time === tm;
               return (
                 <TouchableOpacity
@@ -878,7 +889,7 @@ function ReminderTimeSheet({ value, onChange, onClose }) {
                   <Text style={{
                     fontFamily: theme.fonts.body, fontSize: 15,
                     color: on ? '#FFFDF7' : theme.ink,
-                  }}>{tm}</Text>
+                  }}>{t('settings.time.' + tm)}</Text>
                 </TouchableOpacity>
               );
             })}
@@ -892,10 +903,10 @@ function ReminderTimeSheet({ value, onChange, onClose }) {
             {Icon.bell(theme.accent, 22)}
             <Text style={{
               marginTop: 10, fontFamily: theme.fonts.head, fontSize: 21, color: theme.ink,
-            }}>{day} {time}</Text>
+            }}>{t('settings.remindAtFmt', { day: t('settings.day.' + day), time: t('settings.time.' + time) })}</Text>
             <Text style={{
               marginTop: 6, fontFamily: theme.fonts.body, fontSize: 13, color: theme.inkSoft,
-            }}>到了这个时候，轻轻提醒你一次</Text>
+            }}>{t('settings.reminderPreview')}</Text>
           </View>
         </ScrollView>
       </View>
@@ -907,48 +918,27 @@ function ReminderTimeSheet({ value, onChange, onClose }) {
    DocSheet — terms / privacy policy
    ══════════════════════════════════════════════════════════ */
 
-const APP_NAME = '一百件事';
 const APP_VERSION = '1.0.0';
 const APP_BUILD = '1';
 const APP_EMAIL = 'hi@yibaijianshi.app';
 
-const DOCS = {
-  terms: {
-    title: '用户协议', updated: '2026 年 6 月',
-    body: [
-      ['关于这份约定', '欢迎使用「一百件事」。它是一款陪你和孩子一起，把值得做的小事一件件做完的应用。打开并使用它，就表示你认可这份约定。'],
-      ['你的内容，归你', '你记录的文字、照片与语音，所有权始终是你的。我们只是帮你把它们好好收着、好好排版，不会拿去做别的。'],
-      ['请温柔地使用', '请不要上传违法或侵犯他人的内容。账号由你自己保管，因转借或泄露造成的后果需要你自己承担。'],
-      ['服务会慢慢长大', '我们可能会新增、调整或下线某些功能。涉及你权益的重要变化，我们会提前在应用内告诉你。'],
-      ['找到我们', `对这份约定有疑问，随时写信到 ${APP_EMAIL}。`],
-    ],
-  },
-  privacy: {
-    title: '隐私政策', updated: '2026 年 6 月',
-    body: [
-      ['我们收集什么', '只收集让应用正常运转所必需的：你填写的家庭成员信息，以及你主动记录的回忆内容。'],
-      ['怎么使用这些信息', '用来为你呈现回忆册、生成纸质书排版、按你设置的节奏温柔提醒。仅此而已，绝不售卖。'],
-      ['谁能看到', '默认只有你和你邀请的家人能看到这些回忆。你可以在「设置 · 谁能看到这些回忆」里随时调整。'],
-      ['你说了算', '你可以随时导出或删除你的内容。删除后，我们会在合理期限内从服务器一并清除。'],
-      ['找到我们', `关于隐私的任何问题，欢迎写信到 ${APP_EMAIL}。`],
-    ],
-  },
-};
-
 function DocSheet({ kind, onClose }) {
   const { theme } = useTheme();
+  const { t, tRaw } = useI18n();
   const insets = useSafeAreaInsets();
-  const d = DOCS[kind];
+  const title = kind === 'terms' ? t('settings.docTermsTitle') : t('settings.docPrivacyTitle');
+  const body = (tRaw(kind === 'terms' ? 'settings.terms' : 'settings.privacy') || [])
+    .map(([h, p]) => [h, p.replace('{{email}}', APP_EMAIL)]);
 
   return (
     <Modal visible animationType="slide" onRequestClose={onClose}>
       <View style={{ flex: 1, backgroundColor: theme.cream }}>
-        <LayerHeader title={d.title} onBack={onClose} />
+        <LayerHeader title={title} onBack={onClose} />
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 22, paddingBottom: 48 + insets.bottom }}>
           <Text style={{
             fontFamily: theme.fonts.body, fontSize: 12.5, color: theme.inkSoft, letterSpacing: 0.3,
-          }}>最近更新 · {d.updated}</Text>
-          {d.body.map(([h, p], i) => (
+          }}>{t('settings.docUpdatedLine', { date: t('settings.docUpdated') })}</Text>
+          {body.map(([h, p], i) => (
             <View key={i} style={{ marginTop: 22 }}>
               <Text style={{
                 fontFamily: theme.fonts.head, fontSize: 16.5, color: theme.ink,
@@ -971,6 +961,7 @@ function DocSheet({ kind, onClose }) {
 
 function AboutSheet({ onClose }) {
   const { theme } = useTheme();
+  const t = useT();
   const insets = useSafeAreaInsets();
   const [doc, setDoc] = useState(null);
   const [checking, setChecking] = useState(false);
@@ -989,7 +980,7 @@ function AboutSheet({ onClose }) {
   return (
     <Modal visible animationType="slide" onRequestClose={onClose}>
       <View style={{ flex: 1, backgroundColor: theme.cream }}>
-        <LayerHeader title="关于" onBack={onClose} />
+        <LayerHeader title={t('settings.about')} onBack={onClose} />
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 22, paddingBottom: 48 + insets.bottom }}>
           {/* App icon */}
           <View style={{ alignItems: 'center', paddingTop: 10, paddingBottom: 4 }}>
@@ -1003,14 +994,14 @@ function AboutSheet({ onClose }) {
               <Text style={{
                 fontFamily: theme.fonts.head, fontSize: 42,
                 color: '#FFFDF7', marginTop: 2,
-              }}>百</Text>
+              }}>{t('settings.appMark')}</Text>
             </View>
             <Text style={{
               marginTop: 15, fontFamily: theme.fonts.head, fontSize: 22, color: theme.ink,
-            }}>{APP_NAME}</Text>
+            }}>{t('settings.appName')}</Text>
             <Text style={{
               marginTop: 6, fontFamily: theme.fonts.body, fontSize: 13.5, color: theme.inkSoft,
-            }}>版本 {APP_VERSION}（build {APP_BUILD}）</Text>
+            }}>{t('settings.versionBuild', { version: APP_VERSION, build: APP_BUILD })}</Text>
           </View>
 
           {/* Tagline */}
@@ -1019,7 +1010,7 @@ function AboutSheet({ onClose }) {
             fontFamily: theme.fonts.hand, fontSize: 18,
             lineHeight: 35, color: theme.inkSoft,
           }}>
-            和孩子一起，把一百件值得做的事，{'\n'}一件一件，慢慢做完。
+            {t('settings.aboutTagline')}
           </Text>
 
           {/* Action rows */}
@@ -1029,25 +1020,25 @@ function AboutSheet({ onClose }) {
           }}>
             <Row
               icon={Icon.download(theme.accent, 19)}
-              title="检查更新"
-              value={checking ? '检查中...' : '已是最新'}
+              title={t('settings.checkUpdate')}
+              value={checking ? t('settings.checking') : t('settings.upToDate')}
               onPress={checkUpdate}
             />
             <Row
               icon={Icon.book(theme.accent, 19)}
-              title="用户协议"
+              title={t('settings.docTermsTitle')}
               onPress={() => setDoc('terms')}
             />
             <Row
               icon={Icon.eye(theme.accent, 19)}
-              title="隐私政策"
+              title={t('settings.docPrivacyTitle')}
               onPress={() => setDoc('privacy')}
             />
             <Row
               icon={Icon.users(theme.accent, 19)}
-              title="联系我们"
+              title={t('settings.contactUs')}
               sub={APP_EMAIL}
-              value={copied ? '已复制' : '复制'}
+              value={copied ? t('settings.copied') : t('settings.copy')}
               onPress={contact}
               last
             />
@@ -1059,7 +1050,7 @@ function AboutSheet({ onClose }) {
             fontFamily: theme.fonts.body, fontSize: 12,
             color: theme.inkSoft, opacity: 0.85, lineHeight: 22,
           }}>
-            © 2026 {APP_NAME}{'\n'}用心做给每一个家
+            {t('settings.aboutFooter', { name: t('settings.appName') })}
           </Text>
         </ScrollView>
       </View>
@@ -1075,6 +1066,7 @@ function AboutSheet({ onClose }) {
 
 function ChangePhoneSheet({ anon, onClose }) {
   const { theme } = useTheme();
+  const t = useT();
   const insets = useSafeAreaInsets();
   const [phone, setPhone] = useState('');
   const [code, setCode] = useState('');
@@ -1099,7 +1091,7 @@ function ChangePhoneSheet({ anon, onClose }) {
     <Modal visible animationType="slide" onRequestClose={onClose}>
       <View style={{ flex: 1, backgroundColor: theme.cream }}>
         <LayerHeader
-          title={anon ? '绑定手机号' : '更换手机号'}
+          title={anon ? t('settings.bindPhone') : t('settings.changePhone')}
           onBack={onClose}
           right={
             <TouchableOpacity
@@ -1114,7 +1106,7 @@ function ChangePhoneSheet({ anon, onClose }) {
               <Text style={{
                 fontFamily: theme.fonts.head, fontSize: 14,
                 color: canSave ? '#FFFDF7' : theme.inkSoft,
-              }}>换好了</Text>
+              }}>{t('settings.changed')}</Text>
             </TouchableOpacity>
           }
         />
@@ -1123,7 +1115,7 @@ function ChangePhoneSheet({ anon, onClose }) {
             marginTop: 2, marginHorizontal: 4,
             fontFamily: theme.fonts.body, fontSize: 14.5, lineHeight: 25, color: theme.inkSoft,
           }}>
-            换号之后，下次就用新号码登录。你们记下的回忆，一件都不会少。
+            {t('settings.changePhoneDesc')}
           </Text>
 
           {/* Current number */}
@@ -1134,7 +1126,7 @@ function ChangePhoneSheet({ anon, onClose }) {
               paddingVertical: 15, paddingHorizontal: 18,
               backgroundColor: theme.sand, borderRadius: 18,
             }}>
-              <Text style={{ fontFamily: theme.fonts.body, fontSize: 15, color: theme.inkSoft }}>当前号码</Text>
+              <Text style={{ fontFamily: theme.fonts.body, fontSize: 15, color: theme.inkSoft }}>{t('settings.currentNumber')}</Text>
               <Text style={{ fontFamily: theme.fonts.body, fontSize: 15, color: theme.ink }}>138 **** 6688</Text>
             </View>
           ) : null}
@@ -1143,11 +1135,11 @@ function ChangePhoneSheet({ anon, onClose }) {
           <Text style={{
             marginTop: 22, paddingHorizontal: 4, paddingBottom: 8,
             fontFamily: theme.fonts.head, fontSize: 14, color: theme.inkSoft,
-          }}>新的手机号</Text>
+          }}>{t('settings.newPhone')}</Text>
           <TextInput
             value={phone}
             onChangeText={setPhone}
-            placeholder="输入新的手机号"
+            placeholder={t('settings.newPhonePlaceholder')}
             placeholderTextColor={theme.inkSoft}
             keyboardType="phone-pad"
             maxLength={11}
@@ -1163,12 +1155,12 @@ function ChangePhoneSheet({ anon, onClose }) {
           <Text style={{
             marginTop: 20, paddingHorizontal: 4, paddingBottom: 8,
             fontFamily: theme.fonts.head, fontSize: 14, color: theme.inkSoft,
-          }}>验证码</Text>
+          }}>{t('settings.verifyCode')}</Text>
           <View style={{ flexDirection: 'row', gap: 10 }}>
             <TextInput
               value={code}
               onChangeText={setCode}
-              placeholder="6 位验证码"
+              placeholder={t('settings.codePlaceholder6')}
               placeholderTextColor={theme.inkSoft}
               keyboardType="number-pad"
               maxLength={6}
@@ -1192,7 +1184,7 @@ function ChangePhoneSheet({ anon, onClose }) {
             >
               <Text style={{
                 fontFamily: theme.fonts.head, fontSize: 14, color: theme.ink,
-              }}>{countdown > 0 ? `${countdown}s` : '获取验证码'}</Text>
+              }}>{countdown > 0 ? `${countdown}s` : t('settings.getCode')}</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -1275,8 +1267,9 @@ function ConfirmDialog({ visible, icon, title, message, confirmLabel, confirmCol
 
 function DeleteAccountSheet({ onClose }) {
   const { theme } = useTheme();
+  const t = useT();
   const insets = useSafeAreaInsets();
-  const CONFIRM_TEXT = '清除所有回忆';
+  const CONFIRM_TEXT = t('settings.deleteConfirmText');
   const [input, setInput] = useState('');
   const [checked, setChecked] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -1292,14 +1285,14 @@ function DeleteAccountSheet({ onClose }) {
     } catch (e) {
       console.error('Delete account failed:', e);
       setDeleting(false);
-      Alert.alert('注销没成功', '账号还没注销掉，请检查网络后再试一次。');
+      Alert.alert(t('settings.deleteFailTitle'), t('settings.deleteFailBody'));
     }
   };
 
   return (
     <Modal visible animationType="slide" onRequestClose={onClose}>
       <View style={{ flex: 1, backgroundColor: theme.cream }}>
-        <LayerHeader title="注销账户" onBack={onClose} />
+        <LayerHeader title={t('settings.deleteAccount')} onBack={onClose} />
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 22, paddingBottom: 48 + insets.bottom }}>
           {/* Warning card */}
           <View style={{
@@ -1317,13 +1310,13 @@ function DeleteAccountSheet({ onClose }) {
               </View>
               <Text style={{
                 fontFamily: theme.fonts.head, fontSize: 17, color: '#C0616B',
-              }}>这是不可恢复的</Text>
+              }}>{t('settings.irreversible')}</Text>
             </View>
             <Text style={{
               marginTop: 14, fontFamily: theme.fonts.body, fontSize: 14.5,
               lineHeight: 26, color: theme.ink,
             }}>
-              你们记下的所有回忆——照片、录音、那些话——都会被永久清除，没有办法再找回来。请确认你真的想好了。
+              {t('settings.deleteWarning')}
             </Text>
           </View>
 
@@ -1333,7 +1326,7 @@ function DeleteAccountSheet({ onClose }) {
               paddingHorizontal: 4, paddingBottom: 10,
               fontFamily: theme.fonts.body, fontSize: 13.5, color: theme.inkSoft,
             }}>
-              请输入 <Text style={{ fontFamily: theme.fonts.head, color: '#C0616B' }}>"{CONFIRM_TEXT}"</Text> 以确认
+              {t('settings.deletePromptPre')}<Text style={{ fontFamily: theme.fonts.head, color: '#C0616B' }}>"{CONFIRM_TEXT}"</Text>{t('settings.deletePromptPost')}
             </Text>
             <TextInput
               value={input}
@@ -1369,7 +1362,7 @@ function DeleteAccountSheet({ onClose }) {
             <Text style={{
               flex: 1, fontFamily: theme.fonts.body, fontSize: 14,
               lineHeight: 23, color: theme.ink,
-            }}>我明白注销后，这些回忆将永远消失，无法找回。</Text>
+            }}>{t('settings.deleteCheck')}</Text>
           </TouchableOpacity>
 
           {/* Button */}
@@ -1389,7 +1382,7 @@ function DeleteAccountSheet({ onClose }) {
               <Text style={{
                 fontFamily: theme.fonts.head, fontSize: 16,
                 color: canDelete ? '#FFFDF7' : theme.inkSoft,
-              }}>永久注销账户</Text>
+              }}>{t('settings.deletePermanent')}</Text>
             )}
           </TouchableOpacity>
         </ScrollView>
@@ -1404,6 +1397,7 @@ function DeleteAccountSheet({ onClose }) {
 
 function BindEmailSheet({ onBound, onClose }) {
   const { theme } = useTheme();
+  const t = useT();
   const insets = useSafeAreaInsets();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -1419,7 +1413,7 @@ function BindEmailSheet({ onBound, onClose }) {
       onBound();
       onClose();
     } catch (e: any) {
-      Alert.alert('绑定失败', e.message || '请重试');
+      Alert.alert(t('settings.bindFailTitle'), e.message || t('settings.tryAgain'));
     } finally {
       setLoading(false);
     }
@@ -1429,7 +1423,7 @@ function BindEmailSheet({ onBound, onClose }) {
     <Modal visible animationType="slide" onRequestClose={onClose}>
       <View style={{ flex: 1, backgroundColor: theme.cream }}>
         <LayerHeader
-          title="绑定邮箱"
+          title={t('settings.bindEmail')}
           onBack={onClose}
           right={
             <TouchableOpacity
@@ -1444,7 +1438,7 @@ function BindEmailSheet({ onBound, onClose }) {
               <Text style={{
                 fontFamily: theme.fonts.head, fontSize: 14,
                 color: canSave ? '#FFFDF7' : theme.inkSoft,
-              }}>{loading ? '绑定中...' : '绑定'}</Text>
+              }}>{loading ? t('settings.binding') : t('settings.bind')}</Text>
             </TouchableOpacity>
           }
         />
@@ -1453,17 +1447,17 @@ function BindEmailSheet({ onBound, onClose }) {
             marginTop: 2, marginHorizontal: 4,
             fontFamily: theme.fonts.body, fontSize: 14.5, lineHeight: 25, color: theme.inkSoft,
           }}>
-            绑定邮箱后，你可以用邮箱和密码登录，回忆不会丢失。
+            {t('settings.bindEmailDesc')}
           </Text>
 
           <Text style={{
             marginTop: 22, paddingHorizontal: 4, paddingBottom: 8,
             fontFamily: theme.fonts.head, fontSize: 14, color: theme.inkSoft,
-          }}>邮箱</Text>
+          }}>{t('settings.email')}</Text>
           <TextInput
             value={email}
             onChangeText={setEmail}
-            placeholder="请输入邮箱"
+            placeholder={t('emailLogin.emailPlaceholder')}
             placeholderTextColor={theme.inkSoft}
             keyboardType="email-address"
             autoCapitalize="none"
@@ -1478,11 +1472,11 @@ function BindEmailSheet({ onBound, onClose }) {
           <Text style={{
             marginTop: 20, paddingHorizontal: 4, paddingBottom: 8,
             fontFamily: theme.fonts.head, fontSize: 14, color: theme.inkSoft,
-          }}>密码</Text>
+          }}>{t('settings.password')}</Text>
           <TextInput
             value={password}
             onChangeText={setPassword}
-            placeholder="设置密码（至少 6 位）"
+            placeholder={t('settings.passwordPlaceholderSet')}
             placeholderTextColor={theme.inkSoft}
             secureTextEntry
             style={{
@@ -1504,6 +1498,7 @@ function BindEmailSheet({ onBound, onClose }) {
 
 function AccountSecuritySheet({ anon, onAnonChanged, onClose }) {
   const { theme } = useTheme();
+  const t = useT();
   const insets = useSafeAreaInsets();
   const [subSheet, setSubSheet] = useState(null); // 'changePhone' | 'deleteAccount' | 'bindEmail'
   const [showLogout, setShowLogout] = useState(false);
@@ -1512,37 +1507,35 @@ function AccountSecuritySheet({ anon, onAnonChanged, onClose }) {
   return (
     <Modal visible animationType="slide" onRequestClose={onClose}>
       <View style={{ flex: 1, backgroundColor: theme.cream }}>
-        <LayerHeader title="账户与安全" onBack={onClose} />
+        <LayerHeader title={t('settings.accountSecurity')} onBack={onClose} />
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 22, paddingBottom: 48 + insets.bottom }}>
           <Text style={{
             marginTop: 2, marginHorizontal: 4,
             fontFamily: theme.fonts.body, fontSize: 14.5, lineHeight: 25, color: theme.inkSoft,
           }}>
-            {anon
-              ? '你目前是游客身份。绑定手机号或邮箱后，回忆就不会丢失。'
-              : '这些只关乎你怎么登进这个家。回忆和家人，都在前面那几栏里。'}
+            {anon ? t('settings.accountDescAnon') : t('settings.accountDesc')}
           </Text>
 
           {/* Login methods */}
-          <SettingGroup label="登录方式">
+          <SettingGroup label={t('settings.loginMethods')}>
             <Row
               icon={Icon.phone(theme.accent, 19)}
-              title="手机号"
-              value={anon ? '未绑定' : '138 **** 6688'}
+              title={t('settings.phone')}
+              value={anon ? t('settings.notBound') : '138 **** 6688'}
               onPress={() => setSubSheet('changePhone')}
             />
             <Row
               icon={Icon.users(theme.accent, 19)}
-              title="微信"
-              value={anon ? '未绑定' : '已绑定'}
+              title={t('settings.wechat')}
+              value={anon ? t('settings.notBound') : t('settings.bound')}
               onPress={anon ? undefined : () => setShowUnbindWechat(true)}
               last={anon ? false : true}
             />
             {anon ? (
               <Row
                 icon={Icon.mail(theme.accent, 19)}
-                title="邮箱"
-                value="未绑定"
+                title={t('settings.email')}
+                value={t('settings.notBound')}
                 onPress={() => setSubSheet('bindEmail')}
                 last
               />
@@ -1550,10 +1543,10 @@ function AccountSecuritySheet({ anon, onAnonChanged, onClose }) {
           </SettingGroup>
 
           {/* Login status */}
-          <SettingGroup label="登录状态" note="退出后回忆会好好留着，下次用同一个账号登录就能再见到。">
+          <SettingGroup label={t('settings.loginStatus')} note={t('settings.loginStatusNote')}>
             <Row
               icon={Icon.logout(theme.accent, 19)}
-              title="退出登录"
+              title={t('settings.logout')}
               onPress={() => setShowLogout(true)}
               last
             />
@@ -1583,7 +1576,7 @@ function AccountSecuritySheet({ anon, onAnonChanged, onClose }) {
                 </View>
                 <Text style={{
                   flex: 1, fontFamily: theme.fonts.body, fontSize: 15.5, color: '#C0616B',
-                }}>注销账户</Text>
+                }}>{t('settings.deleteAccount')}</Text>
                 {Icon.chevR(theme.inkSoft, 18)}
               </TouchableOpacity>
             </View>
@@ -1591,7 +1584,7 @@ function AccountSecuritySheet({ anon, onAnonChanged, onClose }) {
               paddingTop: 10, paddingHorizontal: 8,
               fontFamily: theme.fonts.body, fontSize: 12.5,
               lineHeight: 21, color: theme.inkSoft,
-            }}>注销是永久的：所有回忆、照片与录音都会被清除，且无法找回。</Text>
+            }}>{t('settings.deleteNote')}</Text>
           </View>
         </ScrollView>
       </View>
@@ -1610,27 +1603,27 @@ function AccountSecuritySheet({ anon, onAnonChanged, onClose }) {
       <ConfirmDialog
         visible={showUnbindWechat}
         icon={Icon.users(theme.accent, 26)}
-        title="解除微信绑定？"
-        message={'解绑后就不能用微信快速登录了，\n你随时可以再绑回来。'}
-        confirmLabel="解除绑定"
+        title={t('settings.unbindWechatTitle')}
+        message={t('settings.unbindWechatMsg')}
+        confirmLabel={t('settings.unbind')}
         confirmColor={theme.accent}
         onConfirm={() => setShowUnbindWechat(false)}
-        cancelLabel="先不了"
+        cancelLabel={t('settings.notNow')}
         onCancel={() => setShowUnbindWechat(false)}
       />
 
       <ConfirmDialog
         visible={showLogout}
         icon={Icon.logout(theme.accent, 26)}
-        title="要先退出吗？"
-        message={'你们记下的一切都会好好留着，\n下次用同一个账号登录就能再见到。'}
-        confirmLabel="退出登录"
+        title={t('settings.logoutTitle')}
+        message={t('settings.logoutMsg')}
+        confirmLabel={t('settings.logout')}
         confirmColor={theme.accent}
         onConfirm={async () => {
           setShowLogout(false);
           await signOut();
         }}
-        cancelLabel="再想想"
+        cancelLabel={t('settings.reconsider')}
         onCancel={() => setShowLogout(false)}
       />
 
@@ -1644,6 +1637,7 @@ function AccountSecuritySheet({ anon, onAnonChanged, onClose }) {
 
 export default function Settings({ navigation, route }) {
   const { theme, setTheme } = useTheme();
+  const { lang, setLang, t } = useI18n();
   const insets = useSafeAreaInsets();
   const { kids: dataKids, FAMILY, getKid, kidLabel } = useData();
 
@@ -1660,10 +1654,16 @@ export default function Settings({ navigation, route }) {
   const [editId, setEditId] = useState(null);
   const [sheet, setSheet] = useState(null); // 'add'|'invite'|'remindTime'|'about'|'account'
   const [remindOn, setRemindOn] = useState(true);
-  const [remindAt, setRemindAt] = useState('周日 晚上');
-  const [defView, setDefView] = useState('一起');
-  const [rhythm, setRhythm] = useState('每两周');
+  const [remindAt, setRemindAt] = useState('sun evening');
+  const [defView, setDefView] = useState('together');
+  const [rhythm, setRhythm] = useState('biweekly');
   const [anon, setAnon] = useState(false);
+
+  // 把 'sun evening' 这样的 key 对翻成展示文案
+  const formatRemind = (v) => {
+    const [d, tm] = (v || 'sun evening').split(' ');
+    return t('settings.remindAtFmt', { day: t('settings.day.' + d), time: t('settings.time.' + tm) });
+  };
   useEffect(() => { isAnonymous().then(setAnon); }, []);
 
   const editKid = kids.find(k => k.id === editId);
@@ -1674,27 +1674,27 @@ export default function Settings({ navigation, route }) {
     if (navigation && navigation.goBack) navigation.goBack();
   };
 
-  // Appearance mode: '系统' | '浅色' | '深色'
+  // Appearance mode: 'system' | 'light' | 'dark'
   const colorScheme = useColorScheme();
-  const [themeMode, setThemeMode] = useState('系统');
+  const [themeMode, setThemeMode] = useState('system');
 
   const handleThemeMode = useCallback((mode) => {
     setThemeMode(mode);
-    if (mode === '深色') setTheme.setIsDark(true);
-    else if (mode === '浅色') setTheme.setIsDark(false);
+    if (mode === 'dark') setTheme.setIsDark(true);
+    else if (mode === 'light') setTheme.setIsDark(false);
     else setTheme.setIsDark(colorScheme === 'dark');
   }, [colorScheme, setTheme]);
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.cream }}>
-      <LayerHeader title="设置" onBack={onBack} />
+      <LayerHeader title={t('settings.title')} onBack={onBack} />
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 56 + insets.bottom }}
         showsVerticalScrollIndicator={false}
       >
         {/* ── Identity section: who is using the app ── */}
-        <SettingGroup label="我">
+        <SettingGroup label={t('settings.groupMe')}>
           <IdentityRow
             me={me}
             options={ROLES}
@@ -1703,24 +1703,24 @@ export default function Settings({ navigation, route }) {
         </SettingGroup>
 
         {/* ── Account section ── */}
-        <SettingGroup label="账户">
+        <SettingGroup label={t('settings.groupAccount')}>
           <Row
             icon={Icon.shieldCheck(theme.accent, 20)}
-            title="账户与安全"
-            value={anon ? '游客' : undefined}
+            title={t('settings.accountSecurity')}
+            value={anon ? t('settings.guest') : undefined}
             onPress={() => setSheet('account')}
             last
           />
         </SettingGroup>
 
         {/* ── Children section ── */}
-        <SettingGroup label="孩子们" note="每多一个孩子，就多一条只属于你们俩的回忆线。">
+        <SettingGroup label={t('settings.groupKids')} note={t('settings.kidsNote')}>
           {kids.map(k => (
             <Row
               key={k.id}
               icon={<KidAvatar name={k.name} tone={k.tone} size={32} />}
               title={k.name}
-              value={`${ageFrom(k.y, k.m)} 岁`}
+              value={t('common.ageYears', { age: ageFrom(k.y, k.m) })}
               onPress={() => setEditId(k.id)}
             />
           ))}
@@ -1731,24 +1731,28 @@ export default function Settings({ navigation, route }) {
                 color: theme.accent, lineHeight: 26,
               }}>+</Text>
             }
-            title="再添一个孩子"
+            title={t('settings.addChild')}
             onPress={() => setSheet('add')}
             last
           />
         </SettingGroup>
 
         {/* ── Family section ── */}
-        <SettingGroup label="家庭">
+        <SettingGroup label={t('settings.groupFamily')}>
           <Row
             icon={Icon.users(theme.accent, 20)}
-            title="家庭成员"
-            value="邀请家人"
+            title={t('settings.familyMembers')}
+            value={t('settings.inviteFamily')}
             onPress={() => setSheet('invite')}
           />
           <SelectRow
             icon={Icon.eye(theme.accent, 20)}
-            title="默认从谁的视角开始"
-            options={['为你', '为我', '一起']}
+            title={t('settings.defaultView')}
+            options={[
+              { key: 'parent', label: t('perspective.parent.label') },
+              { key: 'child', label: t('perspective.child.label') },
+              { key: 'together', label: t('perspective.together.label') },
+            ]}
             value={defView}
             onSelect={setDefView}
             last
@@ -1757,52 +1761,69 @@ export default function Settings({ navigation, route }) {
 
         {/* ── Notifications section ── */}
         <SettingGroup
-          label="提醒"
-          note="我们不催你。这些事没有截止日，想做的时候它们都在。提醒只是一声很轻的招呼。"
+          label={t('settings.groupReminder')}
+          note={t('settings.reminderNote')}
         >
           <SelectRow
             icon={Icon.bell(theme.accent, 20)}
-            title="轻轻提醒一次"
-            options={['不提醒', '每周', '每两周']}
+            title={t('settings.remindOnce')}
+            options={[
+              { key: 'off', label: t('settings.remindOff') },
+              { key: 'weekly', label: t('settings.remindWeekly') },
+              { key: 'biweekly', label: t('settings.remindBiweekly') },
+            ]}
             value={rhythm}
             onSelect={setRhythm}
           />
           <Row
             icon={Icon.seed(theme.accent, 20)}
-            title="提醒时间"
-            value={rhythm === '不提醒' ? '已关' : remindAt}
-            onPress={rhythm === '不提醒' ? undefined : () => setSheet('remindTime')}
+            title={t('settings.remindTime')}
+            value={rhythm === 'off' ? t('settings.remindClosed') : formatRemind(remindAt)}
+            onPress={rhythm === 'off' ? undefined : () => setSheet('remindTime')}
             last
           />
         </SettingGroup>
 
         {/* ── Preservation section ── */}
-        <SettingGroup label="留存" note="它们太重要了，不该只活在一部手机里。">
+        <SettingGroup label={t('settings.groupKeep')} note={t('settings.keepNote')}>
           <Row
             icon={Icon.book(theme.accent, 20)}
-            title="导出成一本纸质书"
-            value="去看看"
+            title={t('settings.exportBook')}
+            value={t('settings.goLook')}
             onPress={() => navigation.navigate('Photobook')}
             last
           />
         </SettingGroup>
 
         {/* ── Appearance section ── */}
-        <SettingGroup label="外观">
+        <SettingGroup label={t('settings.groupAppearance')}>
           <SelectRow
-            title="明暗"
-            options={['系统', '浅色', '深色']}
+            title={t('settings.themeMode')}
+            options={[
+              { key: 'system', label: t('settings.themeSystem') },
+              { key: 'light', label: t('settings.themeLight') },
+              { key: 'dark', label: t('settings.themeDark') },
+            ]}
             value={themeMode}
             onSelect={handleThemeMode}
+          />
+          <SelectRow
+            title={t('lang.title')}
+            options={[
+              { key: 'zh', label: t('lang.zh') },
+              { key: 'en', label: t('lang.en') },
+            ]}
+            value={lang}
+            onSelect={setLang}
             last
           />
         </SettingGroup>
 
         {/* ── About section ── */}
-        <SettingGroup label="关于">
+        <SettingGroup label={t('settings.groupAbout')}>
           <Row
             icon={Icon.info(theme.accent, 20)}
-            title="关于一百件事"
+            title={t('settings.aboutApp')}
             value={`v${APP_VERSION}`}
             onPress={() => setSheet('about')}
             last
@@ -1814,7 +1835,7 @@ export default function Settings({ navigation, route }) {
           <Text style={{
             fontFamily: theme.fonts.body, fontSize: 12,
             color: theme.inkSoft, opacity: 0.7,
-          }}>{APP_NAME} · 版本 {APP_VERSION}</Text>
+          }}>{t('settings.footerVersion', { name: t('settings.appName'), version: APP_VERSION })}</Text>
         </View>
 
       </ScrollView>

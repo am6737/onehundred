@@ -4,6 +4,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/tokens';
+import { useT } from '../i18n';
 import { Icon } from '../components/Icons';
 import Svg, { Path } from 'react-native-svg';
 import { signInAnonymously } from '../lib/auth';
@@ -53,6 +54,7 @@ function BackButton({ onPress }) {
 
 function PhoneInput({ value, onChangeText }) {
   const { theme } = useTheme();
+  const t = useT();
   return (
     <View style={{
       flexDirection: 'row',
@@ -76,7 +78,7 @@ function PhoneInput({ value, onChangeText }) {
       <TextInput
         value={value}
         onChangeText={onChangeText}
-        placeholder="请输入手机号"
+        placeholder={t('login.phonePlaceholder')}
         placeholderTextColor={theme.inkSoft}
         keyboardType="phone-pad"
         maxLength={11}
@@ -120,6 +122,7 @@ function BottomButton({ label, enabled, onPress }) {
 
 function AgreementRow({ checked, onToggle, onOpenAgreement, showCarrier = false }) {
   const { theme } = useTheme();
+  const t = useT();
   const linkStyle = { color: theme.accent };
   return (
     <View style={{
@@ -145,12 +148,13 @@ function AgreementRow({ checked, onToggle, onOpenAgreement, showCarrier = false 
         lineHeight: 20,
         color: theme.inkSoft,
       }}>
-        已阅读并同意{' '}
-        <Text style={linkStyle} onPress={() => onOpenAgreement?.('user')}>《用户协议》</Text>
-        <Text style={linkStyle} onPress={() => onOpenAgreement?.('privacy')}>《隐私政策》</Text>
+        {t('login.agreePrefix')}
+        <Text style={linkStyle} onPress={() => onOpenAgreement?.('user')}>{t('login.agreeUser')}</Text>
+        {t('login.agreeSep')}
+        <Text style={linkStyle} onPress={() => onOpenAgreement?.('privacy')}>{t('login.agreePrivacy')}</Text>
         {showCarrier ? (
           <>
-            与<Text style={linkStyle} onPress={() => onOpenAgreement?.('carrier')}>《中国移动认证服务协议》</Text>
+            {t('login.agreeAnd')}<Text style={linkStyle} onPress={() => onOpenAgreement?.('carrier')}>{t('login.agreeCarrier')}</Text>
           </>
         ) : null}
       </Text>
@@ -164,6 +168,7 @@ function AgreementRow({ checked, onToggle, onOpenAgreement, showCarrier = false 
 
 export function LoginWelcome({ navigation }) {
   const { theme } = useTheme();
+  const t = useT();
   const insets = useSafeAreaInsets();
   const [agreed, setAgreed] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -187,7 +192,7 @@ export function LoginWelcome({ navigation }) {
           fontSize: 22,
           color: theme.accent,
           letterSpacing: 10,
-        }}>一 百 件 事</Text>
+        }}>{t('login.brand')}</Text>
 
         <Text style={{
           marginTop: 14,
@@ -196,7 +201,7 @@ export function LoginWelcome({ navigation }) {
           color: theme.ink,
           textAlign: 'center',
           lineHeight: 44,
-        }}>陪孩子长大的{'\n'}每一件事</Text>
+        }}>{t('login.tagline')}</Text>
 
         <View style={{
           marginTop: 20,
@@ -233,7 +238,7 @@ export function LoginWelcome({ navigation }) {
               fontFamily: theme.fonts.body,
               fontSize: 12,
               color: theme.inkSoft,
-            }}>中国移动  提供认证服务</Text>
+            }}>{t('login.carrierService')}</Text>
           </View>
         </View>
 
@@ -258,14 +263,14 @@ export function LoginWelcome({ navigation }) {
             fontFamily: theme.fonts.head,
             fontSize: 17,
             color: '#FFFDF7',
-          }}>本机号码一键登录</Text>
+          }}>{t('login.oneClickLogin')}</Text>
         </TouchableOpacity>
 
         {/* Guest login */}
         <TouchableOpacity
           onPress={async () => {
             if (!agreed) {
-              Alert.alert('请先同意协议', '请阅读并勾选下方的用户协议与隐私政策');
+              Alert.alert(t('login.agreeFirstTitle'), t('login.agreeFirstBody'));
               return;
             }
             if (loading) return;
@@ -275,7 +280,7 @@ export function LoginWelcome({ navigation }) {
               navigation.replace('Onboarding');
             } catch (e: any) {
               console.error('Guest login error:', e);
-              Alert.alert('无法连接', '请检查网络后重试');
+              Alert.alert(t('login.connectFailTitle'), t('login.connectFailBody'));
             } finally {
               setLoading(false);
             }
@@ -299,7 +304,7 @@ export function LoginWelcome({ navigation }) {
               fontFamily: theme.fonts.head,
               fontSize: 17,
               color: agreed ? theme.accent : theme.inkSoft,
-            }}>游客登录</Text>
+            }}>{t('login.guestLogin')}</Text>
           )}
         </TouchableOpacity>
 
@@ -328,7 +333,7 @@ export function LoginWelcome({ navigation }) {
           fontFamily: theme.fonts.body,
           fontSize: 14,
           color: theme.accent,
-        }}>登录其他账号</Text>
+        }}>{t('login.loginOtherAccount')}</Text>
       </TouchableOpacity>
     </View>
   );
@@ -340,6 +345,7 @@ export function LoginWelcome({ navigation }) {
 
 export function PhoneLogin({ navigation }) {
   const { theme } = useTheme();
+  const t = useT();
   const insets = useSafeAreaInsets();
   const [tab, setTab] = useState('code');
   const [phone, setPhone] = useState('');
@@ -380,7 +386,7 @@ export function PhoneLogin({ navigation }) {
           fontFamily: theme.fonts.head,
           fontSize: 22,
           color: theme.ink,
-        }}>{tab === 'code' ? '验证码登录' : '密码登录'}</Text>
+        }}>{tab === 'code' ? t('login.codeLogin') : t('login.passwordLogin')}</Text>
       </View>
 
       {/* Content */}
@@ -400,7 +406,7 @@ export function PhoneLogin({ navigation }) {
             <TextInput
               value={password}
               onChangeText={setPassword}
-              placeholder="请输入密码"
+              placeholder={t('login.passwordPlaceholder')}
               placeholderTextColor={theme.inkSoft}
               secureTextEntry
               style={{
@@ -431,7 +437,7 @@ export function PhoneLogin({ navigation }) {
               fontFamily: theme.fonts.body,
               fontSize: 14,
               color: theme.accent,
-            }}>{tab === 'code' ? '密码登录' : '验证码登录'}</Text>
+            }}>{tab === 'code' ? t('login.passwordLogin') : t('login.codeLogin')}</Text>
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => navigation.navigate('ForgotPassword')}
@@ -441,7 +447,7 @@ export function PhoneLogin({ navigation }) {
               fontFamily: theme.fonts.body,
               fontSize: 14,
               color: theme.inkSoft,
-            }}>忘记密码</Text>
+            }}>{t('login.forgotPassword')}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -453,13 +459,13 @@ export function PhoneLogin({ navigation }) {
       }}>
         {tab === 'code' ? (
           <BottomButton
-            label={countdown > 0 ? `${countdown}s 后重新获取` : '获取验证码'}
+            label={countdown > 0 ? t('login.resend', { n: countdown }) : t('login.getCode')}
             enabled={canSendCode}
             onPress={sendCode}
           />
         ) : (
           <BottomButton
-            label="登录"
+            label={t('login.login')}
             enabled={canLogin}
             onPress={() => navigation.replace('Home')}
           />
@@ -496,7 +502,7 @@ export function PhoneLogin({ navigation }) {
               fontFamily: theme.fonts.body,
               fontSize: 12,
               color: theme.inkSoft,
-            }}>找回账号</Text>
+            }}>{t('login.recoverAccount')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -522,7 +528,7 @@ export function PhoneLogin({ navigation }) {
               fontFamily: theme.fonts.body,
               fontSize: 12,
               color: theme.inkSoft,
-            }}>其他方式登录</Text>
+            }}>{t('login.otherWays')}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -556,7 +562,7 @@ export function PhoneLogin({ navigation }) {
                 color: theme.ink,
                 textAlign: 'center',
                 paddingVertical: 16,
-              }}>其他方式登录</Text>
+              }}>{t('login.otherWays')}</Text>
               <View style={{
                 flexDirection: 'row',
                 justifyContent: 'center',
@@ -573,7 +579,7 @@ export function PhoneLogin({ navigation }) {
                   </View>
                   <Text style={{
                     fontFamily: theme.fonts.body, fontSize: 13, color: theme.inkSoft,
-                  }}>微信</Text>
+                  }}>{t('login.wechat')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity activeOpacity={0.7} style={{ alignItems: 'center', gap: 10 }}>
                   <View style={{
@@ -585,7 +591,7 @@ export function PhoneLogin({ navigation }) {
                   </View>
                   <Text style={{
                     fontFamily: theme.fonts.body, fontSize: 13, color: theme.inkSoft,
-                  }}>Apple</Text>
+                  }}>{t('login.apple')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   activeOpacity={0.7}
@@ -601,7 +607,7 @@ export function PhoneLogin({ navigation }) {
                   </View>
                   <Text style={{
                     fontFamily: theme.fonts.body, fontSize: 13, color: theme.inkSoft,
-                  }}>邮箱</Text>
+                  }}>{t('login.email')}</Text>
                 </TouchableOpacity>
               </View>
               <TouchableOpacity
@@ -611,7 +617,7 @@ export function PhoneLogin({ navigation }) {
               >
                 <Text style={{
                   fontFamily: theme.fonts.body, fontSize: 15, color: theme.inkSoft,
-                }}>取消</Text>
+                }}>{t('common.cancel')}</Text>
               </TouchableOpacity>
             </View>
           </Pressable>
@@ -627,6 +633,7 @@ export function PhoneLogin({ navigation }) {
 
 export function ForgotPassword({ navigation }) {
   const { theme } = useTheme();
+  const t = useT();
   const insets = useSafeAreaInsets();
   const [phone, setPhone] = useState('');
   const [countdown, setCountdown] = useState(0);
@@ -662,14 +669,14 @@ export function ForgotPassword({ navigation }) {
           fontFamily: theme.fonts.head,
           fontSize: 28,
           color: theme.ink,
-        }}>找回密码</Text>
+        }}>{t('login.forgotTitle')}</Text>
         <Text style={{
           marginTop: 10,
           fontFamily: theme.fonts.body,
           fontSize: 15,
           color: theme.inkSoft,
           lineHeight: 24,
-        }}>先验证手机号，确认是你本人。</Text>
+        }}>{t('login.forgotDesc')}</Text>
       </View>
 
       {/* Phone input */}
@@ -683,7 +690,7 @@ export function ForgotPassword({ navigation }) {
         paddingBottom: insets.bottom + 16,
       }}>
         <BottomButton
-          label={countdown > 0 ? `${countdown}s 后重新获取` : '获取验证码'}
+          label={countdown > 0 ? t('login.resend', { n: countdown }) : t('login.getCode')}
           enabled={canSend}
           onPress={sendCode}
         />

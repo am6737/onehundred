@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import Svg, { Path, Rect, Circle, Ellipse, Line, G } from 'react-native-svg';
+import { useT } from '../i18n';
 
 /* ── Icon library ─────────────────────────────────────────────── */
 
@@ -236,9 +237,11 @@ const AVATAR_TONES = {
 
 /* ── PhotoSlot ────────────────────────────────────────────────── */
 
-export function PhotoSlot({ tone = 'orange', label = '照片', radius = 22, style, children = null, striped = true }) {
+export function PhotoSlot({ tone = 'orange', label = undefined, radius = 22, style, children = null, striped = true }) {
+  const t = useT();
   const colors = PHOTO_TONES[tone] || PHOTO_TONES.orange;
   const stripeCount = 12;
+  const lbl = label === undefined ? t('common.photo') : label;
 
   return (
     <View
@@ -266,7 +269,7 @@ export function PhotoSlot({ tone = 'orange', label = '照片', radius = 22, styl
       {/* Content or label */}
       {children || (
         <View style={photoStyles.labelWrap}>
-          <Text style={[photoStyles.label, { color: colors[1] }]}>{label}</Text>
+          <Text style={[photoStyles.label, { color: colors[1] }]}>{lbl}</Text>
         </View>
       )}
     </View>

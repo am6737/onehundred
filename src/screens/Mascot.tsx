@@ -6,6 +6,7 @@ import {
   Dimensions, StyleSheet,
 } from 'react-native';
 import { useTheme, TONE } from '../theme/tokens';
+import { useT, getLang } from '../i18n';
 import { PET_BODY } from '../data';
 import { useData } from '../data/DataProvider';
 import { Icon } from '../components/Icons';
@@ -66,6 +67,7 @@ function HeartParticle({ color, startX, onDone }) {
 
 export function UnlockMoment({ visible, item, mascot, onClose }) {
   const { theme } = useTheme();
+  const t = useT();
   const [showCard, setShowCard] = useState(false);
 
   // Ring animations
@@ -207,13 +209,13 @@ export function UnlockMoment({ visible, item, mascot, onClose }) {
   if (!visible || !item || !mascot) return null;
 
   const accent = theme.accent;
-  const petName = mascot.name || '团子';
-  const kidName = mascot.kidName || '孩子';
+  const petName = mascot.name || t('yearReview.defaultMascot');
+  const kidName = mascot.kidName || t('drawer.child');
   const tone = mascot.tone || 'orange';
   const wearing = mascot.wearing || [];
   const done = mascot.done || 0;
 
-  const today = new Date().toLocaleDateString('zh-CN', { month: 'long', day: 'numeric' });
+  const today = new Date().toLocaleDateString(getLang() === 'zh' ? 'zh-CN' : 'en-US', { month: 'long', day: 'numeric' });
 
   // Ring interpolations
   const ring1Scale = ring1.interpolate({
@@ -351,13 +353,13 @@ export function UnlockMoment({ visible, item, mascot, onClose }) {
                   fontSize: 18,
                   color: accent,
                   marginBottom: 6,
-                }}>{'· 解锁新装扮 ·'}</Text>
+                }}>{t('mascot.unlockTitle')}</Text>
                 <Text style={{
                   fontFamily: theme.fonts.head,
                   fontSize: 30,
                   color: theme.ink,
                   textAlign: 'center',
-                }}>{petName} 得到了「{item.name}」</Text>
+                }}>{t('mascot.gotItem', { pet: petName, item: item.name })}</Text>
                 {item.line ? (
                   <Text style={{
                     marginTop: 12,
@@ -385,7 +387,7 @@ export function UnlockMoment({ visible, item, mascot, onClose }) {
                     fontSize: 13,
                     color: theme.inkSoft,
                   }}>
-                    {'这是你们一起做的第 '}
+                    {t('mascot.earnedPre')}
                   </Text>
                   <Text style={{
                     color: accent,
@@ -397,7 +399,7 @@ export function UnlockMoment({ visible, item, mascot, onClose }) {
                     fontFamily: theme.fonts.body,
                     fontSize: 13,
                     color: theme.inkSoft,
-                  }}>{' 件事换来的'}</Text>
+                  }}>{t('mascot.earnedPost')}</Text>
                 </View>
               </Animated.View>
 
@@ -432,7 +434,7 @@ export function UnlockMoment({ visible, item, mascot, onClose }) {
                     fontFamily: theme.fonts.head,
                     fontSize: 16,
                     color: '#FFFDF7',
-                  }}>做成卡片</Text>
+                  }}>{t('mascot.makeCard')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={onClose}
@@ -450,7 +452,7 @@ export function UnlockMoment({ visible, item, mascot, onClose }) {
                     fontFamily: theme.fonts.body,
                     fontSize: 16,
                     color: theme.inkSoft,
-                  }}>好</Text>
+                  }}>{t('common.ok')}</Text>
                 </TouchableOpacity>
               </Animated.View>
             </>
@@ -482,7 +484,7 @@ export function UnlockMoment({ visible, item, mascot, onClose }) {
                     fontFamily: theme.fonts.hand,
                     fontSize: 16,
                     color: accent,
-                  }}>{today} · {petName}的新装扮</Text>
+                  }}>{t('mascot.cardHeader', { today, pet: petName })}</Text>
                   <View style={{ marginVertical: 6 }}>
                     <Bear size={176} stage={PET_BODY} accessories={wearing} tone={tone} />
                   </View>
@@ -491,7 +493,7 @@ export function UnlockMoment({ visible, item, mascot, onClose }) {
                     fontSize: 24,
                     color: theme.ink,
                     marginBottom: 4,
-                  }}>「{item.name}」</Text>
+                  }}>{t('mascot.itemQuoted', { item: item.name })}</Text>
                   {item.line ? (
                     <Text style={{
                       maxWidth: 240,
@@ -521,12 +523,12 @@ export function UnlockMoment({ visible, item, mascot, onClose }) {
                       fontFamily: theme.fonts.body,
                       fontSize: 12,
                       color: theme.inkSoft,
-                    }}>陪 {kidName} 一起做到了</Text>
+                    }}>{t('mascot.withKidDone', { kid: kidName })}</Text>
                     <Text style={{
                       fontFamily: theme.fonts.head,
                       fontSize: 18,
                       color: theme.ink,
-                    }}>{done} 件事</Text>
+                    }}>{t('common.thingsCount', { count: done })}</Text>
                   </View>
                   <View style={{ alignItems: 'flex-end' }}>
                     <Text style={{
@@ -534,12 +536,12 @@ export function UnlockMoment({ visible, item, mascot, onClose }) {
                       fontSize: 15,
                       color: accent,
                       lineHeight: 20,
-                    }}>一百件事</Text>
+                    }}>{t('onboarding.brand')}</Text>
                     <Text style={{
                       fontSize: 11,
                       color: theme.inkSoft,
                       fontFamily: theme.fonts.body,
-                    }}>和孩子一起</Text>
+                    }}>{t('mascot.withChild')}</Text>
                   </View>
                 </View>
               </Animated.View>
@@ -574,7 +576,7 @@ export function UnlockMoment({ visible, item, mascot, onClose }) {
                     fontFamily: theme.fonts.head,
                     fontSize: 16,
                     color: '#FFFDF7',
-                  }}>保存图片</Text>
+                  }}>{t('mascot.saveImage')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={onClose}
@@ -592,7 +594,7 @@ export function UnlockMoment({ visible, item, mascot, onClose }) {
                     fontFamily: theme.fonts.body,
                     fontSize: 16,
                     color: theme.inkSoft,
-                  }}>收起</Text>
+                  }}>{t('mascot.collapse')}</Text>
                 </TouchableOpacity>
               </Animated.View>
             </>
@@ -636,6 +638,7 @@ const unlockStyles = StyleSheet.create({
 
 export default function MascotPage({ route, navigation }) {
   const { theme } = useTheme();
+  const t = useT();
   const { kids, getKid, kidDone, getMascot, wardrobeState, nextUnlock, wardrobe, memoriesForKid } = useData();
   const kidId = route?.params?.kidId;
 
@@ -643,8 +646,8 @@ export default function MascotPage({ route, navigation }) {
   const [who, setWho] = useState(initial);
   const kid = getKid(who);
   const MAS = getMascot(who);
-  const kidInfo = kid || { name: '孩子' };
-  const petName = MAS ? MAS.name : '团子';
+  const kidInfo = kid || { name: t('drawer.child') };
+  const petName = MAS ? MAS.name : t('yearReview.defaultMascot');
   const tone = kid ? kid.tone : 'orange';
   const since = kid && 'since' in kid ? (kid as any).since : '';
 
@@ -933,7 +936,7 @@ export default function MascotPage({ route, navigation }) {
               fontSize: 18,
               color: theme.inkSoft,
               lineHeight: 29,
-            }}>摸摸它，它最喜欢你了。</Text>
+            }}>{t('mascot.patHint')}</Text>
             <Text style={{
               marginTop: 4,
               fontFamily: theme.fonts.body,
@@ -941,7 +944,7 @@ export default function MascotPage({ route, navigation }) {
               color: theme.inkSoft,
               opacity: 0.8,
             }}>
-              {kidInfo.name}的{petName}{since ? ` · 从 ${since} 起一起长大` : ''}
+              {t('mascot.petOf', { kid: kidInfo.name, pet: petName })}{since ? t('mascot.sinceGrew', { since }) : ''}
             </Text>
           </View>
         </View>
@@ -960,13 +963,13 @@ export default function MascotPage({ route, navigation }) {
                 fontSize: 16,
                 color: theme.ink,
               }}>
-                {nu ? '离下一件新装扮' : '所有装扮都集齐啦'}
+                {nu ? t('mascot.toNextOutfit') : t('mascot.allCollected')}
               </Text>
               <Text style={{
                 fontFamily: theme.fonts.body,
                 fontSize: 13,
                 color: theme.inkSoft,
-              }}>已陪{kidInfo.name}做 {done} 件事</Text>
+              }}>{t('mascot.withKidThings', { kid: kidInfo.name, count: done })}</Text>
             </View>
 
             <View style={{
@@ -1006,18 +1009,18 @@ export default function MascotPage({ route, navigation }) {
                   fontSize: 13.5,
                   color: theme.inkSoft,
                 }}>
-                  {'再做 '}
+                  {t('mascot.doMorePre')}
                   <Text style={{ color: theme.accent, fontFamily: theme.fonts.head }}>{remain}</Text>
-                  {' 件，就会解锁 '}
-                  <Text style={{ color: theme.accent, fontFamily: theme.fonts.head }}>「{nu.name}」</Text>
-                  {'。'}
+                  {t('mascot.doMoreMid')}
+                  <Text style={{ color: theme.accent, fontFamily: theme.fonts.head }}>{t('mascot.itemQuoted', { item: nu.name })}</Text>
+                  {t('mascot.end')}
                 </Text>
               ) : (
                 <Text style={{
                   fontFamily: theme.fonts.body,
                   fontSize: 13.5,
                   color: theme.inkSoft,
-                }}>{petName}的小衣橱满满当当。它会一直陪着你们。</Text>
+                }}>{t('mascot.wardrobeFull', { pet: petName })}</Text>
               )}
             </View>
 
@@ -1045,7 +1048,7 @@ export default function MascotPage({ route, navigation }) {
                 fontFamily: theme.fonts.body,
                 fontSize: 13,
                 color: theme.inkSoft,
-              }}>演示：再做一件事，看看会解锁什么</Text>
+              }}>{t('mascot.demoBtn')}</Text>
             </TouchableOpacity>
           </Card>
 
@@ -1061,19 +1064,19 @@ export default function MascotPage({ route, navigation }) {
               fontFamily: theme.fonts.head,
               fontSize: 17,
               color: theme.ink,
-            }}>{petName}的小衣橱</Text>
+            }}>{t('drawer.petWardrobe', { name: petName })}</Text>
             <Text style={{
               fontFamily: theme.fonts.body,
               fontSize: 13,
               color: theme.inkSoft,
-            }}>已解锁 {unlockedCount}/{totalItems}</Text>
+            }}>{t('mascot.unlockedCount', { n: unlockedCount, total: totalItems })}</Text>
           </View>
           <Text style={{
             fontFamily: theme.fonts.body,
             fontSize: 12.5,
             color: theme.inkSoft,
             marginBottom: 14,
-          }}>点一下解锁的装扮，给{petName}穿上或取下。</Text>
+          }}>{t('mascot.wardrobeHint', { pet: petName })}</Text>
 
           <View style={{
             flexDirection: 'row',
@@ -1142,7 +1145,7 @@ export default function MascotPage({ route, navigation }) {
                     color: w.got ? theme.ink : theme.inkSoft,
                     textAlign: 'center',
                   }}>
-                    {w.got ? w.name : '？？？'}
+                    {w.got ? w.name : t('mascot.lockedName')}
                   </Text>
 
                   {/* Status */}
@@ -1158,13 +1161,13 @@ export default function MascotPage({ route, navigation }) {
                           fontFamily: theme.fonts.body,
                           fontSize: 11,
                           color: theme.accent,
-                        }}>穿戴中</Text>
+                        }}>{t('mascot.wearing')}</Text>
                       ) : (
                         <Text style={{
                           fontFamily: theme.fonts.body,
                           fontSize: 11,
                           color: theme.inkSoft,
-                        }}>点一下穿上</Text>
+                        }}>{t('mascot.tapToWear')}</Text>
                       )
                     ) : (
                       <>
@@ -1173,7 +1176,7 @@ export default function MascotPage({ route, navigation }) {
                           fontFamily: theme.fonts.body,
                           fontSize: 11,
                           color: theme.inkSoft,
-                        }}>第 {w.at} 件解锁</Text>
+                        }}>{t('mascot.unlockAt', { n: w.at })}</Text>
                       </>
                     )}
                   </View>
@@ -1184,7 +1187,7 @@ export default function MascotPage({ route, navigation }) {
 
           {/* ── Growth diary ── */}
           {diaryLog.length > 0 && (
-            <Section title="成长日记" style={{ marginTop: 30 }}>
+            <Section title={t('mascot.growthDiary')} style={{ marginTop: 30 }}>
               <View style={{ position: 'relative', paddingLeft: 22 }}>
                 {/* Timeline line */}
                 <View style={{

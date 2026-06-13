@@ -2,28 +2,16 @@ import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/tokens';
+import { useT } from '../i18n';
 import { Icon } from '../components/Icons';
-
-const AGREEMENTS = {
-  user: {
-    title: '用户协议',
-    content: '用户协议内容待补充。',
-  },
-  privacy: {
-    title: '隐私政策',
-    content: '隐私政策内容待补充。',
-  },
-  carrier: {
-    title: '中国移动认证服务协议',
-    content: '中国移动认证服务协议内容待补充。',
-  },
-};
 
 export default function Agreement({ route, navigation }) {
   const { theme } = useTheme();
+  const t = useT();
   const insets = useSafeAreaInsets();
-  const type = route.params?.type || 'user';
-  const agreement = AGREEMENTS[type] || AGREEMENTS.user;
+  const type = ['user', 'privacy', 'carrier'].includes(route.params?.type)
+    ? route.params.type : 'user';
+  const agreement = { title: t(`agreement.${type}.title`), content: t(`agreement.${type}.content`) };
 
   return (
     <View style={{
