@@ -24,7 +24,7 @@ import { useData } from '../data/DataProvider';
 import { Icon, PhotoSlot } from '../components/Icons';
 import { LayerHeader, PrimaryButton, SecondaryButton, Chip, Sheet } from '../components/common';
 import SealDateSheet from '../components/SealDateSheet';
-import { LivePhotoImage, LiveBadge, livePhotoSupported } from '../components/LivePhotoImage';
+import { LivePhotoImage, LiveBadge, LiveDot } from '../components/LivePhotoImage';
 import { supabase } from '../lib/supabase';
 
 /* ── VoiceRecorder ── */
@@ -969,8 +969,8 @@ export default function RecordFlow({ route, navigation }) {
                             contentFit="cover"
                             badge={false}
                           />
-                          {/* 封面已占左上角，实况角标放左下 */}
-                          {photos[0].livePhotoVideoUri && livePhotoSupported && (
+                          {/* 封面已占左上角，实况角标放左下；有配对视频就标，不看能否播放 */}
+                          {photos[0].livePhotoVideoUri && (
                             <LiveBadge placement="bottom-left" />
                           )}
                         </View>
@@ -1012,17 +1012,7 @@ export default function RecordFlow({ route, navigation }) {
                               style={{ width: '100%', height: '100%' }}
                               resizeMode="cover"
                             />
-                            {p.livePhotoVideoUri && (
-                              <View style={{
-                                position: 'absolute', top: 4, left: 4,
-                                width: 13, height: 13, borderRadius: 6.5,
-                                borderWidth: 1.5, borderColor: '#FFFFFF',
-                                backgroundColor: 'rgba(0,0,0,0.35)',
-                                alignItems: 'center', justifyContent: 'center',
-                              }}>
-                                <View style={{ width: 3.5, height: 3.5, borderRadius: 1.75, backgroundColor: '#FFFFFF' }} />
-                              </View>
-                            )}
+                            {p.livePhotoVideoUri && <LiveDot />}
                           </TouchableOpacity>
                         ))}
                         {photos.length < MAX_SHOTS && (

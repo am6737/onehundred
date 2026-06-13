@@ -47,6 +47,33 @@ export function LiveBadge({ placement = 'top-left' }: { placement?: 'top-left' |
   );
 }
 
+// 小尺寸「实况」标记（一个白色圆环），用于列表封面 / 缩略图等放不下整枚药丸的地方。
+export function LiveDot({ size = 13, placement = 'top-left' }: { size?: number; placement?: 'top-left' | 'top-right' }) {
+  const inner = Math.max(3, Math.round(size * 0.3));
+  return (
+    <View
+      pointerEvents="none"
+      style={[
+        {
+          position: 'absolute',
+          top: 6,
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          borderWidth: 1.5,
+          borderColor: '#FFFFFF',
+          backgroundColor: 'rgba(0,0,0,0.35)',
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        placement === 'top-right' ? { right: 6 } : { left: 6 },
+      ]}
+    >
+      <View style={{ width: inner, height: inner, borderRadius: inner / 2, backgroundColor: '#FFFFFF' }} />
+    </View>
+  );
+}
+
 type CommonProps = {
   style?: any;
   contentFit?: 'cover' | 'contain';
@@ -73,7 +100,8 @@ export function LivePhotoImage({
       ) : (
         <Image source={{ uri: photoUri }} style={StyleSheet.absoluteFill} resizeMode={contentFit} />
       )}
-      {badge && canLive && <LiveBadge />}
+      {/* 角标只表示「这是实况照片」，与能否播放无关 */}
+      {badge && !!pairedVideoUri && <LiveBadge />}
     </View>
   );
 }
@@ -138,7 +166,8 @@ export function RemoteLivePhotoImage({
   return (
     <View style={style}>
       <Image source={{ uri: photoUrl }} style={StyleSheet.absoluteFill} resizeMode={contentFit} />
-      {badge && canLive && <LiveBadge />}
+      {/* 即使本机不能播放（如未重建 / 非 iOS），有配对视频就标出「实况」 */}
+      {badge && !!pairedVideoUrl && <LiveBadge />}
     </View>
   );
 }

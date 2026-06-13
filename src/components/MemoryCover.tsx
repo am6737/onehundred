@@ -9,6 +9,7 @@ import { Icon } from './Icons';
 import { useMemoryMedia } from '../lib/media';
 import { useData } from '../data/DataProvider';
 import { SceneSlot } from './Motifs';
+import { LiveDot } from './LivePhotoImage';
 
 function VideoFrame({ url, radius, style }) {
   const player = useVideoPlayer(url);
@@ -40,11 +41,14 @@ export function MemoryCover({ memory, style, radius = 0, mode = 'thumb', label =
 
   if (image) {
     return (
-      <Image
-        source={{ uri: image.url }}
-        style={[{ borderRadius: radius }, style]}
-        resizeMode="cover"
-      />
+      <View style={[{ borderRadius: radius, overflow: 'hidden' }, style]}>
+        <Image
+          source={{ uri: image.url }}
+          style={{ width: '100%', height: '100%' }}
+          resizeMode="cover"
+        />
+        {image.livePhotoUrl && <LiveDot />}
+      </View>
     );
   }
   if (video && (mode === 'hero' || videoFrame)) {

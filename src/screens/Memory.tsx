@@ -14,7 +14,7 @@ import { PERSPECTIVES, isMemoryLocked, isMemoryUnsealed } from '../data';
 import { useData } from '../data/DataProvider';
 import { useMemoryMedia } from '../lib/media';
 import { MemoryCover } from '../components/MemoryCover';
-import { RemoteLivePhotoImage } from '../components/LivePhotoImage';
+import { RemoteLivePhotoImage, LiveDot } from '../components/LivePhotoImage';
 import { SceneSlot } from '../components/Motifs';
 import { Icon, PhotoSlot, KidAvatar } from '../components/Icons';
 import { LayerHeader, Sheet, Chip, PrimaryButton } from '../components/common';
@@ -680,6 +680,7 @@ export function MemoryPage({ route, navigation }) {
                       }}>封面</Text>
                     </View>
                   )}
+                  {img.livePhotoUrl && <LiveDot placement="top-right" />}
                 </TouchableOpacity>
               ))}
             </ScrollView>
