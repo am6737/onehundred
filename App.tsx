@@ -16,6 +16,8 @@ import { getSession, getValidSession, onAuthStateChange } from './src/lib/auth';
 import HomeFeed from './src/screens/HomeFeed';
 import Drawer from './src/screens/Drawer';
 import LevelDetail from './src/screens/LevelDetail';
+import AddOwnLevel from './src/screens/AddOwnLevel';
+import OwnLevels from './src/screens/OwnLevels';
 import RecordFlow from './src/screens/RecordFlow';
 import { MemoryPage, MemoryBook } from './src/screens/Memory';
 import MascotPage, { UnlockMoment } from './src/screens/Mascot';
@@ -76,6 +78,9 @@ function HomeWithDrawer({ navigation }) {
         break;
       case 'sealed':
         navigation.navigate('Sealed', params);
+        break;
+      case 'ownlevels':
+        navigation.navigate('OwnLevels', params);
         break;
       case 'book':
         navigation.navigate('MemoryBook', params);
@@ -173,6 +178,12 @@ function AppNavigator() {
         <Stack.Screen name="Onboarding" component={OnboardingScreen} />
         <Stack.Screen name="Home" component={HomeWithDrawer} />
         <Stack.Screen name="LevelDetail" component={LevelDetail} />
+        <Stack.Screen
+          name="AddOwnLevel"
+          component={AddOwnLevel}
+          options={{ animation: 'slide_from_bottom' }}
+        />
+        <Stack.Screen name="OwnLevels" component={OwnLevels} />
         <Stack.Screen
           name="Record"
           component={RecordFlow}

@@ -180,7 +180,7 @@ export function illustrationUrl(level) {
   return supabase.storage.from('illustrations').getPublicUrl(v).data.publicUrl;
 }
 
-export function SceneSlot({ tone = 'orange', level, size = 120, style = undefined }) {
+export function SceneSlot({ tone = 'orange', level, size = 120, style = undefined, onLoad = undefined, onError = undefined }) {
   const colors = MOTIF_COLORS[tone] || MOTIF_COLORS.orange;
   const url = illustrationUrl(level);
 
@@ -191,6 +191,8 @@ export function SceneSlot({ tone = 'orange', level, size = 120, style = undefine
         source={{ uri: url }}
         style={[{ width: '100%', height: '100%' }, style]}
         resizeMode="cover"
+        onLoad={onLoad}
+        onError={onError}
       />
     );
   }

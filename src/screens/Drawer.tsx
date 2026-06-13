@@ -12,7 +12,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import { useTheme, TONE } from '../theme/tokens';
-import { meName, meChar, PET_BODY, SHOW_MASCOT, durationSince, sealedLockedFrom, isMemoryUnsealed } from '../data';
+import { meName, meChar, PET_BODY, SHOW_MASCOT, durationSince, sealedLockedFrom, sealedAllFrom, isMemoryUnsealed } from '../data';
 import { useData } from '../data/DataProvider';
 import { Icon } from '../components/Icons';
 import { Bear } from '../components/Bear';
@@ -397,7 +397,7 @@ const heatStyles = StyleSheet.create({
 
 export default function Drawer({ visible, onClose, onNavigate, kidId = 'all', me }) {
   const { theme } = useTheme();
-  const { kids, levels, memories, wardrobe, FAMILY, getKid, kidDone, memoriesForKid, getMascot, wardrobeState } = useData();
+  const { kids, levels, memories, wardrobe, customLevels, FAMILY, getKid, kidDone, memoriesForKid, getMascot, wardrobeState } = useData();
   const slideAnim = useRef(new Animated.Value(-DRAWER_WIDTH)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const [shouldRender, setShouldRender] = useState(false);
@@ -464,12 +464,11 @@ export default function Drawer({ visible, onClose, onNavigate, kidId = 'all', me
     return durationSince(earliest.since);
   }, [kids]);
 
-  // Sealed items（真实封存记录：仍锁定的计数 + 已到期可打开的提示）
+  // Sealed items（真实封存记录：仍锁定 + 已到期可打开，都算“封存物”）
+  const sealedAll = sealedAllFrom(memories, kidId);
   const sealedLocked = sealedLockedFrom(memories, kidId);
-  const sealedCount = sealedLocked.length;
-  const openableCount = memories.filter(
-    (m) => isMemoryUnsealed(m) && (isAll || m.kid === kidId || m.kid === 'all'),
-  ).length;
+  const sealedCount = sealedAll.length;
+  const openableCount = sealedAll.filter(isMemoryUnsealed).length;
   const sealedSub = openableCount > 0
     ? `${openableCount} 个可以打开了`
     : sealedLocked[0]
@@ -693,6 +692,13 @@ export default function Drawer({ visible, onClose, onNavigate, kidId = 'all', me
 
           {/* ── Navigation rows ── */}
           <View style={{ marginTop: 10 }}>
+            <DrawerRow
+              icon={Icon.pen(theme.accent, 19)}
+              title="我们家自己的事"
+              sub={customLevels.length ? '随时增删改这些事' : '加一件只属于你们家的事'}
+              value={customLevels.length ? `${customLevels.length} 件` : undefined}
+              onPress={() => go('ownlevels')}
+            />
             <DrawerRow
               icon={Icon.lock(theme.accent, 19)}
               title="封存中"

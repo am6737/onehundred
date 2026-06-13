@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme, COLORS } from '../theme/tokens';
-import { ROLES, DEFAULT_ME, meName, meChar, NOW_YM, sealedLockedFrom } from '../data';
+import { ROLES, DEFAULT_ME, meName, meChar, NOW_YM } from '../data';
 import { useData } from '../data/DataProvider';
 import { signOut, isAnonymous, bindEmail, deleteAccount } from '../lib/auth';
 import { Icon, KidAvatar } from '../components/Icons';
@@ -904,187 +904,6 @@ function ReminderTimeSheet({ value, onChange, onClose }) {
 }
 
 /* ══════════════════════════════════════════════════════════
-   SealedItemsSheet
-   ══════════════════════════════════════════════════════════ */
-
-function SealedItemsSheet({ onClose }) {
-  const { theme } = useTheme();
-  const { memories } = useData();
-  const insets = useSafeAreaInsets();
-  const sealed = sealedLockedFrom(memories);
-
-  return (
-    <Modal visible animationType="slide" onRequestClose={onClose}>
-      <View style={{ flex: 1, backgroundColor: theme.cream }}>
-        <LayerHeader title="封存物" onBack={onClose} />
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 22, paddingBottom: 48 + insets.bottom }}>
-          {/* Hero */}
-          <View style={{ alignItems: 'center', paddingVertical: 10 }}>
-            <View style={{
-              width: 64, height: 64, borderRadius: 999,
-              backgroundColor: theme.accent,
-              justifyContent: 'center', alignItems: 'center',
-              shadowColor: theme.accent, shadowOffset: { width: 0, height: 6 },
-              shadowOpacity: 0.4, shadowRadius: 16, elevation: 6,
-            }}>
-              {Icon.lock('#FFFDF7', 28)}
-            </View>
-            <Text style={{
-              marginTop: 16, fontFamily: theme.fonts.head, fontSize: 22, color: theme.ink,
-            }}>你们封起来的 {sealed.length} 件</Text>
-            <Text style={{
-              marginTop: 10, fontFamily: theme.fonts.body, fontSize: 14,
-              lineHeight: 25, color: theme.inkSoft, textAlign: 'center', maxWidth: 280,
-            }}>
-              一旦封存，连你自己也打不开。时间到了，它会自己回来找你们。
-            </Text>
-          </View>
-
-          {/* Sealed items */}
-          <View style={{ gap: 14, marginTop: 4 }}>
-            {sealed.map(m => (
-              <View key={m.id} style={{
-                flexDirection: 'row', gap: 13, alignItems: 'flex-start',
-                padding: 16, backgroundColor: theme.paper,
-                borderWidth: 1.5, borderColor: theme.line,
-                borderStyle: 'dashed', borderRadius: 20,
-              }}>
-                <View style={{
-                  width: 40, height: 40, borderRadius: 999,
-                  backgroundColor: theme.accent,
-                  justifyContent: 'center', alignItems: 'center',
-                }}>
-                  {Icon.lock('#FFFDF7', 18)}
-                </View>
-                <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text style={{
-                    fontFamily: theme.fonts.head, fontSize: 16.5,
-                    lineHeight: 24, color: theme.ink,
-                  }}>{m.title}</Text>
-                  <View style={{ marginTop: 8, flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                      {Icon.lock(theme.inkSoft, 13)}
-                      <Text style={{ fontFamily: theme.fonts.body, fontSize: 12.5, color: theme.inkSoft }}>
-                        {m.date} 封存
-                      </Text>
-                    </View>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                      {Icon.seed(theme.accent, 13)}
-                      <Text style={{ fontFamily: theme.fonts.body, fontSize: 12.5, color: theme.accent }}>
-                        等{m.sealLabel || '约定日期'}
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-              </View>
-            ))}
-          </View>
-
-          <Text style={{
-            textAlign: 'center', marginTop: 26,
-            fontFamily: theme.fonts.hand, fontSize: 17,
-            color: theme.inkSoft, lineHeight: 30,
-          }}>
-            · 有些话，要等很久才舍得听 ·
-          </Text>
-        </ScrollView>
-      </View>
-    </Modal>
-  );
-}
-
-/* ══════════════════════════════════════════════════════════
-   PrivacySheet
-   ══════════════════════════════════════════════════════════ */
-
-function PrivacySheet({ value, onChange, onClose }) {
-  const { theme } = useTheme();
-  const insets = useSafeAreaInsets();
-  const OPTIONS = [
-    { k: '只有家人', iconFn: Icon.users, sub: '被邀请进这个家的人，才能看见这些回忆。' },
-    { k: '仅我自己', iconFn: Icon.lock, sub: '回忆只留在你这里，连家人也看不到。' },
-    { k: '家人 + 亲友', iconFn: Icon.eye, sub: '你额外邀请的亲友，也能一起看。' },
-  ];
-
-  return (
-    <Modal visible animationType="slide" onRequestClose={onClose}>
-      <View style={{ flex: 1, backgroundColor: theme.cream }}>
-        <LayerHeader title="谁能看到" onBack={onClose} />
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 22, paddingBottom: 48 + insets.bottom }}>
-          <Text style={{
-            marginTop: 2, marginHorizontal: 4, marginBottom: 18,
-            fontFamily: theme.fonts.body, fontSize: 14.5, lineHeight: 25, color: theme.inkSoft,
-          }}>
-            这些回忆很私密。你来决定，它们对谁敞开。
-          </Text>
-
-          <View style={{ gap: 12 }}>
-            {OPTIONS.map(o => {
-              const on = value === o.k;
-              return (
-                <TouchableOpacity
-                  key={o.k}
-                  onPress={() => onChange(o.k)}
-                  activeOpacity={0.7}
-                  style={{
-                    flexDirection: 'row', alignItems: 'flex-start', gap: 14,
-                    paddingVertical: 17, paddingHorizontal: 17, borderRadius: 20,
-                    backgroundColor: theme.paper,
-                    borderWidth: 1.5, borderColor: on ? theme.accent : theme.line,
-                    ...(on ? {
-                      shadowColor: theme.accent, shadowOffset: { width: 0, height: 10 },
-                      shadowOpacity: 0.3, shadowRadius: 24, elevation: 4,
-                    } : {}),
-                  }}
-                >
-                  <View style={{
-                    width: 40, height: 40, borderRadius: 13,
-                    backgroundColor: on ? theme.accent : theme.sand,
-                    justifyContent: 'center', alignItems: 'center',
-                  }}>
-                    {o.iconFn(on ? '#FFFDF7' : theme.ink, 20)}
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontFamily: theme.fonts.head, fontSize: 16.5, color: theme.ink }}>{o.k}</Text>
-                    <Text style={{
-                      marginTop: 3, fontFamily: theme.fonts.body, fontSize: 13,
-                      lineHeight: 21, color: theme.inkSoft,
-                    }}>{o.sub}</Text>
-                  </View>
-                  <View style={{
-                    width: 22, height: 22, borderRadius: 999, marginTop: 2,
-                    borderWidth: 2, borderColor: on ? theme.accent : theme.line,
-                    backgroundColor: on ? theme.accent : 'transparent',
-                    justifyContent: 'center', alignItems: 'center',
-                  }}>
-                    {on ? Icon.check('#FFFDF7', 14) : null}
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-
-          <View style={{ marginTop: 22, alignItems: 'center' }}>
-            <TouchableOpacity
-              onPress={onClose}
-              activeOpacity={0.7}
-              style={{
-                paddingVertical: 14, paddingHorizontal: 40, borderRadius: 999,
-                backgroundColor: theme.accent,
-                shadowColor: theme.accent, shadowOffset: { width: 0, height: 10 },
-                shadowOpacity: 0.3, shadowRadius: 24, elevation: 4,
-              }}
-            >
-              <Text style={{ fontFamily: theme.fonts.head, fontSize: 16, color: '#FFFDF7' }}>就这样</Text>
-            </TouchableOpacity>
-          </View>
-        </ScrollView>
-      </View>
-    </Modal>
-  );
-}
-
-/* ══════════════════════════════════════════════════════════
    DocSheet — terms / privacy policy
    ══════════════════════════════════════════════════════════ */
 
@@ -1826,7 +1645,7 @@ function AccountSecuritySheet({ anon, onAnonChanged, onClose }) {
 export default function Settings({ navigation, route }) {
   const { theme, setTheme } = useTheme();
   const insets = useSafeAreaInsets();
-  const { kids: dataKids, levels, memories, FAMILY, getKid, kidLabel } = useData();
+  const { kids: dataKids, FAMILY, getKid, kidLabel } = useData();
 
   // Route params: me and setMe — use local state so UI updates immediately
   const parentSetMe = route?.params?.setMe || (() => {});
@@ -1839,17 +1658,15 @@ export default function Settings({ navigation, route }) {
   // Local state
   const [kids, setKids] = useState(() => dataKids.map(k => ({ ...k })));
   const [editId, setEditId] = useState(null);
-  const [sheet, setSheet] = useState(null); // 'add'|'invite'|'remindTime'|'sealed'|'privacy'|'about'|'account'
+  const [sheet, setSheet] = useState(null); // 'add'|'invite'|'remindTime'|'about'|'account'
   const [remindOn, setRemindOn] = useState(true);
   const [remindAt, setRemindAt] = useState('周日 晚上');
-  const [privacy, setPrivacy] = useState('只有家人');
   const [defView, setDefView] = useState('一起');
   const [rhythm, setRhythm] = useState('每两周');
   const [anon, setAnon] = useState(false);
   useEffect(() => { isAnonymous().then(setAnon); }, []);
 
   const editKid = kids.find(k => k.id === editId);
-  const sealedCount = levels.filter(l => l.sealed).length;
   const saveKid = (patch) => setKids(ks => ks.map(k => k.id === editId ? { ...k, ...patch } : k));
   const addKid = (k) => setKids(ks => [...ks, { id: 'k' + Date.now(), acc: ['scarf'], ...k }]);
 
@@ -1959,26 +1776,6 @@ export default function Settings({ navigation, route }) {
           />
         </SettingGroup>
 
-        {/* ── Sealed & Privacy section ── */}
-        <SettingGroup
-          label="封存与隐私"
-          note="被封存的信和时间胶囊，在约定的日子到来前，连你自己也打不开——这是它珍贵的原因。"
-        >
-          <Row
-            icon={Icon.lock(theme.accent, 19)}
-            title="封存物"
-            value={`${sealedCount} 件待开启`}
-            onPress={() => setSheet('sealed')}
-          />
-          <Row
-            icon={Icon.eye(theme.accent, 20)}
-            title="谁能看到这些回忆"
-            value={privacy}
-            onPress={() => setSheet('privacy')}
-            last
-          />
-        </SettingGroup>
-
         {/* ── Preservation section ── */}
         <SettingGroup label="留存" note="它们太重要了，不该只活在一部手机里。">
           <Row
@@ -2038,12 +1835,6 @@ export default function Settings({ navigation, route }) {
       ) : null}
       {sheet === 'remindTime' ? (
         <ReminderTimeSheet value={remindAt} onChange={setRemindAt} onClose={() => setSheet(null)} />
-      ) : null}
-      {sheet === 'sealed' ? (
-        <SealedItemsSheet onClose={() => setSheet(null)} />
-      ) : null}
-      {sheet === 'privacy' ? (
-        <PrivacySheet value={privacy} onChange={setPrivacy} onClose={() => setSheet(null)} />
       ) : null}
       {sheet === 'about' ? (
         <AboutSheet onClose={() => setSheet(null)} />

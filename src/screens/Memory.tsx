@@ -14,6 +14,8 @@ import { PERSPECTIVES, isMemoryLocked, isMemoryUnsealed } from '../data';
 import { useData } from '../data/DataProvider';
 import { useMemoryMedia } from '../lib/media';
 import { MemoryCover } from '../components/MemoryCover';
+import { RemoteLivePhotoImage } from '../components/LivePhotoImage';
+import { SceneSlot } from '../components/Motifs';
 import { Icon, PhotoSlot, KidAvatar } from '../components/Icons';
 import { LayerHeader, Sheet, Chip, PrimaryButton } from '../components/common';
 
@@ -23,9 +25,16 @@ const { width: SCREEN_W } = Dimensions.get('window');
    Helpers
    ════════════════════════════════════════════════════════════ */
 
-/** Activity number from the "100 things" list. */
-function memSeq(m) {
-  return parseInt(m.levelNum, 10) || 0;
+/**
+ * 这件回忆在「一百件事」里的第几件——按真正做的先后排序：
+ * 最早做的那件是第 1 件。memories 由数据层按 created_at 倒序返回（最新在前），
+ * 所以倒数过来即得做事的次序。
+ */
+function memSeq(m, memories) {
+  if (!memories || !memories.length) return 0;
+  const i = memories.findIndex(x => x.id === m.id);
+  if (i < 0) return 0;
+  return memories.length - i;
 }
 
 /** Pretty date for the share card — replace relative words with a full date. */
@@ -267,7 +276,7 @@ function MemoryAudio({ url, tone }) {
 
 function ShareSheet({ m, visible, onClose }) {
   const { theme } = useTheme();
-  const { getKid } = useData();
+  const { getKid, memories } = useData();
   const t = TONE[m.tone] || TONE.orange;
   const perspective = PERSPECTIVES[m.perspective];
   const locked = isMemoryLocked(m);   // 封存中：分享只透出标题与到期，不泄露内容
@@ -296,7 +305,7 @@ function ShareSheet({ m, visible, onClose }) {
         await Share.share({
           message: locked
             ? `我把「${m.title}」封存起来了，等${m.sealLabel || '约定的那天'}才舍得打开。\n\n— 一百件事`
-            : `「${m.caption}」\n\n— ${who} · 第 ${memSeq(m)} 件事 · ${shareDate(m.date)} · 一百件事`,
+            : `「${m.caption}」\n\n— ${who} · 第 ${memSeq(m, memories)} 件事 · ${shareDate(m.date)} · 一百件事`,
         });
       }
     } catch (e) {
@@ -384,7 +393,7 @@ function ShareSheet({ m, visible, onClose }) {
             <Text style={{
               fontFamily: theme.fonts.head, fontSize: 12, color: t.ink,
             }}>
-              {'第 '}{memSeq(m)}{' 件事 · '}{perspective ? perspective.long : ''}
+              {'第 '}{memSeq(m, memories)}{' 件事 · '}{perspective ? perspective.long : ''}
             </Text>
           </View>
           <Text style={{
@@ -453,7 +462,7 @@ export function MemoryPage({ route, navigation }) {
   const m = route?.params?.memory;
   const locked = isMemoryLocked(m);            // 封存中：不取媒体、不渲染内容
   const { theme } = useTheme();
-  const { removeMemory } = useData();
+  const { removeMemory, allLevels, memories } = useData();
   const t = TONE[m?.tone] || TONE.orange;
   const [shareVisible, setShareVisible] = useState(false);
   const [openText, setOpenText] = useState(false);
@@ -461,8 +470,10 @@ export function MemoryPage({ route, navigation }) {
   const [deleting, setDeleting] = useState(false);
   const media = useMemoryMedia(locked ? null : m?.id);
   const images = media.filter(x => x.kind === 'image');
+  const heroImg = images.length > 0 ? images[Math.min(heroIndex, images.length - 1)] : null;
   const video = media.find(x => x.kind === 'video');
   const audio = media.find(x => x.kind === 'audio');
+  const level = m ? allLevels().find(l => l.num === m.levelNum) : null;
 
   if (!m) return null;
 
@@ -588,14 +599,25 @@ export function MemoryPage({ route, navigation }) {
               <MemoryVideo url={video.url} tone={m.tone} />
             ) : audio ? (
               <MemoryAudio url={audio.url} tone={m.tone} />
-            ) : images.length > 0 ? (
-              <Image
-                source={{ uri: images[Math.min(heroIndex, images.length - 1)].url }}
-                style={{ width: '100%', height: 300 }}
-                resizeMode="cover"
-              />
+            ) : heroImg ? (
+              heroImg.livePhotoUrl ? (
+                <RemoteLivePhotoImage
+                  cacheKey={`${m.id}-${heroImg.name}`}
+                  photoUrl={heroImg.url}
+                  pairedVideoUrl={heroImg.livePhotoUrl}
+                  style={{ width: '100%', height: 300 }}
+                  contentFit="cover"
+                />
+              ) : (
+                <Image
+                  source={{ uri: heroImg.url }}
+                  style={{ width: '100%', height: 300 }}
+                  resizeMode="cover"
+                />
+              )
             ) : (
-              <PhotoSlot tone={m.tone} radius={28} label="照片" style={{ height: 300, aspectRatio: undefined }} />
+              // 纯文字：用这件事本身的插画兜底，与回忆册列表保持一致
+              <SceneSlot level={level} tone={m.tone} size={220} style={{ width: '100%', height: 300, borderRadius: 28 }} />
             )}
             {/* Type badge overlay */}
             {(type === 'voice' || type === 'video') && (
@@ -710,7 +732,7 @@ export function MemoryPage({ route, navigation }) {
           }}>
             <Text style={{
               fontFamily: theme.fonts.head, fontSize: 13, color: t.ink,
-            }}>{'第 '}{memSeq(m)}{' 件事'}</Text>
+            }}>{'第 '}{memSeq(m, memories)}{' 件事'}</Text>
           </View>
 
           {/* Title */}
@@ -891,9 +913,9 @@ export function KidFilterChips({ value, onChange }) {
    MemoryThreadItem — one card on the timeline
    ════════════════════════════════════════════════════════════ */
 
-function MemoryThreadItem({ m, onOpen, showWho }) {
+function MemoryThreadItem({ m, onOpen, showWho, showDate = true }) {
   const { theme } = useTheme();
-  const { getKid } = useData();
+  const { getKid, memories } = useData();
   const t = TONE[m.tone] || TONE.orange;
   const type = normalType(m.type);
   const shots = shotCount(m);
@@ -927,18 +949,24 @@ function MemoryThreadItem({ m, onOpen, showWho }) {
         }} />
       </View>
 
-      {/* Date and place header */}
-      <View style={{
-        flexDirection: 'row', alignItems: 'baseline', gap: 8,
-        marginBottom: 8,
-      }}>
-        <Text style={{
-          fontFamily: theme.fonts.head, fontSize: 15, color: theme.ink,
-        }}>{m.date}</Text>
-        <Text style={{
-          fontFamily: theme.fonts.body, fontSize: 12.5, color: theme.inkSoft,
-        }}>{m.place}</Text>
-      </View>
+      {/* Date and place header — date 只在每个日期组的第一件上显示，同一天不再重复 */}
+      {(showDate || !!m.place) && (
+        <View style={{
+          flexDirection: 'row', alignItems: 'baseline', gap: 8,
+          marginBottom: 8,
+        }}>
+          {showDate && (
+            <Text style={{
+              fontFamily: theme.fonts.head, fontSize: 15, color: theme.ink,
+            }}>{m.date}</Text>
+          )}
+          {!!m.place && (
+            <Text style={{
+              fontFamily: theme.fonts.body, fontSize: 12.5, color: theme.inkSoft,
+            }}>{m.place}</Text>
+          )}
+        </View>
+      )}
 
       {/* Memory card */}
       <TouchableOpacity
@@ -970,7 +998,7 @@ function MemoryThreadItem({ m, onOpen, showWho }) {
           ) : (
             <>
               <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, overflow: 'hidden' }}>
-                <MemoryCover memory={m} style={{ width: '100%', height: '100%', aspectRatio: undefined }} />
+                <MemoryCover memory={m} videoFrame style={{ width: '100%', height: '100%', aspectRatio: undefined }} />
               </View>
               {(type === 'voice' || type === 'video') && (
                 <View style={{
@@ -1010,7 +1038,7 @@ function MemoryThreadItem({ m, onOpen, showWho }) {
             }}>
               <Text style={{
                 fontFamily: theme.fonts.head, fontSize: 11, color: t.ink,
-              }}>{'第 '}{memSeq(m)}{' 件'}</Text>
+              }}>{'第 '}{memSeq(m, memories)}{' 件'}</Text>
             </View>
             {showWho && (
               <View style={{
@@ -1084,13 +1112,39 @@ export function MemoryBook({ route, navigation }) {
     navigation.navigate('Memory', { memory: m });
   };
 
-  const renderItem = ({ item, index }) => (
-    <MemoryThreadItem
-      m={item}
-      onOpen={handleOpenMemory}
-      showWho={filter === 'everything' || filter === 'all'}
-    />
+  const handleAddOwn = () => {
+    navigation.navigate('AddOwnLevel', {});
+  };
+
+  // 头部右上角「加一件我们家自己的事」入口（镜像返回键的圆形按钮）
+  const addButton = (
+    <TouchableOpacity
+      onPress={handleAddOwn}
+      activeOpacity={0.7}
+      style={{
+        width: 42, height: 42, borderRadius: 21,
+        backgroundColor: theme.paper,
+        borderWidth: 1, borderColor: theme.line,
+        justifyContent: 'center', alignItems: 'center',
+      }}
+    >
+      {Icon.plus(theme.accent, 22)}
+    </TouchableOpacity>
   );
+
+  const renderItem = ({ item, index }) => {
+    // 同一天的多件事归到一个日期下：只有当天第一件显示日期
+    const prev = list[index - 1];
+    const showDate = !prev || prev.date !== item.date;
+    return (
+      <MemoryThreadItem
+        m={item}
+        onOpen={handleOpenMemory}
+        showWho={filter === 'everything' || filter === 'all'}
+        showDate={showDate}
+      />
+    );
+  };
 
   const ListHeader = () => (
     <View>
@@ -1181,7 +1235,7 @@ export function MemoryBook({ route, navigation }) {
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.cream }}>
-      <LayerHeader title="回忆册" onBack={() => navigation.goBack()} />
+      <LayerHeader title="回忆册" onBack={() => navigation.goBack()} right={addButton} />
       <FlatList
         data={list}
         keyExtractor={item => item.id}

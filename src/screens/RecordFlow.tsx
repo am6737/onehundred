@@ -24,6 +24,7 @@ import { useData } from '../data/DataProvider';
 import { Icon, PhotoSlot } from '../components/Icons';
 import { LayerHeader, PrimaryButton, SecondaryButton, Chip, Sheet } from '../components/common';
 import SealDateSheet from '../components/SealDateSheet';
+import { LivePhotoImage, LiveBadge, livePhotoSupported } from '../components/LivePhotoImage';
 import { supabase } from '../lib/supabase';
 
 /* ── VoiceRecorder ── */
@@ -183,6 +184,9 @@ export default function RecordFlow({ route, navigation }) {
   const [caption, setCaption] = useState('');
   const [saving, setSaving] = useState(false);
   const MAX_SHOTS = 6;
+  const MAX_TEXT = 10000;   // 正文 / 语音转写
+  const MAX_CAPTION = 300;  // 照片/视频的一句话
+  const MAX_PLACE = 40;     // 地点
 
   // Step transition animation
   const fadeAnim = useRef(new Animated.Value(1)).current;
@@ -363,7 +367,8 @@ export default function RecordFlow({ route, navigation }) {
           quality: 0.8,
         });
         if (!result.canceled && result.assets?.length > 0) {
-          setPhotos(prev => [...prev, ...result.assets.map(a => a.uri)].slice(0, MAX_SHOTS));
+          // 相机拍的是普通照片，没有配对视频
+          setPhotos(prev => [...prev, ...result.assets.map(a => ({ uri: a.uri, livePhotoVideoUri: null }))].slice(0, MAX_SHOTS));
         }
       } else {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -373,13 +378,21 @@ export default function RecordFlow({ route, navigation }) {
         }
         const remaining = MAX_SHOTS - photos.length;
         const result = await ImagePicker.launchImageLibraryAsync({
-          mediaTypes: ['images'],
+          // 'livePhotos' 让选到的实况照片返回未经压缩的原图 + 配对短视频（仅 iOS，其它平台忽略）
+          mediaTypes: ['images', 'livePhotos'],
           quality: 0.8,
           allowsMultipleSelection: true,
           selectionLimit: remaining > 0 ? remaining : 1,
         });
         if (!result.canceled && result.assets?.length > 0) {
-          setPhotos(prev => [...prev, ...result.assets.map(a => a.uri)].slice(0, MAX_SHOTS));
+          setPhotos(prev => [
+            ...prev,
+            ...result.assets.map(a => ({
+              uri: a.uri,
+              // 实况照片：配对短视频，原图与视频都要原样保留（靠 metadata 配对，不能改动）
+              livePhotoVideoUri: a.type === 'livePhoto' ? (a.pairedVideoAsset?.uri || null) : null,
+            })),
+          ].slice(0, MAX_SHOTS));
         }
       }
     } catch (e) {
@@ -509,8 +522,12 @@ export default function RecordFlow({ route, navigation }) {
       const familyId = await getMyFamilyId();
 
       if (type === 'photo' && photos.length > 0) {
-        photos.forEach((uri, i) => {
-          uploadToStorage(uri, familyId, memoryId, `photo_${i}`);
+        photos.forEach((p, i) => {
+          uploadToStorage(p.uri, familyId, memoryId, `photo_${i}`);
+          // 实况照片：配对短视频存成 photo_i.live.<ext>，详情页按同名 still 重新合成实况
+          if (p.livePhotoVideoUri) {
+            uploadToStorage(p.livePhotoVideoUri, familyId, memoryId, `photo_${i}.live`);
+          }
         });
       } else if (type === 'video' && videoUri) {
         uploadToStorage(videoUri, familyId, memoryId, 'video_0');
@@ -870,6 +887,7 @@ export default function RecordFlow({ route, navigation }) {
                             placeholder="录音的文字会出现在这里，可以随手改…"
                             placeholderTextColor={theme.inkSoft}
                             multiline
+                            maxLength={MAX_TEXT}
                             style={[styles.transcriptInput, {
                               borderColor: theme.line,
                               backgroundColor: theme.paper,
@@ -944,11 +962,17 @@ export default function RecordFlow({ route, navigation }) {
                           borderWidth: 2,
                           borderColor: theme.accent,
                         }}>
-                          <Image
-                            source={{ uri: photos[0] }}
+                          <LivePhotoImage
+                            photoUri={photos[0].uri}
+                            pairedVideoUri={photos[0].livePhotoVideoUri}
                             style={{ width: '100%', height: '100%' }}
-                            resizeMode="cover"
+                            contentFit="cover"
+                            badge={false}
                           />
+                          {/* 封面已占左上角，实况角标放左下 */}
+                          {photos[0].livePhotoVideoUri && livePhotoSupported && (
+                            <LiveBadge placement="bottom-left" />
+                          )}
                         </View>
                         <View style={{ position: 'absolute', top: 12, left: 12 }}>
                           <View style={[styles.coverBadge, { backgroundColor: theme.accent }]}>
@@ -965,7 +989,7 @@ export default function RecordFlow({ route, navigation }) {
 
                       {/* Additional photo thumbnails + add button */}
                       <View style={styles.photoRow}>
-                        {photos.slice(1).map((uri, i) => (
+                        {photos.slice(1).map((p, i) => (
                           <TouchableOpacity
                             key={i}
                             activeOpacity={0.85}
@@ -984,10 +1008,21 @@ export default function RecordFlow({ route, navigation }) {
                             }}
                           >
                             <Image
-                              source={{ uri }}
+                              source={{ uri: p.uri }}
                               style={{ width: '100%', height: '100%' }}
                               resizeMode="cover"
                             />
+                            {p.livePhotoVideoUri && (
+                              <View style={{
+                                position: 'absolute', top: 4, left: 4,
+                                width: 13, height: 13, borderRadius: 6.5,
+                                borderWidth: 1.5, borderColor: '#FFFFFF',
+                                backgroundColor: 'rgba(0,0,0,0.35)',
+                                alignItems: 'center', justifyContent: 'center',
+                              }}>
+                                <View style={{ width: 3.5, height: 3.5, borderRadius: 1.75, backgroundColor: '#FFFFFF' }} />
+                              </View>
+                            )}
                           </TouchableOpacity>
                         ))}
                         {photos.length < MAX_SHOTS && (
@@ -1180,6 +1215,7 @@ export default function RecordFlow({ route, navigation }) {
                     onChangeText={setText}
                     autoFocus
                     multiline
+                    maxLength={MAX_TEXT}
                     placeholder={
                       level.sealed
                         ? '亲爱的，等你看到这封信的时候…'
@@ -1199,10 +1235,12 @@ export default function RecordFlow({ route, navigation }) {
                     textAlign: 'right',
                     fontFamily: 'monospace',
                     fontSize: 12,
-                    color: theme.inkSoft,
+                    color: text.length >= MAX_TEXT - 200 ? theme.accent : theme.inkSoft,
                     marginTop: 6,
                   }}>
-                    {text.length} 字
+                    {text.length >= MAX_TEXT - 200
+                      ? `${text.length} / ${MAX_TEXT} 字`
+                      : `${text.length} 字`}
                   </Text>
                 </View>
               )}
@@ -1226,6 +1264,7 @@ export default function RecordFlow({ route, navigation }) {
                     onChangeText={setCaption}
                     multiline
                     numberOfLines={2}
+                    maxLength={MAX_CAPTION}
                     placeholder={
                       level.suggest === 'photo'
                         ? '比如：咸得离谱的一盘，却是最热闹的一顿…'
@@ -1259,6 +1298,7 @@ export default function RecordFlow({ route, navigation }) {
                   value={place}
                   onChangeText={setPlace}
                   placeholder="比如：奶奶家的院子、小区楼下…"
+                  maxLength={MAX_PLACE}
                   placeholderTextColor={theme.inkSoft}
                   style={[styles.placeInput, {
                     borderColor: theme.line,
@@ -1360,18 +1400,18 @@ export default function RecordFlow({ route, navigation }) {
               {level.sealed ? '信，已经封好了' : '这件事，做到了'}
             </Text>
 
-            <Text style={{
-              fontFamily: theme.fonts.hand,
-              fontSize: 19,
-              lineHeight: 34,
-              color: theme.inkSoft,
-              textAlign: 'center',
-              marginTop: 10,
-            }}>
-              {level.sealed
-                ? '等约定的那天，它会自己出现。'
-                : '团子又长大了一点点。'}
-            </Text>
+            {level.sealed && (
+              <Text style={{
+                fontFamily: theme.fonts.hand,
+                fontSize: 19,
+                lineHeight: 34,
+                color: theme.inkSoft,
+                textAlign: 'center',
+                marginTop: 10,
+              }}>
+                等约定的那天，它会自己出现。
+              </Text>
+            )}
           </Animated.View>
         )}
       </Animated.View>

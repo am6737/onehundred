@@ -251,6 +251,10 @@ CREATE POLICY "memories_media_family" ON storage.objects FOR ALL TO authenticate
 -- 公开桶 illustrations：事情的插画，所有人可读（public 桶读取走 /object/public/ 不过 RLS）
 INSERT INTO storage.buckets (id, name, public) VALUES ('illustrations', 'illustrations', true)
 ON CONFLICT (id) DO UPDATE SET public = true;
+-- 自定义事的封面：写入限定到自己家的目录（路径首段是 family_id），读保持全公开。
+CREATE POLICY "illustrations_family_write" ON storage.objects FOR ALL TO authenticated
+  USING (bucket_id = 'illustrations' AND (storage.foldername(name))[1] = public.my_family_id()::text)
+  WITH CHECK (bucket_id = 'illustrations' AND (storage.foldername(name))[1] = public.my_family_id()::text);
 
 -- 10. Account deletion: 用户删自己账号。
 --     注意：若删的是家庭创建者，families.created_by ON DELETE CASCADE 会连带删掉整个家的数据。

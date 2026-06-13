@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import {
   fetchLevels, fetchKids, fetchMemories, fetchMascots,
   fetchWardrobe, fetchCustomLevels, fetchProfile, insertCustomLevel,
+  updateCustomLevel, deleteCustomLevel,
   insertMemory, insertKid, updateProfile, deleteMemory,
   getKidFrom, kidLabelFrom, kidDoneFrom, memoriesForKidFrom,
   allLevelsFrom, getMascotFrom, wardrobeStateFrom, nextUnlockFrom,
@@ -82,6 +83,17 @@ export function DataProvider({ children, userId }) {
     return lv;
   }, []);
 
+  const editCustomLevel = useCallback(async (id, fields) => {
+    const lv = await updateCustomLevel(id, fields);
+    setCustomLevels(prev => prev.map(l => (l.id === id ? lv : l)));
+    return lv;
+  }, []);
+
+  const removeCustomLevel = useCallback(async (id, illustrationPath) => {
+    await deleteCustomLevel(id, illustrationPath);
+    setCustomLevels(prev => prev.filter(l => l.id !== id));
+  }, []);
+
   const addKid = useCallback(async (input) => {
     const kid = await insertKid(input);
     setKids(prev => [...prev, kid]);
@@ -115,7 +127,7 @@ export function DataProvider({ children, userId }) {
     getKid, kidLabel, kidDone, memoriesForKid, allLevels,
     getMascot, wardrobeState, nextUnlock, throwback, yearReview,
     frameLabel, levelWeight, weightedShuffle,
-    addMemory, removeMemory, addKid, addCustomLevel, updateMe,
+    addMemory, removeMemory, addKid, addCustomLevel, editCustomLevel, removeCustomLevel, updateMe,
     createFamily, joinFamily, removeMember,
     FAMILY,
   };

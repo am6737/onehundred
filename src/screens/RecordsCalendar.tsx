@@ -235,10 +235,10 @@ export default function RecordsCalendar({ navigation, route }) {
           </View>
         </View>
 
-        {/* Month memories grouped by day */}
+        {/* Selected day memories */}
         <View style={{ marginTop: 22 }}>
-          {monthDays > 0 ? (
-            Object.keys(monthMap).map(Number).sort((a, b) => b - a).map(d => {
+          {selected.length > 0 ? (
+            [day].map(d => {
               const dayMemories = monthMap[d] || [];
               return (
                 <View key={d}>

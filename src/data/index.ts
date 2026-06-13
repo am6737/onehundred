@@ -3,6 +3,7 @@
    ════════════════════════════════════════════════════════════ */
 
 import { supabase } from '../lib/supabase';
+import { File as FSFile } from 'expo-file-system';
 
 // ── Pure constants (no DB dependency) ──
 
@@ -126,7 +127,7 @@ function mapMascot(row) {
 
 function mapCustomLevel(row) {
   return {
-    num: row.num, perspective: row.perspective, tone: row.tone, custom: true,
+    id: row.id, num: row.num, perspective: row.perspective, tone: row.tone, custom: true,
     title: row.title, why: row.why, how: row.how, record: row.record_hint,
     suggest: row.suggest, illustrationPath: row.illustration_path,
   };
@@ -176,7 +177,11 @@ export async function fetchCustomLevels() {
   return (data || []).map(mapCustomLevel);
 }
 
-export async function insertCustomLevel({ title, why = '', perspective = 'together', tone = 'pink', suggest = 'photo' }) {
+export async function insertCustomLevel({
+  title, why = '', how = '', record = '',
+  perspective = 'together', tone = 'pink', suggest = 'photo',
+  illustrationPath = null,
+}) {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) throw new Error('Not authenticated');
   const familyId = await getMyFamilyId();
@@ -188,10 +193,75 @@ export async function insertCustomLevel({ title, why = '', perspective = 'togeth
     user_id: session.user.id,
     num, title, perspective, tone, suggest,
     why: why || '这是你们家自己的事，记下来就不会忘。',
-    how: '', record_hint: '',
+    how, record_hint: record,
+    illustration_path: illustrationPath,
   }).select().single();
   if (error) throw error;
   return mapCustomLevel(data);
+}
+
+// 改一件「我们家自己的事」。只更新传进来的字段（undefined 的不动），
+// num 不变——这样已经记录在这件事下的回忆仍然对得上。
+export async function updateCustomLevel(id, input: any = {}) {
+  const { title, why, how, record, perspective, tone, suggest, illustrationPath } = input;
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) throw new Error('Not authenticated');
+  const fields: Record<string, any> = {};
+  if (title !== undefined) fields.title = title;
+  if (why !== undefined) fields.why = why;
+  if (how !== undefined) fields.how = how;
+  if (record !== undefined) fields.record_hint = record;
+  if (perspective !== undefined) fields.perspective = perspective;
+  if (tone !== undefined) fields.tone = tone;
+  if (suggest !== undefined) fields.suggest = suggest;
+  if (illustrationPath !== undefined) fields.illustration_path = illustrationPath;
+  const { data, error } = await supabase
+    .from('custom_levels').update(fields).eq('id', id).select().single();
+  if (error) throw error;
+  return mapCustomLevel(data);
+}
+
+// 删一件「我们家自己的事」。RLS 限定只能删自己家的。
+// best-effort 清掉这件事的封面（只删它自己那张，不碰同家其他事），失败不阻塞删除。
+export async function deleteCustomLevel(id, illustrationPath = null) {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) throw new Error('Not authenticated');
+  const { error } = await supabase.from('custom_levels').delete().eq('id', id);
+  if (error) throw error;
+  if (illustrationPath && !/^https?:\/\//i.test(illustrationPath)) {
+    try {
+      const { error: rmErr } = await supabase.storage.from('illustrations').remove([illustrationPath]);
+      if (rmErr) throw rmErr;
+    } catch (e) {
+      console.warn('deleteCustomLevel illustration cleanup:', e?.message || e);
+    }
+  }
+}
+
+// 上传自定义事的封面到公开桶 illustrations，按家庭目录存放（受 RLS 限定只能写自己家）。
+// 返回桶内路径（存进 custom_levels.illustration_path），失败返回 null，不阻塞创建。
+export async function uploadIllustration(uri) {
+  try {
+    const familyId = await getMyFamilyId();
+    if (!familyId) throw new Error('no_family');
+    const ext = uri.split('.').pop()?.split('?')[0]?.toLowerCase() || 'jpg';
+    const path = `${familyId}/custom-${Date.now()}.${ext}`;
+    const contentType =
+      ext === 'png' ? 'image/png' :
+      ext === 'heic' ? 'image/heic' :
+      ext === 'webp' ? 'image/webp' :
+      'image/jpeg';
+    // RN 的 fetch(file://).blob() 上传经常得到 0 字节文件，改为直接读字节
+    const bytes = await new FSFile(uri).bytes();
+    const { error } = await supabase.storage
+      .from('illustrations')
+      .upload(path, bytes, { contentType, upsert: true });
+    if (error) throw error;
+    return path;
+  } catch (e) {
+    console.warn('uploadIllustration failed:', e?.message || e);
+    return null;
+  }
 }
 
 export async function insertMemory({ id: givenId, kid, levelNum, perspective, type, dur, shots, date, place, title, caption, transcript, tone, sealed, sealUntil, sealLabel }) {
@@ -400,6 +470,12 @@ export function sealedLockedFrom(memories, kidId = 'all') {
   return memories.filter(m => isMemoryLocked(m) && (kidId === 'all' || m.kid === kidId || m.kid === 'all'));
 }
 
+// 某个孩子（或全家）所有封存记录（仍锁定 + 已到期可打开）。
+// 没有“已开启”状态，所以这就是用户心里“封存了几样东西”的真实数量。
+export function sealedAllFrom(memories, kidId = 'all') {
+  return memories.filter(m => m && m.sealed && m.sealUntil && (kidId === 'all' || m.kid === kidId || m.kid === 'all'));
+}
+
 // 根据可封存活动 + 孩子算到期日与展示文案。
 // age18：孩子生日(年+月) + 18 年；返回 null 表示需要 UI 进一步处理（如未指定具体孩子）。
 export function sealDateFor(level, kid) {
@@ -412,8 +488,8 @@ export function sealDateFor(level, kid) {
 }
 
 // 由用户选的年/月构造到期日与文案（time capsule 等）
-export function makeSealDate(y, m) {
-  return { sealUntil: new Date(y, m - 1, 1).toISOString(), sealLabel: `${y} 年 ${m} 月` };
+export function makeSealDate(y, m, d = 1) {
+  return { sealUntil: new Date(y, m - 1, d).toISOString(), sealLabel: `${y} 年 ${m} 月 ${d} 日` };
 }
 
 export function allLevelsFrom(customLevels, levels) {

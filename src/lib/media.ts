@@ -13,6 +13,7 @@ export type MemoryMediaItem = {
   name: string;
   kind: 'image' | 'video' | 'audio';
   url: string;
+  livePhotoUrl?: string; // 实况照片：配对短视频的签名 URL（只有 image 可能带）
 };
 
 function kindOf(name: string): MemoryMediaItem['kind'] {
@@ -20,6 +21,15 @@ function kindOf(name: string): MemoryMediaItem['kind'] {
   if (VIDEO_EXT.includes(ext)) return 'video';
   if (AUDIO_EXT.includes(ext)) return 'audio';
   return 'image';
+}
+
+// 实况照片的配对短视频按 `<base>.live.<ext>` 存（如 photo_0.live.mov），
+// 它不是独立视频，要挂到同名静态图 photo_0.* 上，不单独列出。
+function isLivePhotoVideo(name: string): boolean {
+  return /\.live\.[^.]+$/i.test(name);
+}
+function baseKey(name: string): string {
+  return name.replace(/\.live\.[^.]+$/i, '').replace(/\.[^.]+$/, '');
 }
 
 // 列表/书页会按行重复挂载，缓存避免每次都打 list+sign 两个请求。
@@ -41,9 +51,20 @@ export async function fetchMemoryMedia(memoryId: string): Promise<MemoryMediaIte
     .from('memories')
     .createSignedUrls(paths, 60 * 60 * 24);
   if (signErr || !signed) return [];
-  const items = signed
+  const all = signed
     .map((s, i) => ({ name: files[i].name, kind: kindOf(files[i].name), url: s.signedUrl }))
-    .filter(item => !!item.url)
+    .filter(item => !!item.url);
+  const liveByBase = new Map<string, string>();
+  for (const it of all) {
+    if (isLivePhotoVideo(it.name)) liveByBase.set(baseKey(it.name), it.url);
+  }
+  const items = all
+    .filter(it => !isLivePhotoVideo(it.name)) // 配对视频不单独列出
+    .map(it =>
+      it.kind === 'image' && liveByBase.has(baseKey(it.name))
+        ? { ...it, livePhotoUrl: liveByBase.get(baseKey(it.name)) }
+        : it
+    )
     .sort((a, b) => a.name.localeCompare(b.name));
   if (items.length > 0) mediaCache.set(memoryId, items);
   return items;

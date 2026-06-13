@@ -10,6 +10,10 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
+  withTiming,
+  withRepeat,
+  cancelAnimation,
+  Easing,
   runOnJS,
 } from 'react-native-reanimated';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -18,8 +22,7 @@ import { useTheme, TONE } from '../theme/tokens';
 import { PERSPECTIVES, meName, kidAge, suitsNow } from '../data';
 import { useData } from '../data/DataProvider';
 import { Icon, PhotoSlot, KidAvatar } from '../components/Icons';
-import { SceneSlot, motifForLevel } from '../components/Motifs';
-import { Sheet, Chip, PrimaryButton, SecondaryButton } from '../components/common';
+import { SceneSlot, motifForLevel, illustrationUrl } from '../components/Motifs';
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 
@@ -220,6 +223,7 @@ function SuggestChip({ suggest, theme }) {
   const map = {
     voice: { ic: Icon.mic, txt: '适合录一段语音' },
     photo: { ic: Icon.camera, txt: '适合拍一张照片' },
+    video: { ic: Icon.video, txt: '适合录一段视频' },
     text:  { ic: Icon.pen, txt: '适合写几句话' },
   };
   const s = map[suggest] || map.voice;
@@ -242,17 +246,83 @@ function SuggestChip({ suggest, theme }) {
    LevelCard — full-screen card for a single activity
    ════════════════════════════════════════════════════════════ */
 
+// 整张卡的骨架占位：插画未就绪时铺在内容之上，整体做呼吸式 loading
+function LevelCardSkeleton({ theme, tone }) {
+  const t = TONE[tone] || TONE.orange;
+  const pulse = useSharedValue(0.5);
+  useEffect(() => {
+    pulse.value = withRepeat(
+      withTiming(1, { duration: 820, easing: Easing.inOut(Easing.ease) }),
+      -1, true,
+    );
+    return () => cancelAnimation(pulse);
+  }, []);
+  const pulseStyle = useAnimatedStyle(() => ({ opacity: pulse.value }));
+  const Bar = ({ w, h, mt = 0, r = 8, bg = theme.sand }) => (
+    <View style={{ width: w, height: h, marginTop: mt, borderRadius: r, backgroundColor: bg }} />
+  );
+  return (
+    <Animated.View style={[{ flex: 1 }, pulseStyle]}>
+      {/* 插画占位 */}
+      <View style={{
+        width: '100%', height: '40%', minHeight: 208,
+        borderRadius: 30, borderWidth: 1, borderColor: theme.line,
+        backgroundColor: t.soft,
+      }} />
+      {/* 文字占位 */}
+      <View style={{ marginTop: 20, flex: 1, minHeight: 0 }}>
+        <Bar w={110} h={14} r={999} />
+        <Bar w={'74%'} h={26} mt={14} r={10} />
+        <Bar w={'46%'} h={26} mt={9} r={10} />
+        <Bar w={'92%'} h={14} mt={18} />
+        <Bar w={'86%'} h={14} mt={11} />
+        <Bar w={'58%'} h={14} mt={11} />
+        <Bar w={150} h={34} mt={18} r={999} />
+        <View style={{ marginTop: 'auto', paddingTop: 18, flexDirection: 'row', gap: 12 }}>
+          <View style={{ width: 74, height: 62, borderRadius: 24, backgroundColor: theme.sand }} />
+          <View style={{ flex: 1, height: 56, borderRadius: 999, backgroundColor: t.soft }} />
+        </View>
+      </View>
+    </Animated.View>
+  );
+}
+
 function LevelCard({ level, onOpen, onSkip, kidId, meLabel, cardHeight }) {
   const { theme } = useTheme();
   const { frameLabel } = useData();
   const t = TONE[level.tone] || TONE.orange;
   const suits = suitsNow(level);
 
+  // 插画与文字同时出现：有插画时先等它加载完，整张卡在此之前都是 loading
+  const illoUrl = illustrationUrl(level);
+  const [imgReady, setImgReady] = useState(!illoUrl);
+  const reveal = useSharedValue(illoUrl ? 0 : 1);
+
+  // 切换到另一件事时重置加载态
+  useEffect(() => {
+    if (illoUrl) {
+      setImgReady(false);
+      reveal.value = 0;
+    } else {
+      setImgReady(true);
+      reveal.value = 1;
+    }
+  }, [illoUrl]);
+
+  // 插画就绪 → 插画+文字一起淡入
+  useEffect(() => {
+    if (imgReady) reveal.value = withTiming(1, { duration: 280 });
+  }, [imgReady]);
+
+  const contentStyle = useAnimatedStyle(() => ({ opacity: reveal.value }));
+
   return (
     <View style={{
       height: cardHeight,
       paddingTop: 114, paddingBottom: 36, paddingHorizontal: 22,
     }}>
+      <View style={{ flex: 1 }}>
+      <Animated.View style={[{ flex: 1 }, contentStyle]}>
       {/* Scene illustration area */}
       <View style={{
         width: '100%', height: '40%', minHeight: 208,
@@ -263,7 +333,13 @@ function LevelCard({ level, onOpen, onSkip, kidId, meLabel, cardHeight }) {
         shadowOffset: { width: 0, height: 12 }, elevation: 8,
         justifyContent: 'center', alignItems: 'center',
       }}>
-        <SceneSlot level={level} tone={level.tone} size={160} />
+        <SceneSlot
+          level={level}
+          tone={level.tone}
+          size={160}
+          onLoad={() => setImgReady(true)}
+          onError={() => setImgReady(true)}
+        />
 
         {/* Overlay badges */}
         {level.custom && (
@@ -392,113 +468,16 @@ function LevelCard({ level, onOpen, onSkip, kidId, meLabel, cardHeight }) {
           </TouchableOpacity>
         </View>
       </View>
-    </View>
-  );
-}
+      </Animated.View>
 
-/* ════════════════════════════════════════════════════════════
-   CustomLevelSheet — bottom sheet to add a custom activity
-   ════════════════════════════════════════════════════════════ */
-
-function CustomLevelSheet({ visible, onClose, onCreated }) {
-  const { theme } = useTheme();
-  const { addCustomLevel } = useData();
-  const [title, setTitle] = useState('');
-  const [persp, setPersp] = useState('together');
-  const [suggest, setSuggest] = useState('photo');
-  const toneByP = { parent: 'orange', child: 'green', together: 'pink' };
-  const ready = title.trim().length > 0;
-
-  const create = () => {
-    if (!ready) return;
-    const lv = addCustomLevel({
-      title: title.trim(),
-      perspective: persp,
-      tone: toneByP[persp],
-      suggest,
-    });
-    setTitle('');
-    onCreated && onCreated(lv);
-  };
-
-  return (
-    <Sheet visible={visible} onClose={onClose} title="加一件我们家自己的事">
-      <View style={{ paddingHorizontal: 2 }}>
-        <Text style={{
-          marginBottom: 18,
-          fontFamily: theme.fonts.body, fontSize: 14, lineHeight: 24,
-          color: theme.inkSoft,
-        }}>
-          每个家都有自己的传统。写下来，它就成了你们「一百件事」里的一件。
-        </Text>
-
-        <TextInput
-          value={title}
-          onChangeText={setTitle}
-          autoFocus
-          multiline
-          numberOfLines={2}
-          placeholder="比如：每年第一场雪，一起堆一个歪歪的雪人"
-          placeholderTextColor={theme.inkSoft}
-          style={{
-            width: '100%', borderWidth: 1, borderColor: theme.line,
-            borderRadius: 18, paddingVertical: 14, paddingHorizontal: 16,
-            fontFamily: theme.fonts.body, fontSize: 16, lineHeight: 25.6,
-            color: theme.ink, backgroundColor: theme.paper,
-            textAlignVertical: 'top', minHeight: 80,
-          }}
-        />
-
-        <Text style={{
-          marginTop: 16, marginBottom: 8,
-          fontFamily: theme.fonts.body, fontSize: 12.5, color: theme.inkSoft,
-        }}>
-          这是谁为谁做的？
-        </Text>
-
-        <View style={{ flexDirection: 'row', gap: 8 }}>
-          {[['parent', '为孩子做'], ['child', '孩子为你做'], ['together', '一起做']].map(([k, label]) => (
-            <TouchableOpacity
-              key={k}
-              onPress={() => setPersp(k)}
-              style={{
-                flex: 1, paddingVertical: 10, paddingHorizontal: 6,
-                borderRadius: 14, alignItems: 'center',
-                backgroundColor: persp === k ? theme.accent : theme.paper,
-                borderWidth: 1, borderColor: persp === k ? theme.accent : theme.line,
-              }}
-            >
-              <Text style={{
-                fontFamily: theme.fonts.head, fontSize: 14,
-                color: persp === k ? '#FFFDF7' : theme.ink,
-              }}>{label}</Text>
-            </TouchableOpacity>
-          ))}
+      {/* 插画未就绪：整张卡（插画+文字）显示 loading */}
+      {!imgReady && (
+        <View style={StyleSheet.absoluteFill} pointerEvents="none">
+          <LevelCardSkeleton theme={theme} tone={level.tone} />
         </View>
-
-        <TouchableOpacity
-          disabled={!ready}
-          onPress={create}
-          activeOpacity={0.8}
-          style={{
-            width: '100%', marginTop: 22, paddingVertical: 16,
-            borderRadius: 999, alignItems: 'center',
-            backgroundColor: ready ? theme.accent : theme.sand,
-            shadowColor: ready ? theme.accent : 'transparent',
-            shadowOpacity: ready ? 0.4 : 0,
-            shadowRadius: 13, shadowOffset: { width: 0, height: 6 },
-            elevation: ready ? 6 : 0,
-          }}
-        >
-          <Text style={{
-            fontFamily: theme.fonts.head, fontSize: 17,
-            color: ready ? '#FFFDF7' : theme.inkSoft,
-          }}>
-            加进我们的一百件事
-          </Text>
-        </TouchableOpacity>
+      )}
       </View>
-    </Sheet>
+    </View>
   );
 }
 
@@ -593,7 +572,6 @@ export default function HomeFeed({ navigation, onOpenDrawer, perspective, setPer
   const empty = kidDone(kidId) === 0 && memoriesForKid(kidId).length === 0;
 
   const [shuffleKey, setShuffleKey] = useState(0);
-  const [addOwnVisible, setAddOwnVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [readyToRefresh, setReadyToRefresh] = useState(false);
   const refreshingRef = useRef(false);
@@ -857,9 +835,12 @@ export default function HomeFeed({ navigation, onOpenDrawer, perspective, setPer
   }, [navigation, kidId]);
 
   const handleCreated = useCallback(() => {
-    setAddOwnVisible(false);
     setShuffleKey(k => k + 1);
   }, []);
+
+  const handleAddOwn = useCallback(() => {
+    if (navigation) navigation.navigate('AddOwnLevel', { kidId, me, onCreated: handleCreated });
+  }, [navigation, kidId, me, handleCreated]);
 
   /* ── render card content ── */
   const renderCard = useCallback((item) => {
@@ -868,7 +849,7 @@ export default function HomeFeed({ navigation, onOpenDrawer, perspective, setPer
         <EndCard
           onBook={handleOpenBook}
           onReshuffle={reshuffle}
-          onAddOwn={() => setAddOwnVisible(true)}
+          onAddOwn={handleAddOwn}
           cardHeight={cardHeight}
           allDone={item.allDone}
         />
@@ -884,7 +865,7 @@ export default function HomeFeed({ navigation, onOpenDrawer, perspective, setPer
         cardHeight={cardHeight}
       />
     );
-  }, [kidId, empty, cardHeight, meLabel, goNext, handleOpenLevel, handleOpenBook, reshuffle]);
+  }, [kidId, empty, cardHeight, meLabel, goNext, handleOpenLevel, handleOpenBook, reshuffle, handleAddOwn]);
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.cream }}>
@@ -938,12 +919,6 @@ export default function HomeFeed({ navigation, onOpenDrawer, perspective, setPer
         onMore={onOpenDrawer}
         kidId={kidId}
         onSelectKid={setKidId}
-      />
-
-      <CustomLevelSheet
-        visible={addOwnVisible}
-        onClose={() => setAddOwnVisible(false)}
-        onCreated={handleCreated}
       />
     </View>
   );

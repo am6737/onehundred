@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme, TONE } from '../theme/tokens';
-import { PERSPECTIVES, sealedLockedFrom } from '../data';
+import { PERSPECTIVES, sealedAllFrom, isMemoryUnsealed } from '../data';
 import { useData } from '../data/DataProvider';
 import { Icon } from '../components/Icons';
 import { LayerHeader } from '../components/common';
@@ -23,6 +23,7 @@ function SealedSeal({ size = 46, theme }) {
 function SealedCard({ mem, theme, onPress }) {
   const { getKid } = useData();
   const t = TONE[mem.tone] || TONE.orange;
+  const openable = isMemoryUnsealed(mem);
   return (
     <TouchableOpacity
       onPress={onPress}
@@ -30,8 +31,8 @@ function SealedCard({ mem, theme, onPress }) {
       style={{
         borderRadius: 24, padding: 20,
         backgroundColor: theme.paper,
-        borderWidth: 1.5, borderColor: theme.line,
-        borderStyle: 'dashed',
+        borderWidth: 1.5, borderColor: openable ? t.deep : theme.line,
+        borderStyle: openable ? 'solid' : 'dashed',
         marginBottom: 16,
       }}>
       <View style={{ flexDirection: 'row', gap: 14, alignItems: 'flex-start' }}>
@@ -60,8 +61,11 @@ function SealedCard({ mem, theme, onPress }) {
 
       <Text style={{
         marginTop: 14, marginHorizontal: 2,
-        fontFamily: theme.fonts.body, fontSize: 13.5, lineHeight: 23, color: theme.inkSoft,
-      }}>封存中，到约定的那天才能打开 —— 连你自己也打不开。</Text>
+        fontFamily: theme.fonts.body, fontSize: 13.5, lineHeight: 23,
+        color: openable ? t.deep : theme.inkSoft,
+      }}>{openable
+        ? '约定的那天到了 —— 轻点，打开它。'
+        : '封存中，到约定的那天才能打开 —— 连你自己也打不开。'}</Text>
 
       <View style={{
         marginTop: 16, paddingTop: 14, borderTopWidth: 1, borderTopColor: theme.line,
@@ -76,11 +80,14 @@ function SealedCard({ mem, theme, onPress }) {
         <View style={{
           flexDirection: 'row', alignItems: 'center', gap: 6,
           paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999,
-          backgroundColor: theme.sand,
+          backgroundColor: openable ? t.deep : theme.sand,
         }}>
-          {Icon.seed(theme.accent, 14)}
-          <Text style={{ fontFamily: theme.fonts.head, fontSize: 13, color: theme.accent }}>
-            等{mem.sealLabel || '约定日期'}
+          {openable ? Icon.lock('#FFFDF7', 14) : Icon.seed(theme.accent, 14)}
+          <Text style={{
+            fontFamily: theme.fonts.head, fontSize: 13,
+            color: openable ? '#FFFDF7' : theme.accent,
+          }}>
+            {openable ? '可以打开了' : `等${mem.sealLabel || '约定日期'}`}
           </Text>
         </View>
       </View>
@@ -93,7 +100,7 @@ export default function SealedPage({ navigation, route }) {
   const { memories } = useData();
   const insets = useSafeAreaInsets();
   const kidId = route?.params?.kidId || 'all';
-  const sealed = sealedLockedFrom(memories, kidId);
+  const sealed = sealedAllFrom(memories, kidId);
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.cream }}>
