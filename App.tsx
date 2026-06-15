@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { View, ActivityIndicator } from 'react-native';
+import { View, ActivityIndicator, Linking } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -130,14 +130,11 @@ function HomeWithDrawer({ navigation }) {
   );
 }
 
-const linking = {
-  prefixes: ['yibai://', 'https://yibaijianshi.app'],
-  config: {
-    screens: {
-      JoinFamily: 'join/:code',
-    },
-  },
-};
+function parseJoinUrl(url: string): string | null {
+  if (!url) return null;
+  const m = url.match(/(?:yibai:\/\/|https:\/\/yibaijianshi\.app\/)join\/([A-Za-z0-9]+)/);
+  return m ? m[1] : null;
+}
 
 function AppNavigator() {
   const { theme } = useTheme();
@@ -145,8 +142,6 @@ function AppNavigator() {
   const [initialRoute, setInitialRoute] = useState<string | null>(null);
 
   useEffect(() => {
-    // 只在冷启动时算一次初始路由；之后路由变化都由页面自己导航，
-    // 不能再卸载 NavigationContainer，否则会丢掉导航状态（游客登录闪回登录页就是这么来的）
     if (loading || initialRoute) return;
     getSession().then(session => {
       if (!session) {
@@ -161,6 +156,18 @@ function AppNavigator() {
     });
   }, [loading, initialRoute]);
 
+  useEffect(() => {
+    const handleUrl = ({ url }: { url: string }) => {
+      const code = parseJoinUrl(url);
+      if (code && navigationRef.isReady()) {
+        (navigationRef as any).navigate('JoinFamily', { code });
+      }
+    };
+    Linking.getInitialURL().then(url => { if (url) handleUrl({ url }); });
+    const sub = Linking.addEventListener('url', handleUrl);
+    return () => sub.remove();
+  }, []);
+
   if (!initialRoute) {
     return (
       <View style={{ flex: 1, backgroundColor: '#FAF3E6', justifyContent: 'center', alignItems: 'center' }}>
@@ -170,7 +177,7 @@ function AppNavigator() {
   }
 
   return (
-    <NavigationContainer ref={navigationRef} linking={linking}>
+    <NavigationContainer ref={navigationRef}>
       <StatusBar style={theme.isDark ? 'light' : 'dark'} />
       <Stack.Navigator
         id="root"
