@@ -6,6 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
+    "scheme": "yibai",
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.t1137.yibai"

@@ -3,14 +3,14 @@ import {
   fetchLevels, fetchKids, fetchMemories, fetchMascots,
   fetchWardrobe, fetchCustomLevels, fetchProfile, insertCustomLevel,
   updateCustomLevel, deleteCustomLevel,
-  insertMemory, insertKid, updateProfile, deleteMemory,
+  insertMemory, insertKid, updateKid, updateProfile, deleteMemory,
   getKidFrom, kidLabelFrom, kidDoneFrom, memoriesForKidFrom,
   allLevelsFrom, getMascotFrom, wardrobeStateFrom, nextUnlockFrom,
   throwbackFrom, yearReviewFrom, levelWeightFrom, weightedShuffleFrom,
   frameLabelFrom,
   FAMILY,
   fetchMyFamily, createFamily as apiCreateFamily, joinFamily as apiJoinFamily,
-  removeFamilyMember, clearFamilyCache,
+  removeFamilyMember, leaveFamily as apiLeaveFamily, clearFamilyCache,
 } from './index';
 
 const DataContext = createContext(null);
@@ -100,6 +100,11 @@ export function DataProvider({ children, userId }) {
     return kid;
   }, []);
 
+  const editKid = useCallback(async (id, fields) => {
+    await updateKid(id, fields);
+    setKids(prev => prev.map(k => k.id === id ? { ...k, ...fields } : k));
+  }, []);
+
   const updateMe = useCallback(async (fields) => {
     await updateProfile(fields);
     setProfile(prev => prev ? { ...prev, ...fields } : prev);
@@ -116,6 +121,11 @@ export function DataProvider({ children, userId }) {
     await loadAll();           // 加入后整库重拉（拿到家庭的孩子/回忆/小熊）
   }, [loadAll]);
 
+  const leaveFamily = useCallback(async () => {
+    await apiLeaveFamily();
+    setFamily(null);
+  }, []);
+
   const removeMember = useCallback(async (memberUserId) => {
     await removeFamilyMember(memberUserId);
     setFamily(await fetchMyFamily());
@@ -127,8 +137,8 @@ export function DataProvider({ children, userId }) {
     getKid, kidLabel, kidDone, memoriesForKid, allLevels,
     getMascot, wardrobeState, nextUnlock, throwback, yearReview,
     frameLabel, levelWeight, weightedShuffle,
-    addMemory, removeMemory, addKid, addCustomLevel, editCustomLevel, removeCustomLevel, updateMe,
-    createFamily, joinFamily, removeMember,
+    addMemory, removeMemory, addKid, editKid, addCustomLevel, editCustomLevel, removeCustomLevel, updateMe,
+    createFamily, joinFamily, leaveFamily, removeMember,
     FAMILY,
   };
 

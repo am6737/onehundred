@@ -53,17 +53,18 @@ export function meChar(me) {
 }
 
 export function durationSince(sinceStr) {
-  const match = sinceStr && sinceStr.match(/(\d+)\s*年\s*(\d+)\s*月/);
+  const match = sinceStr && sinceStr.match(/(\d+)\s*年\s*(\d+)\s*月(?:\s*(\d+)\s*日)?/);
   if (!match) return '';
   const startY = parseInt(match[1], 10);
   const startM = parseInt(match[2], 10);
+  const startD = match[3] ? parseInt(match[3], 10) : 1;
   const now = new Date();
   const nowY = now.getFullYear();
   const nowM = now.getMonth() + 1;
   const nowD = now.getDate();
   let years = nowY - startY;
   let months = nowM - startM;
-  let days = nowD - 1;
+  let days = nowD - startD;
   if (days < 0) {
     months--;
     days += new Date(nowY, nowM - 1, 0).getDate();
@@ -337,6 +338,8 @@ export async function insertKid({ name, y, m, tone = 'orange' }) {
   const familyId = await getMyFamilyId();
   if (!familyId) throw new Error('no_family');
   const id = 'k' + Date.now();
+  const now = new Date();
+  const since = `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日`;
   const { data, error } = await supabase.from('kids').insert({
     id,
     family_id: familyId,
@@ -346,11 +349,22 @@ export async function insertKid({ name, y, m, tone = 'orange' }) {
     birth_month: m,
     tone,
     bear: '',
-    since: '',
+    since,
     accessories: ['scarf'],
   }).select().single();
   if (error) throw error;
   return mapKid(data);
+}
+
+export async function updateKid(id: string, fields: { name?: string; y?: number; m?: number }) {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) throw new Error('Not authenticated');
+  const mapped: any = {};
+  if (fields.name !== undefined) mapped.name = fields.name;
+  if (fields.y !== undefined) mapped.birth_year = fields.y;
+  if (fields.m !== undefined) mapped.birth_month = fields.m;
+  const { error } = await supabase.from('kids').update(mapped).eq('id', id);
+  if (error) throw error;
 }
 
 export async function fetchProfile() {
@@ -434,6 +448,27 @@ export async function joinFamily(code: string, role: string, custom = '') {
   if (error) throw error;
   _familyIdCache = null;
   return data as string;
+}
+
+export async function peekInvite(code: string): Promise<{ familyId: string; roles: string[] }> {
+  const { data, error } = await supabase.rpc('peek_invite', { p_code: code });
+  if (error) throw error;
+  const row = Array.isArray(data) ? data[0] : data;
+  return { familyId: row.family_id, roles: row.roles || [] };
+}
+
+export async function leaveFamily() {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) throw new Error('no_session');
+  const fid = await getMyFamilyId();
+  if (!fid) return;
+  const { error } = await supabase
+    .from('family_members')
+    .delete()
+    .eq('family_id', fid)
+    .eq('user_id', session.user.id);
+  if (error) throw error;
+  _familyIdCache = null;
 }
 
 // 创建者移除成员

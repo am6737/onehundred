@@ -143,6 +143,26 @@ REVOKE ALL ON FUNCTION public.redeem_invite(text, text, text) FROM public;
 REVOKE EXECUTE ON FUNCTION public.redeem_invite(text, text, text) FROM anon;
 GRANT EXECUTE ON FUNCTION public.redeem_invite(text, text, text) TO authenticated;
 
+-- 3.11 peek_invite：验证邀请码并返回该家已有角色（不修改数据）
+CREATE OR REPLACE FUNCTION public.peek_invite(p_code text)
+RETURNS TABLE (family_id uuid, roles text[])
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
+DECLARE
+  fid uuid;
+  existing_roles text[];
+BEGIN
+  IF auth.uid() IS NULL THEN RAISE EXCEPTION 'not_authenticated' USING errcode = '28000'; END IF;
+  SELECT id INTO fid FROM public.families WHERE invite_code = upper(trim(p_code));
+  IF fid IS NULL THEN RAISE EXCEPTION 'invalid_code'; END IF;
+  SELECT array_agg(fm.role) INTO existing_roles
+    FROM public.family_members fm WHERE fm.family_id = fid;
+  RETURN QUERY SELECT fid, COALESCE(existing_roles, ARRAY[]::text[]);
+END;
+$$;
+REVOKE ALL ON FUNCTION public.peek_invite(text) FROM public;
+REVOKE EXECUTE ON FUNCTION public.peek_invite(text) FROM anon;
+GRANT EXECUTE ON FUNCTION public.peek_invite(text) TO authenticated;
+
 -- 4. kids（family 共享；只有创建者能删）
 CREATE TABLE IF NOT EXISTS public.kids (
   id          TEXT PRIMARY KEY,

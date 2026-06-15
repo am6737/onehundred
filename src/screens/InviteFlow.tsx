@@ -183,6 +183,39 @@ export default function InviteFlow({ navigation, route }) {
           fontFamily: theme.fonts.body, fontSize: 13, lineHeight: 21,
           color: theme.inkSoft,
         }}>{t('invite.footer')}</Text>
+
+        {/* Join another family — shown when user is solo */}
+        {members.length <= 1 && (
+          <TouchableOpacity
+            onPress={() => navigation.navigate('JoinFamily')}
+            activeOpacity={0.7}
+            style={{
+              marginTop: 24, padding: 20, borderRadius: 22,
+              backgroundColor: theme.paper,
+              borderWidth: 1.5, borderColor: theme.line,
+              borderStyle: 'dashed',
+              flexDirection: 'row', alignItems: 'center', gap: 14,
+            }}
+          >
+            <View style={{
+              width: 44, height: 44, borderRadius: 22,
+              backgroundColor: theme.sand,
+              justifyContent: 'center', alignItems: 'center',
+            }}>
+              {Icon.plus(theme.accent, 20)}
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{
+                fontFamily: theme.fonts.head, fontSize: 16, color: theme.ink,
+              }}>{t('invite.haveCode')}</Text>
+              <Text style={{
+                marginTop: 3, fontFamily: theme.fonts.body, fontSize: 12.5,
+                color: theme.inkSoft, lineHeight: 19,
+              }}>{t('invite.haveCodeDesc')}</Text>
+            </View>
+            {Icon.chevR(theme.inkSoft, 18)}
+          </TouchableOpacity>
+        )}
       </ScrollView>
     </View>
   );

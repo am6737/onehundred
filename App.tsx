@@ -26,6 +26,7 @@ import SealedPage from './src/screens/SealedPage';
 import RecordsCalendar from './src/screens/RecordsCalendar';
 import YearReview from './src/screens/YearReview';
 import InviteFlow from './src/screens/InviteFlow';
+import JoinFamily from './src/screens/JoinFamily';
 import PhotobookSheet, { BookFlip } from './src/screens/BookPreview';
 import { LoginWelcome, PhoneLogin, ForgotPassword } from './src/screens/Login';
 import EmailLogin from './src/screens/EmailLogin';
@@ -129,6 +130,15 @@ function HomeWithDrawer({ navigation }) {
   );
 }
 
+const linking = {
+  prefixes: ['yibai://', 'https://yibaijianshi.app'],
+  config: {
+    screens: {
+      JoinFamily: 'join/:code',
+    },
+  },
+};
+
 function AppNavigator() {
   const { theme } = useTheme();
   const { kids, loading } = useData();
@@ -160,7 +170,7 @@ function AppNavigator() {
   }
 
   return (
-    <NavigationContainer ref={navigationRef}>
+    <NavigationContainer ref={navigationRef} linking={linking}>
       <StatusBar style={theme.isDark ? 'light' : 'dark'} />
       <Stack.Navigator
         id="root"
@@ -201,6 +211,7 @@ function AppNavigator() {
           options={{ animation: 'fade' }}
         />
         <Stack.Screen name="Invite" component={InviteFlow} />
+        <Stack.Screen name="JoinFamily" component={JoinFamily} />
         <Stack.Screen name="Photobook" component={PhotobookSheet} />
         <Stack.Screen name="BookFlip" component={BookFlip} />
         <Stack.Screen

@@ -225,6 +225,22 @@ export const en = {
     optQrDesc: 'Let them scan it',
     optWechatLabel: 'Share to WeChat',
     optWechatDesc: 'Send straight to family',
+    haveCode: 'Have an invite code?',
+    haveCodeDesc: 'Enter the code your family shared with you to join them',
+    enterCodeToJoin: 'Enter code to join',
+  },
+
+  joinFamily: {
+    title: 'Join family',
+    desc: 'Enter the invite code your family shared with you. Join their 100 Things and record your child\'s growth together.',
+    next: 'Next',
+    codeHint: 'The invite code can be found on your family member\'s "Family members" page.',
+    pickRoleDesc: 'Choose your role in this family. Each role can only be taken by one person.',
+    join: 'Join',
+    hint: 'Once you join, you\'ll see each other\'s records and raise the bear together.',
+    takenHint: '{{roles}} is already in this family',
+    cannotLeave: 'Cannot join',
+    cannotLeaveDesc: 'Your current family still has other members. Please ask the admin to handle it first.',
   },
 
   drawer: {
@@ -385,7 +401,7 @@ export const en = {
     inviteFamily: 'Invite family',
     defaultView: 'Default starting perspective',
     groupReminder: 'Reminders',
-    reminderNote: "We won't nag. These things have no deadline — they're here whenever you want them. A reminder is just a gentle hello.",
+    reminderNote: "These things have no deadline — they're here whenever you want them. A reminder is just a gentle hello.",
     remindOnce: 'A gentle reminder',
     remindOff: 'Off',
     remindWeekly: 'Weekly',

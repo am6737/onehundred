@@ -14,6 +14,7 @@ import { ROLES, DEFAULT_ME, meName, meChar, roleLabel, NOW_YM } from '../data';
 import { useData } from '../data/DataProvider';
 import { signOut, isAnonymous, bindEmail, deleteAccount } from '../lib/auth';
 import { Icon, KidAvatar } from '../components/Icons';
+import * as Clipboard from 'expo-clipboard';
 import { LayerHeader, Sheet, Chip, PrimaryButton, SecondaryButton, Section } from '../components/common';
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
@@ -432,11 +433,14 @@ function ChildProfileSheet({ kid, onChange, onClose }) {
   const { theme } = useTheme();
   const t = useT();
   const insets = useSafeAreaInsets();
+  const [name, setName] = useState(kid.name);
   const [y, setY] = useState(kid.y);
   const [m, setM] = useState(kid.m);
   const age = ageFrom(y, m);
   const toEighteen = Math.max(0, y + 18 - NOW.y);
-  const save = () => { onChange({ y, m }); onClose(); };
+  const trimmed = name.trim();
+  const canSave = trimmed.length > 0;
+  const save = () => { if (canSave) { onChange({ name: trimmed, y, m }); onClose(); } };
 
   return (
     <Modal visible animationType="slide" onRequestClose={onClose}>
@@ -456,17 +460,19 @@ function ChildProfileSheet({ kid, onChange, onClose }) {
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 22, paddingBottom: 48 + insets.bottom }}>
           {/* Avatar + name */}
           <View style={{ alignItems: 'center', marginTop: 8 }}>
-            <KidAvatar name={kid.name} tone={kid.tone} size={84} />
-            <Text style={{ marginTop: 8, fontFamily: theme.fonts.head, fontSize: 22, color: theme.ink }}>{kid.name}</Text>
+            <KidAvatar name={trimmed || kid.name} tone={kid.tone} size={84} />
+            <TextInput
+              value={name}
+              onChangeText={v => setName(v.slice(0, 8))}
+              placeholder={t('onboarding.childNamePlaceholder')}
+              placeholderTextColor={theme.inkSoft}
+              style={{
+                marginTop: 8, fontFamily: theme.fonts.head, fontSize: 22, color: theme.ink,
+                textAlign: 'center', paddingVertical: 4, paddingHorizontal: 12,
+                borderBottomWidth: 1.5, borderBottomColor: theme.line, minWidth: 120,
+              }}
+            />
           </View>
-
-          {/* Description */}
-          <Text style={{
-            marginTop: 18, marginHorizontal: 4,
-            fontFamily: theme.fonts.body, fontSize: 14.5, lineHeight: 25, color: theme.inkSoft,
-          }}>
-            {t('settings.kidProfileDesc')}
-          </Text>
 
           {/* Birthday steppers */}
           <View style={{
@@ -556,10 +562,6 @@ function AddChildSheet({ onAdd, onClose }) {
           {/* Preview avatar */}
           <View style={{ alignItems: 'center', marginTop: 8 }}>
             <KidAvatar name={name} tone={tone} size={84} />
-            <Text style={{
-              marginTop: 12, fontFamily: theme.fonts.hand, fontSize: 18,
-              color: theme.inkSoft, lineHeight: 30,
-            }}>{t('settings.addChildTagline')}</Text>
           </View>
 
           {/* Name input */}
@@ -696,7 +698,7 @@ function MemberRow({ avatar, name, role, last = false }) {
   );
 }
 
-function InviteSheet({ kids, me, onClose }) {
+function InviteSheet({ kids, me, onClose, onJoinFamily }) {
   const { theme } = useTheme();
   const t = useT();
   const insets = useSafeAreaInsets();
@@ -717,7 +719,8 @@ function InviteSheet({ kids, me, onClose }) {
   });
   const peopleCount = adults.length + kids.length;
 
-  const copy = () => {
+  const copy = async () => {
+    await Clipboard.setStringAsync(code);
     setCopied(true);
     setTimeout(() => setCopied(false), 1800);
   };
@@ -793,6 +796,31 @@ function InviteSheet({ kids, me, onClose }) {
               }}>{copied ? t('settings.codeCopied') : t('settings.copyCode')}</Text>
             </TouchableOpacity>
           </View>
+
+          {/* Join another family — for solo users */}
+          {adults.length <= 1 && onJoinFamily && (
+            <TouchableOpacity
+              onPress={onJoinFamily}
+              activeOpacity={0.7}
+              style={{
+                marginTop: 20, padding: 18, borderRadius: 20,
+                backgroundColor: theme.sand,
+                flexDirection: 'row', alignItems: 'center', gap: 12,
+              }}
+            >
+              {Icon.plus(theme.accent, 18)}
+              <View style={{ flex: 1 }}>
+                <Text style={{
+                  fontFamily: theme.fonts.head, fontSize: 15, color: theme.ink,
+                }}>{t('invite.haveCode')}</Text>
+                <Text style={{
+                  marginTop: 2, fontFamily: theme.fonts.body, fontSize: 12.5,
+                  color: theme.inkSoft,
+                }}>{t('invite.haveCodeDesc')}</Text>
+              </View>
+              {Icon.chevR(theme.inkSoft, 16)}
+            </TouchableOpacity>
+          )}
         </ScrollView>
       </View>
     </Modal>
@@ -1639,7 +1667,7 @@ export default function Settings({ navigation, route }) {
   const { theme, setTheme } = useTheme();
   const { lang, setLang, t } = useI18n();
   const insets = useSafeAreaInsets();
-  const { kids: dataKids, FAMILY, getKid, kidLabel } = useData();
+  const { kids: dataKids, editKid, FAMILY, getKid, kidLabel } = useData();
 
   // Route params: me and setMe — use local state so UI updates immediately
   const parentSetMe = route?.params?.setMe || (() => {});
@@ -1666,8 +1694,11 @@ export default function Settings({ navigation, route }) {
   };
   useEffect(() => { isAnonymous().then(setAnon); }, []);
 
-  const editKid = kids.find(k => k.id === editId);
-  const saveKid = (patch) => setKids(ks => ks.map(k => k.id === editId ? { ...k, ...patch } : k));
+  const editingKid = kids.find(k => k.id === editId);
+  const saveKid = (patch) => {
+    setKids(ks => ks.map(k => k.id === editId ? { ...k, ...patch } : k));
+    editKid(editId, patch).catch(e => console.warn('updateKid:', e?.message || e));
+  };
   const addKid = (k) => setKids(ks => [...ks, { id: 'k' + Date.now(), acc: ['scarf'], ...k }]);
 
   const onBack = () => {
@@ -1841,9 +1872,9 @@ export default function Settings({ navigation, route }) {
       </ScrollView>
 
       {/* ── Sub-sheets ── */}
-      {editKid ? (
+      {editingKid ? (
         <ChildProfileSheet
-          kid={editKid}
+          kid={editingKid}
           onChange={saveKid}
           onClose={() => setEditId(null)}
         />
@@ -1852,7 +1883,7 @@ export default function Settings({ navigation, route }) {
         <AddChildSheet onAdd={addKid} onClose={() => setSheet(null)} />
       ) : null}
       {sheet === 'invite' ? (
-        <InviteSheet kids={kids} me={me} onClose={() => setSheet(null)} />
+        <InviteSheet kids={kids} me={me} onClose={() => setSheet(null)} onJoinFamily={() => { setSheet(null); navigation.navigate('JoinFamily'); }} />
       ) : null}
       {sheet === 'remindTime' ? (
         <ReminderTimeSheet value={remindAt} onChange={setRemindAt} onClose={() => setSheet(null)} />
