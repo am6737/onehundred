@@ -7,6 +7,7 @@ import {
   Modal, Pressable, TextInput, StyleSheet, Dimensions,
   useColorScheme, Alert, ActivityIndicator,
 } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme, COLORS } from '../theme/tokens';
 import { useI18n, useT } from '../i18n';
@@ -14,7 +15,6 @@ import { ROLES, DEFAULT_ME, meName, meChar, roleLabel, NOW_YM } from '../data';
 import { useData } from '../data/DataProvider';
 import { signOut, isAnonymous, bindEmail, deleteAccount } from '../lib/auth';
 import { Icon, KidAvatar } from '../components/Icons';
-import * as Clipboard from 'expo-clipboard';
 import { LayerHeader, Sheet, Chip, PrimaryButton, SecondaryButton, Section } from '../components/common';
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
