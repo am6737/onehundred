@@ -2,13 +2,14 @@
    一百件事 — i18n（中 / 英）
 
    手写的轻量方案，风格与 theme/tokens.tsx 的 ThemeProvider 一致：
-   - 不引入第三方库，无原生模块，改语言无需重建原生。
+   - 仅依赖 expo-localization 读系统语言，改语言无需重建原生。
    - 既能在组件里用 useI18n()/useT()（切换语言会触发重渲染），
      也能在 data 层等纯函数里用模块级 t()（读全局当前语言）。
    ════════════════════════════════════════════════════════════ */
 
 import React, { createContext, useContext, useState, useCallback, useMemo } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getLocales } from 'expo-localization';
 import { zh } from './locales/zh';
 import { en } from './locales/en';
 
@@ -20,17 +21,15 @@ export const LANG_LABELS: Record<Lang, string> = { zh: '中文', en: 'English' }
 const RESOURCES: Record<Lang, any> = { zh, en };
 const STORAGE_KEY = 'app.lang';
 
-/* ── 设备语言检测（纯 JS，无原生模块）──
-   用 Hermes 的 Intl 读系统 locale；识别不到就回退中文。 */
+/* ── 设备语言检测（expo-localization 读原生系统 locale）── */
 export function detectDeviceLang(): Lang {
   try {
-    const locale =
-      (typeof Intl !== 'undefined' &&
-        Intl.DateTimeFormat().resolvedOptions().locale) || '';
-    if (/^zh/i.test(locale)) return 'zh';
-    if (/^en/i.test(locale)) return 'en';
+    const locales = getLocales();
+    const code = locales[0]?.languageCode ?? '';
+    if (/^zh$/i.test(code)) return 'zh';
+    if (/^en$/i.test(code)) return 'en';
   } catch {
-    // ignore — Intl 不可用时回退
+    // ignore
   }
   return 'zh';
 }

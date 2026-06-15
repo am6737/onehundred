@@ -53,7 +53,8 @@
           "savePhotosPermission": "允许「一百件事」把这一页存成图片，保存到你的相册里。",
           "isAccessMediaLocationEnabled": false
         }
-      ]
+      ],
+      "expo-localization"
     ],
     "extra": {
       "eas": {
