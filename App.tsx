@@ -19,6 +19,8 @@ import Drawer from './src/screens/Drawer';
 import LevelDetail from './src/screens/LevelDetail';
 import AddOwnLevel from './src/screens/AddOwnLevel';
 import OwnLevels from './src/screens/OwnLevels';
+import SpotTimeline from './src/screens/SpotTimeline';
+import SpotCompare from './src/screens/SpotCompare';
 import RecordFlow from './src/screens/RecordFlow';
 import { MemoryPage, MemoryBook } from './src/screens/Memory';
 import MascotPage, { UnlockMoment } from './src/screens/Mascot';
@@ -202,6 +204,12 @@ function AppNavigator() {
           options={{ animation: 'slide_from_bottom' }}
         />
         <Stack.Screen name="OwnLevels" component={OwnLevels} />
+        <Stack.Screen name="SpotTimeline" component={SpotTimeline} />
+        <Stack.Screen
+          name="SpotCompare"
+          component={SpotCompare}
+          options={{ animation: 'slide_from_bottom' }}
+        />
         <Stack.Screen
           name="Record"
           component={RecordFlow}

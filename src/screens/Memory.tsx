@@ -1124,26 +1124,6 @@ export function MemoryBook({ route, navigation }) {
     navigation.navigate('Memory', { memory: m });
   };
 
-  const handleAddOwn = () => {
-    navigation.navigate('AddOwnLevel', {});
-  };
-
-  // 头部右上角「加一件我们家自己的事」入口（镜像返回键的圆形按钮）
-  const addButton = (
-    <TouchableOpacity
-      onPress={handleAddOwn}
-      activeOpacity={0.7}
-      style={{
-        width: 42, height: 42, borderRadius: 21,
-        backgroundColor: theme.paper,
-        borderWidth: 1, borderColor: theme.line,
-        justifyContent: 'center', alignItems: 'center',
-      }}
-    >
-      {Icon.plus(theme.accent, 22)}
-    </TouchableOpacity>
-  );
-
   const renderItem = ({ item, index }) => {
     // 同一天的多件事归到一个日期下：只有当天第一件显示日期
     const prev = list[index - 1];
@@ -1247,7 +1227,7 @@ export function MemoryBook({ route, navigation }) {
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.cream }}>
-      <LayerHeader title={t('memory.bookTitle')} onBack={() => navigation.goBack()} right={addButton} />
+      <LayerHeader title={t('memory.bookTitle')} onBack={() => navigation.goBack()} />
       <FlatList
         data={list}
         keyExtractor={item => item.id}

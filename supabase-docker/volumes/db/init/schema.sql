@@ -241,6 +241,9 @@ CREATE TABLE IF NOT EXISTS public.custom_levels (
   tone        TEXT NOT NULL DEFAULT 'pink',
   suggest     TEXT NOT NULL DEFAULT 'photo',
   illustration_path TEXT,  -- 同 levels.illustration_path
+  recurring       TEXT DEFAULT NULL,            -- null=一次性, 'yearly'=每年拍
+  spot_note       TEXT NOT NULL DEFAULT '',     -- 机位描述
+  reminder_text   TEXT NOT NULL DEFAULT '',     -- 提醒文案（"每年4月第一个周末"）
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 ALTER TABLE public.custom_levels ENABLE ROW LEVEL SECURITY;

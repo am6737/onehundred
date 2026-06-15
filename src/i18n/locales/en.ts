@@ -381,6 +381,7 @@ export const en = {
     celebSealed: 'The letter is sealed',
     celebNormal: 'This one is done',
     celebSealedHint: 'On the appointed day, it will appear on its own.',
+    spotHint: 'Reference from last time — try to match the same angle',
   },
 
   settings: {
@@ -685,6 +686,13 @@ export const en = {
     howPlaceholder: 'How might you start? Any little ideas?',
     recordPlaceholder: 'What to capture, say, or which line to write?',
     suitFor: 'Best recorded as',
+    recurringLabel: 'Fixed-point photo — revisit yearly',
+    recurringOn: 'Yes, take one every year',
+    recurringOff: 'Not needed',
+    spotNoteLabel: 'Camera position',
+    spotNotePlaceholder: 'Where to stand, which direction? A note helps find the same angle next year',
+    reminderLabel: 'When to take it',
+    reminderPlaceholder: 'e.g. "Every spring when the flowers bloom"',
     saveEdit: 'Save changes',
     saveAdd: 'Add to our 100 Things',
   },
@@ -704,6 +712,36 @@ export const en = {
     statLead: "Things only your family has",
     unit: 'things',
     descDefault: "Write it down so you won't forget.",
+    recurring: 'Yearly',
+  },
+
+  spotTimeline: {
+    compare: 'Compare',
+    editLevel: 'Edit this fixed-point photo',
+    deleteLevel: 'Delete',
+    statsPhotos: '{{count}} photos',
+    statsYears: 'Recorded for {{count}} years',
+    spotNoteTitle: 'Camera position',
+    emptyThisYear: "{{year}}'s photo is still missing",
+    reminderHint: 'Stand where you did last time — same angle, one more year.',
+    shootThisYear: "Take this year's photo",
+    photoCount: '{{count}} photos',
+    age: '{{name}}, age {{age}}',
+    selectHint: 'Pick two to compare — selected {{count}}/2',
+    compareCta: 'Compare {{year1}} and {{year2}} — {{diff}} years apart',
+    emptyTitle: 'No fixed-point photos yet',
+    emptyHint: 'Come back to the same spot each year.\nWatch your child grow.',
+    shootFirst: 'Take the first one',
+    cancel: 'Cancel',
+  },
+
+  spotCompare: {
+    title: 'Compare',
+    apart: '{{diff}} years apart',
+    ageChange: '{{name}} age {{from}} → {{to}}',
+    modeSlider: 'Slider',
+    modeSide: 'Side by side',
+    dragHint: 'Drag to see {{year1}} become {{year2}}',
   },
 
   sealedPage: {

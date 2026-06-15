@@ -460,12 +460,23 @@ export default function Drawer({ visible, onClose, onNavigate, kidId = 'all', me
   // Together-for duration (from earliest kid)
   const togetherFor = useMemo(() => {
     if (kids.length === 0) return '';
+    const sinceOf = (k) => {
+      if (k.since) return k.since;
+      const ts = parseInt(k.id?.replace(/^k/, ''), 10);
+      if (ts > 0) {
+        const d = new Date(ts);
+        return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
+      }
+      return '';
+    };
     const earliest = kids.reduce((a, b) => {
-      const sinceA = a.since || '';
-      const sinceB = b.since || '';
-      return sinceA < sinceB ? a : b;
+      const sa = sinceOf(a);
+      const sb = sinceOf(b);
+      if (!sa) return b;
+      if (!sb) return a;
+      return sa < sb ? a : b;
     });
-    return durationSince(earliest.since);
+    return durationSince(sinceOf(earliest));
   }, [kids]);
 
   // Sealed items（真实封存记录：仍锁定 + 已到期可打开，都算“封存物”）

@@ -4,7 +4,7 @@ import {
   fetchWardrobe, fetchCustomLevels, fetchProfile, insertCustomLevel,
   updateCustomLevel, deleteCustomLevel,
   insertMemory, insertKid, updateKid, updateProfile, deleteMemory,
-  getKidFrom, kidLabelFrom, kidDoneFrom, memoriesForKidFrom,
+  getKidFrom, kidLabelFrom, kidDoneFrom, memoriesForKidFrom, memoriesForLevelFrom,
   allLevelsFrom, getMascotFrom, wardrobeStateFrom, nextUnlockFrom,
   throwbackFrom, yearReviewFrom, levelWeightFrom, weightedShuffleFrom,
   frameLabelFrom,
@@ -56,6 +56,7 @@ export function DataProvider({ children, userId }) {
   const kidLabel = useCallback((id) => kidLabelFrom(kids, id), [kids]);
   const kidDone = useCallback((id) => kidDoneFrom(memories, id), [memories]);
   const memoriesForKid = useCallback((id) => memoriesForKidFrom(memories, id), [memories]);
+  const memoriesForLevel = useCallback((levelNum) => memoriesForLevelFrom(memories, levelNum), [memories]);
   const allLevels = useCallback(() => allLevelsFrom(customLevels, levels), [customLevels, levels]);
   const getMascot = useCallback((id) => getMascotFrom(mascots, id), [mascots]);
   const wardrobeState = useCallback((done) => wardrobeStateFrom(wardrobe, done), [wardrobe]);
@@ -134,7 +135,7 @@ export function DataProvider({ children, userId }) {
   const value = {
     levels, kids, memories, mascots, wardrobe, customLevels, profile, family, loading,
     refresh: loadAll,
-    getKid, kidLabel, kidDone, memoriesForKid, allLevels,
+    getKid, kidLabel, kidDone, memoriesForKid, memoriesForLevel, allLevels,
     getMascot, wardrobeState, nextUnlock, throwback, yearReview,
     frameLabel, levelWeight, weightedShuffle,
     addMemory, removeMemory, addKid, editKid, addCustomLevel, editCustomLevel, removeCustomLevel, updateMe,

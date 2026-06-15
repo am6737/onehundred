@@ -146,6 +146,9 @@ function mapCustomLevel(row) {
     id: row.id, num: row.num, perspective: row.perspective, tone: row.tone, custom: true,
     title: row.title, why: row.why, how: row.how, record: row.record_hint,
     suggest: row.suggest, illustrationPath: row.illustration_path,
+    recurring: row.recurring || null,
+    spotNote: row.spot_note || '',
+    reminderText: row.reminder_text || '',
   };
 }
 
@@ -197,6 +200,7 @@ export async function insertCustomLevel({
   title, why = '', how = '', record = '',
   perspective = 'together', tone = 'pink', suggest = 'photo',
   illustrationPath = null,
+  recurring = null, spotNote = '', reminderText = '',
 }) {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) throw new Error('Not authenticated');
@@ -211,6 +215,9 @@ export async function insertCustomLevel({
     why: why || t('customLevel.defaultWhy'),
     how, record_hint: record,
     illustration_path: illustrationPath,
+    recurring: recurring || null,
+    spot_note: spotNote || '',
+    reminder_text: reminderText || '',
   }).select().single();
   if (error) throw error;
   return mapCustomLevel(data);
@@ -219,7 +226,7 @@ export async function insertCustomLevel({
 // 改一件「我们家自己的事」。只更新传进来的字段（undefined 的不动），
 // num 不变——这样已经记录在这件事下的回忆仍然对得上。
 export async function updateCustomLevel(id, input: any = {}) {
-  const { title, why, how, record, perspective, tone, suggest, illustrationPath } = input;
+  const { title, why, how, record, perspective, tone, suggest, illustrationPath, recurring, spotNote, reminderText } = input;
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) throw new Error('Not authenticated');
   const fields: Record<string, any> = {};
@@ -231,6 +238,9 @@ export async function updateCustomLevel(id, input: any = {}) {
   if (tone !== undefined) fields.tone = tone;
   if (suggest !== undefined) fields.suggest = suggest;
   if (illustrationPath !== undefined) fields.illustration_path = illustrationPath;
+  if (recurring !== undefined) fields.recurring = recurring;
+  if (spotNote !== undefined) fields.spot_note = spotNote;
+  if (reminderText !== undefined) fields.reminder_text = reminderText;
   const { data, error } = await supabase
     .from('custom_levels').update(fields).eq('id', id).select().single();
   if (error) throw error;
@@ -501,6 +511,22 @@ export function kidDoneFrom(memories, id) {
 export function memoriesForKidFrom(memories, id) {
   if (id === 'all') return memories;
   return memories.filter(m => m.kid === id || m.kid === 'all');
+}
+
+export function memoriesForLevelFrom(memories, levelNum) {
+  return memories
+    .filter(m => m.levelNum === levelNum)
+    .sort((a, b) => (b.date > a.date ? 1 : b.date < a.date ? -1 : 0));
+}
+
+export function yearFromDate(dateStr) {
+  const iso = dateStr?.match(/^(\d{4})/);
+  return iso ? parseInt(iso[1], 10) : null;
+}
+
+export function kidAgeAtYear(kid, year) {
+  if (!kid || kid.id === 'all' || !kid.y) return null;
+  return Math.max(0, year - kid.y);
 }
 
 /* ── 封存 ── */

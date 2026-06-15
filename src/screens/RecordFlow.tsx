@@ -26,6 +26,7 @@ import { Icon, PhotoSlot } from '../components/Icons';
 import { LayerHeader, PrimaryButton, SecondaryButton, Chip, Sheet } from '../components/common';
 import SealDateSheet from '../components/SealDateSheet';
 import { LivePhotoImage, LiveBadge, LiveDot } from '../components/LivePhotoImage';
+import { MemoryCover } from '../components/MemoryCover';
 import { supabase } from '../lib/supabase';
 
 /* ── VoiceRecorder ── */
@@ -137,7 +138,7 @@ export default function RecordFlow({ route, navigation }) {
   const { level, kidId: rawKidId, me } = route.params;
   const { theme } = useTheme();
   const t = useT();
-  const { kids, addMemory } = useData();
+  const { kids, addMemory, memoriesForLevel } = useData();
   // 'all' 是合法的 kid_id（全家），兜底用它，避免 kid_id 为空导致保存失败
   const kidId = (rawKidId && rawKidId !== 'all') ? rawKidId : (kids[0]?.id || 'all');
   const insets = useSafeAreaInsets();
@@ -655,6 +656,29 @@ export default function RecordFlow({ route, navigation }) {
             }}>
               {level.record}
             </Text>
+
+            {/* Reference hint for recurring (定点照) levels */}
+            {level.recurring && (() => {
+              const spotMems = memoriesForLevel(level.num);
+              const prev = spotMems[0];
+              if (!prev) return null;
+              return (
+                <View style={{
+                  flexDirection: 'row', alignItems: 'center', gap: 12,
+                  padding: 14, borderRadius: 16, backgroundColor: theme.paper,
+                  borderWidth: 1, borderColor: theme.line, marginBottom: 18,
+                }}>
+                  <View style={{ width: 60, height: 45, borderRadius: 10, overflow: 'hidden' }}>
+                    <MemoryCover memory={prev} videoFrame style={{ width: '100%', height: '100%', aspectRatio: undefined }} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontFamily: theme.fonts.body, fontSize: 13, color: theme.inkSoft, lineHeight: 20 }}>
+                      {level.spotNote || t('record.spotHint')}
+                    </Text>
+                  </View>
+                </View>
+              );
+            })()}
 
             {types.map((ty) => {
               const rec = ty.k === level.suggest;

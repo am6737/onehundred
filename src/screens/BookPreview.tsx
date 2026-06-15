@@ -6,7 +6,7 @@ import { useT } from '../i18n';
 import { useData } from '../data/DataProvider';
 import { Icon } from '../components/Icons';
 import { MemoryCover } from '../components/MemoryCover';
-import { LayerHeader, PrimaryButton, SecondaryButton } from '../components/common';
+import { LayerHeader, PrimaryButton } from '../components/common';
 
 const { width: SW, height: SH } = Dimensions.get('window');
 const PAGE_W = SW - 40;
@@ -314,11 +314,6 @@ export default function PhotobookSheet({ navigation, route }) {
           label={t('bookPreview.flipTitle')}
           icon={Icon.eye('#FFFDF7', 18)}
           onPress={() => navigation.navigate('BookFlip', route?.params)}
-          style={{ width: '100%', marginBottom: 12 }}
-        />
-        <SecondaryButton
-          label={t('levelDetail.later')}
-          onPress={() => navigation.goBack()}
           style={{ width: '100%' }}
         />
       </ScrollView>
