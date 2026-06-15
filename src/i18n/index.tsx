@@ -2,7 +2,7 @@
    一百件事 — i18n（中 / 英）
 
    手写的轻量方案，风格与 theme/tokens.tsx 的 ThemeProvider 一致：
-   - 仅依赖 expo-localization 读系统语言，改语言无需重建原生。
+   - 用 expo-localization 读系统语言，改语言无需重建原生。
    - 既能在组件里用 useI18n()/useT()（切换语言会触发重渲染），
      也能在 data 层等纯函数里用模块级 t()（读全局当前语言）。
    ════════════════════════════════════════════════════════════ */
@@ -24,13 +24,10 @@ const STORAGE_KEY = 'app.lang';
 /* ── 设备语言检测（expo-localization 读原生系统 locale）── */
 export function detectDeviceLang(): Lang {
   try {
-    const locales = getLocales();
-    const code = locales[0]?.languageCode ?? '';
+    const code = getLocales()[0]?.languageCode ?? '';
     if (/^zh$/i.test(code)) return 'zh';
     if (/^en$/i.test(code)) return 'en';
-  } catch {
-    // ignore
-  }
+  } catch {}
   return 'zh';
 }
 
