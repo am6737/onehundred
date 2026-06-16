@@ -5,9 +5,12 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   View, Text, TouchableOpacity, ScrollView, Switch,
   Modal, Pressable, TextInput, StyleSheet, Dimensions,
-  Alert, ActivityIndicator,
+  Alert, ActivityIndicator, Image,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
+import Animated, {
+  useSharedValue, useAnimatedStyle, withSpring, withTiming, runOnJS,
+} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme, COLORS } from '../theme/tokens';
 import { useI18n, useT } from '../i18n';
@@ -235,20 +238,47 @@ function RoleAvatar({ ch, size = 48, on }: any) {
 function IdentityRow({ me, options, onSelect, divider = false }: any) {
   const { theme } = useTheme();
   const t = useT();
-  const [open, setOpen] = useState(false);
+  const [visible, setVisible] = useState(false);
   const triggerRef = useRef<View>(null);
   const [pos, setPos] = useState({ top: 0, right: 20 });
+  const dropY = useSharedValue(-14);
+  const dropOpacity = useSharedValue(0);
+  const scrimOpacity = useSharedValue(0);
+
+  const openDropdown = () => {
+    dropY.value = -14;
+    dropOpacity.value = 0;
+    scrimOpacity.value = 0;
+    setVisible(true);
+    dropY.value = withSpring(0, { damping: 20, stiffness: 260 });
+    dropOpacity.value = withTiming(1, { duration: 200 });
+    scrimOpacity.value = withTiming(1, { duration: 200 });
+  };
+  const closeDropdown = () => {
+    dropY.value = withTiming(-8, { duration: 140 });
+    scrimOpacity.value = withTiming(0, { duration: 140 });
+    dropOpacity.value = withTiming(0, { duration: 140 }, (fin) => {
+      if (fin) runOnJS(setVisible)(false);
+    });
+  };
+  const cardAnimStyle = useAnimatedStyle(() => ({
+    opacity: dropOpacity.value,
+    transform: [{ translateY: dropY.value }],
+  }));
+  const scrimStyle = useAnimatedStyle(() => ({
+    opacity: scrimOpacity.value,
+  }));
 
   const handleOpen = () => {
-    if (open) { setOpen(false); return; }
+    if (visible) { closeDropdown(); return; }
     const node = triggerRef.current;
     if (node) {
       node.measure((_x, _y, w, h, pageX, pageY) => {
         setPos({ top: pageY + h + 6, right: Math.max(16, SCREEN_W - pageX - w + 16) });
-        setOpen(true);
+        openDropdown();
       });
     } else {
-      setOpen(true);
+      openDropdown();
     }
   };
 
@@ -269,32 +299,33 @@ function IdentityRow({ me, options, onSelect, divider = false }: any) {
         </Text>
         <Text style={{
           fontFamily: theme.fonts.body, fontSize: 14.5,
-          color: open ? theme.accent : theme.inkSoft,
+          color: visible ? theme.accent : theme.inkSoft,
         }}>{meName(me)}</Text>
-        <View style={{ transform: [{ rotate: open ? '180deg' : '0deg' }] }}>
-          {Icon.chevDown(open ? theme.accent : theme.inkSoft, 18)}
+        <View style={{ transform: [{ rotate: visible ? '180deg' : '0deg' }] }}>
+          {Icon.chevDown(visible ? theme.accent : theme.inkSoft, 18)}
         </View>
       </TouchableOpacity>
 
-      <Modal transparent visible={open} animationType="none" onRequestClose={() => setOpen(false)}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={() => setOpen(false)}>
+      <Modal transparent visible={visible} animationType="none" onRequestClose={closeDropdown}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={closeDropdown}>
+          <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.08)' }, scrimStyle]} />
           <Pressable
             onPress={e => e.stopPropagation()}
             style={{ position: 'absolute', top: pos.top, right: pos.right }}
           >
-            <View style={{
+            <Animated.View style={[{
               minWidth: 120, backgroundColor: theme.paper,
               borderWidth: 1, borderColor: theme.line,
               borderRadius: 12, padding: 4,
               shadowColor: theme.ink, shadowOffset: { width: 0, height: 12 },
               shadowOpacity: 0.18, shadowRadius: 24, elevation: 8,
-            }}>
+            }, cardAnimStyle]}>
               {options.map(o => {
                 const on = me.role === o;
                 return (
                   <TouchableOpacity
                     key={o}
-                    onPress={() => { onSelect(o); setOpen(false); }}
+                    onPress={() => { onSelect(o); closeDropdown(); }}
                     activeOpacity={0.7}
                     style={{
                       flexDirection: 'row', alignItems: 'center',
@@ -311,7 +342,7 @@ function IdentityRow({ me, options, onSelect, divider = false }: any) {
                   </TouchableOpacity>
                 );
               })}
-            </View>
+            </Animated.View>
           </Pressable>
         </Pressable>
       </Modal>
@@ -325,24 +356,50 @@ function IdentityRow({ me, options, onSelect, divider = false }: any) {
 
 function SelectRow({ icon = null, title, sub = null, options, value, onSelect, last = false }: any) {
   const { theme } = useTheme();
-  const [open, setOpen] = useState(false);
+  const [visible, setVisible] = useState(false);
   const triggerRef = useRef<View>(null);
   const [pos, setPos] = useState({ top: 0, right: 20 });
-  // options 可为字符串数组或 {key,label} 数组：用 key 判等、label 显示
+  const dropY = useSharedValue(-14);
+  const dropOpacity = useSharedValue(0);
+  const scrimOpacity = useSharedValue(0);
   const norm = (o) => (typeof o === 'string' ? { key: o, label: o } : o);
   const current = options.map(norm).find(o => o.key === value);
   const valueLabel = current ? current.label : value;
 
+  const openDropdown = () => {
+    dropY.value = -14;
+    dropOpacity.value = 0;
+    scrimOpacity.value = 0;
+    setVisible(true);
+    dropY.value = withSpring(0, { damping: 20, stiffness: 260 });
+    dropOpacity.value = withTiming(1, { duration: 200 });
+    scrimOpacity.value = withTiming(1, { duration: 200 });
+  };
+  const closeDropdown = () => {
+    dropY.value = withTiming(-8, { duration: 140 });
+    scrimOpacity.value = withTiming(0, { duration: 140 });
+    dropOpacity.value = withTiming(0, { duration: 140 }, (fin) => {
+      if (fin) runOnJS(setVisible)(false);
+    });
+  };
+  const cardAnimStyle = useAnimatedStyle(() => ({
+    opacity: dropOpacity.value,
+    transform: [{ translateY: dropY.value }],
+  }));
+  const scrimStyle = useAnimatedStyle(() => ({
+    opacity: scrimOpacity.value,
+  }));
+
   const handleOpen = () => {
-    if (open) { setOpen(false); return; }
+    if (visible) { closeDropdown(); return; }
     const node = triggerRef.current;
     if (node) {
       node.measure((_x, _y, w, h, pageX, pageY) => {
         setPos({ top: pageY + h + 6, right: Math.max(16, SCREEN_W - pageX - w + 16) });
-        setOpen(true);
+        openDropdown();
       });
     } else {
-      setOpen(true);
+      openDropdown();
     }
   };
 
@@ -373,32 +430,33 @@ function SelectRow({ icon = null, title, sub = null, options, value, onSelect, l
         </View>
         <Text style={{
           fontFamily: theme.fonts.body, fontSize: 14,
-          color: open ? theme.accent : theme.inkSoft,
+          color: visible ? theme.accent : theme.inkSoft,
         }}>{valueLabel}</Text>
-        <View style={{ transform: [{ rotate: open ? '180deg' : '0deg' }] }}>
-          {Icon.chevDown(open ? theme.accent : theme.inkSoft, 18)}
+        <View style={{ transform: [{ rotate: visible ? '180deg' : '0deg' }] }}>
+          {Icon.chevDown(visible ? theme.accent : theme.inkSoft, 18)}
         </View>
       </TouchableOpacity>
 
-      <Modal transparent visible={open} animationType="none" onRequestClose={() => setOpen(false)}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={() => setOpen(false)}>
+      <Modal transparent visible={visible} animationType="none" onRequestClose={closeDropdown}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={closeDropdown}>
+          <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.08)' }, scrimStyle]} />
           <Pressable
             onPress={e => e.stopPropagation()}
             style={{ position: 'absolute', top: pos.top, right: pos.right }}
           >
-            <View style={{
+            <Animated.View style={[{
               minWidth: 120, backgroundColor: theme.paper,
               borderWidth: 1, borderColor: theme.line,
               borderRadius: 12, padding: 4,
               shadowColor: theme.ink, shadowOffset: { width: 0, height: 12 },
               shadowOpacity: 0.18, shadowRadius: 24, elevation: 8,
-            }}>
+            }, cardAnimStyle]}>
               {options.map(norm).map(o => {
                 const on = value === o.key;
                 return (
                   <TouchableOpacity
                     key={o.key}
-                    onPress={() => { onSelect(o.key); setOpen(false); }}
+                    onPress={() => { onSelect(o.key); closeDropdown(); }}
                     activeOpacity={0.7}
                     style={{
                       flexDirection: 'row', alignItems: 'center',
@@ -415,7 +473,7 @@ function SelectRow({ icon = null, title, sub = null, options, value, onSelect, l
                   </TouchableOpacity>
                 );
               })}
-            </View>
+            </Animated.View>
           </Pressable>
         </Pressable>
       </Modal>
@@ -1010,18 +1068,14 @@ function AboutSheet({ onClose }: any) {
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 22, paddingBottom: 48 + insets.bottom }}>
           {/* App icon */}
           <View style={{ alignItems: 'center', paddingTop: 10, paddingBottom: 4 }}>
-            <View style={{
-              width: 84, height: 84, borderRadius: 24,
-              backgroundColor: theme.accent,
-              justifyContent: 'center', alignItems: 'center',
-              shadowColor: theme.accent, shadowOffset: { width: 0, height: 16 },
-              shadowOpacity: 0.4, shadowRadius: 30, elevation: 8,
-            }}>
-              <Text style={{
-                fontFamily: theme.fonts.head, fontSize: 42,
-                color: '#FFFDF7', marginTop: 2,
-              }}>{t('settings.appMark')}</Text>
-            </View>
+            <Image
+              source={require('../../assets/icon.png')}
+              style={{
+                width: 84, height: 84, borderRadius: 24,
+                shadowColor: theme.accent, shadowOffset: { width: 0, height: 16 },
+                shadowOpacity: 0.4, shadowRadius: 30, elevation: 8,
+              }}
+            />
             <Text style={{
               marginTop: 15, fontFamily: theme.fonts.head, fontSize: 22, color: theme.ink,
             }}>{t('settings.appName')}</Text>

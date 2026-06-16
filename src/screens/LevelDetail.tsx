@@ -102,9 +102,13 @@ export default function LevelDetail({ route, navigation }) {
           <SectionBlock kicker={t('levelDetail.recordKicker')} body={L.record} theme={theme} />
         )}
 
-        {/* Suggestion chip */}
+        {/* Suggestion chip — 点击直接进入对应形式的记录页 */}
         {sug && (
-          <View style={[styles.suggestCard, { backgroundColor: theme.paper, borderColor: theme.line }]}>
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => navigation.navigate('Record', { level: L, kidId, me, directCapture: true })}
+            style={[styles.suggestCard, { backgroundColor: theme.paper, borderColor: theme.line }]}
+          >
             <View style={[styles.suggestIcon, { backgroundColor: tn.soft }]}>{sug.icon()}</View>
             <View style={styles.suggestTextWrap}>
               <Text style={[styles.suggestLabel, { color: theme.inkSoft, fontFamily: theme.fonts.body }]}>
@@ -114,7 +118,7 @@ export default function LevelDetail({ route, navigation }) {
                 {sug.label}
               </Text>
             </View>
-          </View>
+          </TouchableOpacity>
         )}
       </ScrollView>
 

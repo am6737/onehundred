@@ -476,6 +476,11 @@ export default function OnboardingScreen({ navigation }) {
       navigation.replace('Home');
     } catch (e: any) {
       console.error('Onboarding create error:', e);
+      const msg = e?.message || '';
+      if (msg.includes('already_in_family')) {
+        navigation.replace('Home');
+        return;
+      }
       Alert.alert(t('onboarding.saveFailTitle'), t('onboarding.networkRetry'));
       setSaving(false);
     }

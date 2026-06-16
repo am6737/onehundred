@@ -135,7 +135,7 @@ async function uploadToStorage(uri, familyId, memoryId, filename) {
 /* ── Main RecordFlow screen ── */
 
 export default function RecordFlow({ route, navigation }) {
-  const { level, kidId: rawKidId, me } = route.params;
+  const { level, kidId: rawKidId, me, directCapture } = route.params;
   const { theme } = useTheme();
   const t = useT();
   const { kids, addMemory } = useData();
@@ -144,7 +144,7 @@ export default function RecordFlow({ route, navigation }) {
   const insets = useSafeAreaInsets();
   const tn = TONE[level.tone] || TONE.orange;
 
-  const [step, setStep] = useState(0);
+  const [step, setStep] = useState(directCapture ? 1 : 0);
   const [type, setType] = useState(level.suggest || 'voice');
 
   // Voice
@@ -579,7 +579,14 @@ export default function RecordFlow({ route, navigation }) {
   };
 
   const handleBack = () => {
-    if (step === 0) {
+    if (step === 0 || (step === 1 && directCapture)) {
+      if (recording) {
+        audioRecorder.stop().catch(() => {});
+      }
+      if (soundRef.current) {
+        soundRef.current.release();
+        soundRef.current = null;
+      }
       if (navigation.canGoBack()) navigation.goBack();
     } else {
       if (recording) {
@@ -1491,9 +1498,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 18,
     paddingHorizontal: 16,
-    paddingVertical: 15,
+    paddingTop: 10,
+    paddingBottom: 15,
     fontSize: 15,
-    lineHeight: 28,
+    lineHeight: 24,
     textAlignVertical: 'top',
   },
 
@@ -1564,8 +1572,10 @@ const styles = StyleSheet.create({
     minHeight: 200,
     borderWidth: 1,
     borderRadius: 20,
-    padding: 18,
-    lineHeight: 30,
+    paddingTop: 14,
+    paddingBottom: 18,
+    paddingHorizontal: 18,
+    lineHeight: 28,
     textAlignVertical: 'top',
   },
 
@@ -1573,9 +1583,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 18,
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingTop: 10,
+    paddingBottom: 14,
     fontSize: 15,
-    lineHeight: 25,
+    lineHeight: 22,
     textAlignVertical: 'top',
   },
 
@@ -1583,8 +1594,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 16,
     paddingHorizontal: 16,
-    paddingVertical: 13,
+    height: 48,
     fontSize: 15,
+    textAlignVertical: 'center',
   },
   placeChips: {
     flexDirection: 'row',

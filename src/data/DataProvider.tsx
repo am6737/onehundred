@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import {
   fetchLevels, fetchKids, fetchMemories, fetchMascots,
@@ -42,12 +42,23 @@ export function DataProvider({ children, userId }) {
   const [profile, setProfile] = useState<any>(null);
   const [family, setFamily] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const prevUserId = useRef(userId);
+  if (userId !== prevUserId.current) {
+    prevUserId.current = userId;
+    if (userId) {
+      setLoading(true);
+      setLoaded(false);
+    }
+  }
+
   const loadAll = useCallback(async () => {
-    if (!userId) { setLoading(false); return; }
+    if (!userId) { setLoading(false); setLoaded(false); return; }
     clearFamilyCache();
     setLoading(true);
+    setLoaded(false);
     setError(null);
     try {
       const [lv, ki, me, ma, wa, cl, pr, fam] = await withRetry(() =>
@@ -64,6 +75,7 @@ export function DataProvider({ children, userId }) {
       setCustomLevels(cl);
       setProfile(pr);
       setFamily(fam);
+      setLoaded(true);
     } catch (e) {
       console.error('DataProvider loadAll error:', e);
       setError(t('common.networkError'));
@@ -157,7 +169,7 @@ export function DataProvider({ children, userId }) {
   const dismissError = useCallback(() => setError(null), []);
 
   const value = {
-    levels, kids, memories, mascots, wardrobe, customLevels, profile, family, loading, error,
+    levels, kids, memories, mascots, wardrobe, customLevels, profile, family, loading, loaded, error,
     refresh: loadAll, dismissError,
     getKid, kidLabel, kidDone, memoriesForKid, memoriesForLevel, allLevels,
     getMascot, wardrobeState, nextUnlock, throwback, yearReview,

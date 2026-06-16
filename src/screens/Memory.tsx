@@ -9,6 +9,9 @@ import { useEvent, useEventListener } from 'expo';
 import { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
 import * as MediaLibrary from 'expo-media-library';
+import Animated, {
+  useSharedValue, useAnimatedStyle, withSpring, withTiming, runOnJS,
+} from 'react-native-reanimated';
 import { useTheme, TONE } from '../theme/tokens';
 import { useT, t, getLang } from '../i18n';
 import { PERSPECTIVES, isMemoryLocked, isMemoryUnsealed } from '../data';
@@ -511,6 +514,32 @@ export function MemoryPage({ route, navigation }) {
 
   // 删除按钮：封存中 / 已解封都能用
   const [menuOpen, setMenuOpen] = useState(false);
+  const menuDropY = useSharedValue(-14);
+  const menuDropOpacity = useSharedValue(0);
+  const menuScrimOpacity = useSharedValue(0);
+  const openMenu = () => {
+    menuDropY.value = -14;
+    menuDropOpacity.value = 0;
+    menuScrimOpacity.value = 0;
+    setMenuOpen(true);
+    menuDropY.value = withSpring(0, { damping: 20, stiffness: 260 });
+    menuDropOpacity.value = withTiming(1, { duration: 200 });
+    menuScrimOpacity.value = withTiming(1, { duration: 200 });
+  };
+  const closeMenu = () => {
+    menuDropY.value = withTiming(-8, { duration: 140 });
+    menuScrimOpacity.value = withTiming(0, { duration: 140 });
+    menuDropOpacity.value = withTiming(0, { duration: 140 }, (fin) => {
+      if (fin) runOnJS(setMenuOpen)(false);
+    });
+  };
+  const menuCardStyle = useAnimatedStyle(() => ({
+    opacity: menuDropOpacity.value,
+    transform: [{ translateY: menuDropY.value }],
+  }));
+  const menuScrimStyle = useAnimatedStyle(() => ({
+    opacity: menuScrimOpacity.value,
+  }));
 
   const sameLevelCount = memoriesForLevel(m.levelNum).length;
 
@@ -518,25 +547,25 @@ export function MemoryPage({ route, navigation }) {
     ...(level && !locked ? [{
       label: t('memory.doAgain'),
       icon: (c: string) => Icon.redo(c, 16),
-      onPress: () => { setMenuOpen(false); navigation.navigate('Record', { level, kidId: m.kid, me: route.params?.me }); },
+      onPress: () => { closeMenu(); navigation.navigate('Record', { level, kidId: m.kid, me: route.params?.me }); },
     }] : []),
     ...(sameLevelCount >= 2 ? [{
       label: t('memory.menuSeeAll'),
       icon: (c: string) => Icon.eye(c, 16),
-      onPress: () => { setMenuOpen(false); navigation.navigate('LevelTimeline', { levelNum: m.levelNum, kidId: m.kid }); },
+      onPress: () => { closeMenu(); navigation.navigate('LevelTimeline', { levelNum: m.levelNum, kidId: m.kid }); },
     }] : []),
     {
       label: t('common.delete'),
       icon: (c: string) => Icon.trash(c, 16),
       danger: true,
-      onPress: () => { setMenuOpen(false); confirmDelete(); },
+      onPress: () => { closeMenu(); confirmDelete(); },
     },
   ];
 
   const moreButton = (
     <View style={{ position: 'relative' }}>
       <TouchableOpacity
-        onPress={() => setMenuOpen(o => !o)}
+        onPress={() => menuOpen ? closeMenu() : openMenu()}
         disabled={deleting}
         activeOpacity={0.7}
         accessibilityRole="button"
@@ -552,39 +581,38 @@ export function MemoryPage({ route, navigation }) {
         {Icon.moreH(theme.ink, 20)}
       </TouchableOpacity>
 
-      {menuOpen && (
-        <Modal transparent visible animationType="none" onRequestClose={() => setMenuOpen(false)}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setMenuOpen(false)}>
-            <View style={{
-              position: 'absolute', top: 100, right: 18, minWidth: 160,
-              backgroundColor: theme.paper,
-              borderWidth: 1, borderColor: theme.line,
-              borderRadius: 16, padding: 6,
-              shadowColor: '#3A332B', shadowOpacity: 0.2, shadowRadius: 16,
-              shadowOffset: { width: 0, height: 10 }, elevation: 10,
-            }}>
-              {menuItems.map((item, i) => (
-                <TouchableOpacity
-                  key={i}
-                  onPress={item.onPress}
-                  activeOpacity={0.7}
-                  style={{
-                    flexDirection: 'row', alignItems: 'center', gap: 10,
-                    paddingVertical: 12, paddingHorizontal: 14,
-                    borderRadius: 12,
-                  }}
-                >
-                  {item.icon(item.danger ? theme.danger : theme.ink)}
-                  <Text style={{
-                    fontFamily: theme.fonts.head, fontSize: 15,
-                    color: item.danger ? theme.danger : theme.ink,
-                  }}>{item.label}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </Pressable>
-        </Modal>
-      )}
+      <Modal transparent visible={menuOpen} animationType="none" onRequestClose={closeMenu}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={closeMenu}>
+          <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.08)' }, menuScrimStyle]} />
+          <Animated.View style={[{
+            position: 'absolute', top: 100, right: 18, minWidth: 160,
+            backgroundColor: theme.paper,
+            borderWidth: 1, borderColor: theme.line,
+            borderRadius: 16, padding: 6,
+            shadowColor: '#3A332B', shadowOpacity: 0.2, shadowRadius: 16,
+            shadowOffset: { width: 0, height: 10 }, elevation: 10,
+          }, menuCardStyle]}>
+            {menuItems.map((item, i) => (
+              <TouchableOpacity
+                key={i}
+                onPress={item.onPress}
+                activeOpacity={0.7}
+                style={{
+                  flexDirection: 'row', alignItems: 'center', gap: 10,
+                  paddingVertical: 12, paddingHorizontal: 14,
+                  borderRadius: 12,
+                }}
+              >
+                {item.icon(item.danger ? theme.danger : theme.ink)}
+                <Text style={{
+                  fontFamily: theme.fonts.head, fontSize: 15,
+                  color: item.danger ? theme.danger : theme.ink,
+                }}>{item.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </Animated.View>
+        </Pressable>
+      </Modal>
     </View>
   );
 

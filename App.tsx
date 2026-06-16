@@ -87,7 +87,7 @@ class ErrorBoundary extends React.Component<
 
 function HomeWithDrawer({ navigation }) {
   const { theme, setTheme } = useTheme();
-  const { kids, kidDone, profile, loading } = useData();
+  const { kids, kidDone, profile, loading, loaded } = useData();
   const [drawerVisible, setDrawerVisible] = useState(false);
   const [perspective, setPerspective] = useState('parent');
   const [kidId, setKidId] = useState('all');
@@ -100,10 +100,10 @@ function HomeWithDrawer({ navigation }) {
   }, [kids]);
 
   useEffect(() => {
-    if (!loading && kids.length === 0) {
+    if (loaded && !loading && kids.length === 0) {
       navigation.replace('Onboarding');
     }
-  }, [loading, kids]);
+  }, [loaded, loading, kids]);
 
   useEffect(() => {
     if (profile) {

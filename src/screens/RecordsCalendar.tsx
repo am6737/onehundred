@@ -1,5 +1,8 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Modal, Pressable } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Modal, Pressable, StyleSheet } from 'react-native';
+import Animated, {
+  useSharedValue, useAnimatedStyle, withSpring, withTiming, runOnJS,
+} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme, TONE } from '../theme/tokens';
 import { useI18n } from '../i18n';
@@ -99,6 +102,29 @@ export default function RecordsCalendar({ navigation, route }) {
 
   const [showPicker, setShowPicker] = useState(false);
   const [pickerYear, setPickerYear] = useState(year);
+  const pickerDropY = useSharedValue(-20);
+  const pickerOpacity = useSharedValue(0);
+  const openPicker = () => {
+    pickerDropY.value = -20;
+    pickerOpacity.value = 0;
+    setPickerYear(year);
+    setShowPicker(true);
+    pickerDropY.value = withSpring(0, { damping: 20, stiffness: 260 });
+    pickerOpacity.value = withTiming(1, { duration: 200 });
+  };
+  const closePicker = () => {
+    pickerDropY.value = withTiming(-12, { duration: 140 });
+    pickerOpacity.value = withTiming(0, { duration: 140 }, (fin) => {
+      if (fin) runOnJS(setShowPicker)(false);
+    });
+  };
+  const pickerAnimStyle = useAnimatedStyle(() => ({
+    opacity: pickerOpacity.value,
+    transform: [{ translateY: pickerDropY.value }],
+  }));
+  const backdropAnimStyle = useAnimatedStyle(() => ({
+    opacity: pickerOpacity.value,
+  }));
 
   const curIdx = allYM.findIndex(p => p.y === year && p.m === month);
   const canPrev = curIdx > 0;
@@ -117,7 +143,7 @@ export default function RecordsCalendar({ navigation, route }) {
     setYear(y);
     setMonth(m);
     setDay(pickDefaultDay(y, m));
-    setShowPicker(false);
+    closePicker();
   };
 
   const first = new Date(year, month - 1, 1);
@@ -186,7 +212,7 @@ export default function RecordsCalendar({ navigation, route }) {
               {Icon.chevL(theme.ink, 18)}
             </TouchableOpacity>
             <TouchableOpacity
-              onPress={() => { setPickerYear(year); setShowPicker(true); }}
+              onPress={openPicker}
               activeOpacity={0.7}
               style={{ alignItems: 'center', flexDirection: 'column' }}
             >
@@ -379,12 +405,16 @@ export default function RecordsCalendar({ navigation, route }) {
       </ScrollView>
 
       {/* Year + month picker */}
-      <Modal visible={showPicker} transparent animationType="fade" onRequestClose={() => setShowPicker(false)}>
-        <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'center', alignItems: 'center' }} onPress={() => setShowPicker(false)}>
-          <Pressable style={{
+      <Modal visible={showPicker} transparent animationType="none" onRequestClose={closePicker}>
+        <View style={StyleSheet.absoluteFill}>
+          <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.35)' }, backdropAnimStyle]} />
+          <Pressable style={StyleSheet.absoluteFill} onPress={closePicker} />
+          <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'center', alignItems: 'center' }} pointerEvents="box-none">
+          <Pressable>
+          <Animated.View style={[{
             width: 300, borderRadius: 22, backgroundColor: theme.paper,
             padding: 20, paddingBottom: 16,
-          }}>
+          }, pickerAnimStyle]}>
             {/* Year switcher */}
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 16, marginBottom: 18 }}>
               <TouchableOpacity
@@ -443,8 +473,10 @@ export default function RecordsCalendar({ navigation, route }) {
                 );
               })}
             </View>
+          </Animated.View>
           </Pressable>
-        </Pressable>
+          </View>
+        </View>
       </Modal>
     </View>
   );

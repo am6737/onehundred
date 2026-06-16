@@ -360,6 +360,7 @@ const heatStyles = StyleSheet.create({
   grid: {
     marginTop: 13,
     flexDirection: 'row',
+    gap: 6,
   },
   gridCell: {
     flex: 1,
