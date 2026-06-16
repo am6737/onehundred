@@ -663,7 +663,7 @@ export function Bear({
   mood = 'happy',
   tone = 'orange',
   stage = 3,
-}) {
+}: any) {
   const accentColor = PALETTE_MAP[tone] || PALETTE_MAP.orange;
 
   let content;

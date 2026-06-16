@@ -31,12 +31,19 @@ export function roleLabel(role?: string): string {
 }
 export const DEFAULT_ME = { role: '爸爸', custom: '' };
 
-export const NOW_YM = { y: 2026, m: 6 };
+export const NOW_YM = {
+  get y() { return new Date().getFullYear(); },
+  get m() { return new Date().getMonth() + 1; },
+};
 
 export const PET_BODY = 3;
 
 // 宠物/小熊衣橱系统总开关。先整体隐藏，需要时改回 true 即可恢复全部入口。
 export const SHOW_MASCOT = false;
+
+// 可重复做的内置事——这些事做完后仍然可以"再做一次"。
+// 自定义事（custom）默认也可以重复。以后可由算法动态决定。
+export const REPEATABLE_LEVELS = new Set(['05']);
 
 // ── Pure functions (no DB dependency) ──
 
@@ -73,10 +80,10 @@ export function durationSince(sinceStr) {
     years--;
     months += 12;
   }
-  const parts = [];
+  const parts: any[] = [];
   if (years > 0) parts.push(t('duration.years', { count: years }));
   if (months > 0) parts.push(t('duration.months', { count: months }));
-  if (days > 0) parts.push(t('duration.days', { count: days }));
+  if (years === 0 && months === 0 && days > 0) parts.push(t('duration.days', { count: days }));
   return parts.join(' ') || t('duration.fallback');
 }
 
@@ -146,9 +153,6 @@ function mapCustomLevel(row) {
     id: row.id, num: row.num, perspective: row.perspective, tone: row.tone, custom: true,
     title: row.title, why: row.why, how: row.how, record: row.record_hint,
     suggest: row.suggest, illustrationPath: row.illustration_path,
-    recurring: row.recurring || null,
-    spotNote: row.spot_note || '',
-    reminderText: row.reminder_text || '',
   };
 }
 
@@ -200,7 +204,6 @@ export async function insertCustomLevel({
   title, why = '', how = '', record = '',
   perspective = 'together', tone = 'pink', suggest = 'photo',
   illustrationPath = null,
-  recurring = null, spotNote = '', reminderText = '',
 }) {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) throw new Error('Not authenticated');
@@ -215,9 +218,6 @@ export async function insertCustomLevel({
     why: why || t('customLevel.defaultWhy'),
     how, record_hint: record,
     illustration_path: illustrationPath,
-    recurring: recurring || null,
-    spot_note: spotNote || '',
-    reminder_text: reminderText || '',
   }).select().single();
   if (error) throw error;
   return mapCustomLevel(data);
@@ -226,7 +226,7 @@ export async function insertCustomLevel({
 // 改一件「我们家自己的事」。只更新传进来的字段（undefined 的不动），
 // num 不变——这样已经记录在这件事下的回忆仍然对得上。
 export async function updateCustomLevel(id, input: any = {}) {
-  const { title, why, how, record, perspective, tone, suggest, illustrationPath, recurring, spotNote, reminderText } = input;
+  const { title, why, how, record, perspective, tone, suggest, illustrationPath } = input;
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) throw new Error('Not authenticated');
   const fields: Record<string, any> = {};
@@ -238,9 +238,6 @@ export async function updateCustomLevel(id, input: any = {}) {
   if (tone !== undefined) fields.tone = tone;
   if (suggest !== undefined) fields.suggest = suggest;
   if (illustrationPath !== undefined) fields.illustration_path = illustrationPath;
-  if (recurring !== undefined) fields.recurring = recurring;
-  if (spotNote !== undefined) fields.spot_note = spotNote;
-  if (reminderText !== undefined) fields.reminder_text = reminderText;
   const { data, error } = await supabase
     .from('custom_levels').update(fields).eq('id', id).select().single();
   if (error) throw error;
@@ -258,7 +255,7 @@ export async function deleteCustomLevel(id, illustrationPath = null) {
     try {
       const { error: rmErr } = await supabase.storage.from('illustrations').remove([illustrationPath]);
       if (rmErr) throw rmErr;
-    } catch (e) {
+    } catch (e: any) {
       console.warn('deleteCustomLevel illustration cleanup:', e?.message || e);
     }
   }
@@ -284,7 +281,7 @@ export async function uploadIllustration(uri) {
       .upload(path, bytes, { contentType, upsert: true });
     if (error) throw error;
     return path;
-  } catch (e) {
+  } catch (e: any) {
     console.warn('uploadIllustration failed:', e?.message || e);
     return null;
   }
@@ -337,7 +334,7 @@ export async function deleteMemory(id) {
         .remove(files.map(f => `${dir}/${f.name}`));
       if (rmErr) throw rmErr;
     }
-  } catch (e) {
+  } catch (e: any) {
     console.warn('deleteMemory storage cleanup:', e?.message || e);
   }
 }
@@ -523,6 +520,18 @@ export function yearFromDate(dateStr) {
   const iso = dateStr?.match(/^(\d{4})/);
   return iso ? parseInt(iso[1], 10) : null;
 }
+
+export function monthFromDate(dateStr) {
+  const m = dateStr?.match(/^\d{4}-(\d{2})/);
+  return m ? parseInt(m[1], 10) : null;
+}
+
+export function dayFromDate(dateStr) {
+  const m = dateStr?.match(/^\d{4}-\d{2}-(\d{2})/);
+  return m ? parseInt(m[1], 10) : null;
+}
+
+export const MONTH_EN = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 export function kidAgeAtYear(kid, year) {
   if (!kid || kid.id === 'all' || !kid.y) return null;

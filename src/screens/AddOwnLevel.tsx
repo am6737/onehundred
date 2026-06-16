@@ -39,11 +39,8 @@ export default function AddOwnLevel({ route, navigation }) {
   const [how, setHow] = useState(editing?.how || '');
   const [record, setRecord] = useState(editing?.record || '');
   const [suggest, setSuggest] = useState(editing?.suggest || 'photo');
-  const [recurring, setRecurring] = useState(editing?.recurring || null);
-  const [spotNote, setSpotNote] = useState(editing?.spotNote || '');
-  const [reminderText, setReminderText] = useState(editing?.reminderText || '');
   // coverUri：本次新挑的本地封面；coverRemoved：把原有封面去掉了
-  const [coverUri, setCoverUri] = useState(null);
+  const [coverUri, setCoverUri] = useState<string | null>(null);
   const [coverRemoved, setCoverRemoved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -65,12 +62,12 @@ export default function AddOwnLevel({ route, navigation }) {
         const { status } = await ImagePicker.requestCameraPermissionsAsync();
         if (status !== 'granted') { Alert.alert(t('addOwnLevel.cameraPerm')); return; }
         const r = await ImagePicker.launchCameraAsync(opts);
-        if (!r.canceled && r.assets?.[0]) { setCoverUri(r.assets[0].uri); setCoverRemoved(false); }
+        if (!r.canceled && r.assets?.[0]) { setCoverUri(r.assets[0].uri as string); setCoverRemoved(false); }
       } else {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (status !== 'granted') { Alert.alert(t('addOwnLevel.albumPerm')); return; }
         const r = await ImagePicker.launchImageLibraryAsync(opts);
-        if (!r.canceled && r.assets?.[0]) { setCoverUri(r.assets[0].uri); setCoverRemoved(false); }
+        if (!r.canceled && r.assets?.[0]) { setCoverUri(r.assets[0].uri as string); setCoverRemoved(false); }
       }
     } catch (e) {
       Alert.alert(t('addOwnLevel.pickFailTitle'), t('addOwnLevel.pickFailBody'));
@@ -99,9 +96,6 @@ export default function AddOwnLevel({ route, navigation }) {
         how: how.trim(),
         record: record.trim(),
         suggest,
-        recurring: recurring || null,
-        spotNote: spotNote.trim(),
-        reminderText: reminderText.trim(),
       };
       if (isEdit) {
         // 封面：换了新图就传新图；移除了就置空；都没动就保持原样（undefined → 不更新该字段）
@@ -111,7 +105,7 @@ export default function AddOwnLevel({ route, navigation }) {
         else illustrationPath = undefined;
         await editCustomLevel(editing.id, { ...base, illustrationPath });
       } else {
-        let illustrationPath = null;
+        let illustrationPath: string | null = null;
         if (coverUri) illustrationPath = await uploadIllustration(coverUri);
         await addCustomLevel({ ...base, illustrationPath });
       }
@@ -264,42 +258,6 @@ export default function AddOwnLevel({ route, navigation }) {
             </View>
           </Field>
 
-          {/* 定点照 · 每年拍 */}
-          <Field label={t('addOwnLevel.recurringLabel')} theme={theme}>
-            <View style={styles.chipRow}>
-              {[['yearly', t('addOwnLevel.recurringOn')], [null, t('addOwnLevel.recurringOff')]].map(([val, label]) => {
-                const on = recurring === val;
-                return (
-                  <TouchableOpacity
-                    key={String(val)}
-                    onPress={() => {
-                      Keyboard.dismiss();
-                      setRecurring(val);
-                      if (val === 'yearly') setSuggest('photo');
-                    }}
-                    style={[styles.choiceChip, {
-                      backgroundColor: on ? theme.accent : theme.paper,
-                      borderColor: on ? theme.accent : theme.line,
-                    }]}
-                  >
-                    <Text style={{ fontFamily: theme.fonts.head, fontSize: 14, color: on ? '#FFFDF7' : theme.ink }}>
-                      {label}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </Field>
-
-          {recurring && (
-            <>
-              <EditField label={t('addOwnLevel.spotNoteLabel')} value={spotNote} onChange={setSpotNote}
-                placeholder={t('addOwnLevel.spotNotePlaceholder')} theme={theme} />
-              <EditField label={t('addOwnLevel.reminderLabel')} value={reminderText} onChange={setReminderText}
-                placeholder={t('addOwnLevel.reminderPlaceholder')} theme={theme} />
-            </>
-          )}
-
           {/* 加进按钮：作为页面内容的一部分，跟随滚动，不浮在键盘上 */}
           <TouchableOpacity
             disabled={!ready}
@@ -325,7 +283,7 @@ export default function AddOwnLevel({ route, navigation }) {
 }
 
 /* ── 维度小节：强调点 + 标题 ── */
-function Field({ label, theme, children }) {
+function Field({ label, theme, children }: any) {
   return (
     <View style={styles.block}>
       <View style={styles.kickerRow}>
@@ -337,7 +295,7 @@ function Field({ label, theme, children }) {
   );
 }
 
-function EditField({ label, value, onChange, placeholder, theme }) {
+function EditField({ label, value, onChange, placeholder, theme }: any) {
   return (
     <Field label={label} theme={theme}>
       <TextInput

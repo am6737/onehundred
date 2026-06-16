@@ -11,7 +11,7 @@ import { useData } from '../data/DataProvider';
 import { SceneSlot } from './Motifs';
 import { LiveDot } from './LivePhotoImage';
 
-function VideoFrame({ url, radius, style }) {
+function VideoFrame({ url, radius, style }: any) {
   const player = useVideoPlayer(url);
   return (
     <View pointerEvents="none" style={[{ backgroundColor: '#1a1a1a', borderRadius: radius, overflow: 'hidden' }, style]}>
@@ -31,7 +31,7 @@ function VideoFrame({ url, radius, style }) {
  * videoFrame：thumb 下也用视频真实首帧当封面（每个视频会建一个原生播放器，
  *   只在做了虚拟化的列表里开，比如回忆册 FlatList；非虚拟化的 ScrollView 别开）。
  */
-export function MemoryCover({ memory, style, radius = 0, mode = 'thumb', label = '', videoFrame = false }) {
+export function MemoryCover({ memory, style, radius = 0, mode = 'thumb', label = '', videoFrame = false }: any) {
   const media = useMemoryMedia(memory?.id);
   const image = media.find(x => x.kind === 'image');
   const video = media.find(x => x.kind === 'video');

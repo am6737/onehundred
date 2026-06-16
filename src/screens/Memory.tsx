@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, TouchableOpacity, ScrollView, FlatList,
-  StyleSheet, Dimensions, Image, Alert, Share,
+  StyleSheet, Dimensions, Image, Alert, Share, Modal, Pressable,
 } from 'react-native';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { createAudioPlayer, setAudioModeAsync } from 'expo-audio';
@@ -26,16 +26,11 @@ const { width: SCREEN_W } = Dimensions.get('window');
    Helpers
    ════════════════════════════════════════════════════════════ */
 
-/**
- * 这件回忆在「一百件事」里的第几件——按真正做的先后排序：
- * 最早做的那件是第 1 件。memories 由数据层按 created_at 倒序返回（最新在前），
- * 所以倒数过来即得做事的次序。
- */
 function memSeq(m, memories) {
   if (!memories || !memories.length) return 0;
-  const i = memories.findIndex(x => x.id === m.id);
-  if (i < 0) return 0;
-  return memories.length - i;
+  const sorted = [...memories].sort((a, b) => (a.date > b.date ? 1 : a.date < b.date ? -1 : 0));
+  const i = sorted.findIndex(x => x.id === m.id);
+  return i < 0 ? 0 : i + 1;
 }
 
 const MEM_MONTHS_EN = ['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -65,8 +60,8 @@ function normalType(type) {
 
 /** Filter memories by kid id or show all. */
 function bookFilter(memories, f) {
-  if (f === 'everything') return memories;
-  return memories.filter(m => m.kid === f);
+  const filtered = f === 'everything' ? memories : memories.filter(m => m.kid === f);
+  return [...filtered].sort((a, b) => (b.date > a.date ? 1 : b.date < a.date ? -1 : 0));
 }
 
 /** Label for who participated. */
@@ -101,7 +96,7 @@ function TypeBadge({ type = 'voice', dur }) {
       </View>
       <Text style={[badgeStyles.label, {
         fontFamily: theme.fonts.body,
-        color: theme.ink,
+        color: '#3A332B',
       }]}>{label}</Text>
     </View>
   );
@@ -140,6 +135,7 @@ const badgeStyles = StyleSheet.create({
    ════════════════════════════════════════════════════════════ */
 
 function MemoryVideo({ url, tone }) {
+  const t = useT();
   const tn = TONE[tone] || TONE.orange;
   const player = useVideoPlayer(url);
   const { isPlaying } = useEvent(player, 'playingChange', { isPlaying: player.playing });
@@ -159,6 +155,8 @@ function MemoryVideo({ url, tone }) {
       <TouchableOpacity
         activeOpacity={0.85}
         onPress={() => (isPlaying ? player.pause() : player.play())}
+        accessibilityRole="button"
+        accessibilityLabel={isPlaying ? t('common.a11y.pause') : t('common.a11y.play')}
         style={[StyleSheet.absoluteFill, { justifyContent: 'center', alignItems: 'center' }]}
       >
         {!isPlaying && (
@@ -183,7 +181,7 @@ function MemoryAudio({ url, tone }) {
   const { theme } = useTheme();
   const t = useT();
   const tn = TONE[tone] || TONE.orange;
-  const playerRef = useRef(null);
+  const playerRef = useRef<any>(null);
   const [playing, setPlaying] = useState(false);
 
   // 离开页面时释放播放器
@@ -243,6 +241,8 @@ function MemoryAudio({ url, tone }) {
       <TouchableOpacity
         onPress={toggle}
         activeOpacity={0.85}
+        accessibilityRole="button"
+        accessibilityLabel={playing ? t('common.a11y.pause') : t('common.a11y.play')}
         style={{
           width: 72, height: 72, borderRadius: 36,
           backgroundColor: tn.deep,
@@ -470,7 +470,7 @@ export function MemoryPage({ route, navigation }) {
   const locked = isMemoryLocked(m);            // 封存中：不取媒体、不渲染内容
   const { theme } = useTheme();
   const t = useT();
-  const { removeMemory, allLevels, memories } = useData();
+  const { removeMemory, allLevels, memories, memoriesForLevel } = useData();
   const tn = TONE[m?.tone] || TONE.orange;
   const [shareVisible, setShareVisible] = useState(false);
   const [openText, setOpenText] = useState(false);
@@ -510,28 +510,89 @@ export function MemoryPage({ route, navigation }) {
   };
 
   // 删除按钮：封存中 / 已解封都能用
-  const deleteButton = (
-    <TouchableOpacity
-      onPress={confirmDelete}
-      disabled={deleting}
-      activeOpacity={0.7}
-      style={{
-        width: 42, height: 42, borderRadius: 21,
-        backgroundColor: theme.paper,
-        borderWidth: 1, borderColor: theme.line,
-        justifyContent: 'center', alignItems: 'center',
-        opacity: deleting ? 0.4 : 1,
-      }}
-    >
-      {Icon.trash(theme.danger, 20)}
-    </TouchableOpacity>
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  const sameLevelCount = memoriesForLevel(m.levelNum).length;
+
+  const menuItems = [
+    ...(level && !locked ? [{
+      label: t('memory.doAgain'),
+      icon: (c: string) => Icon.redo(c, 16),
+      onPress: () => { setMenuOpen(false); navigation.navigate('Record', { level, kidId: m.kid, me: route.params?.me }); },
+    }] : []),
+    ...(sameLevelCount >= 2 ? [{
+      label: t('memory.menuSeeAll'),
+      icon: (c: string) => Icon.eye(c, 16),
+      onPress: () => { setMenuOpen(false); navigation.navigate('LevelTimeline', { levelNum: m.levelNum, kidId: m.kid }); },
+    }] : []),
+    {
+      label: t('common.delete'),
+      icon: (c: string) => Icon.trash(c, 16),
+      danger: true,
+      onPress: () => { setMenuOpen(false); confirmDelete(); },
+    },
+  ];
+
+  const moreButton = (
+    <View style={{ position: 'relative' }}>
+      <TouchableOpacity
+        onPress={() => setMenuOpen(o => !o)}
+        disabled={deleting}
+        activeOpacity={0.7}
+        accessibilityRole="button"
+        accessibilityLabel={t('common.a11y.more')}
+        style={{
+          width: 42, height: 42, borderRadius: 21,
+          backgroundColor: theme.paper,
+          borderWidth: 1, borderColor: theme.line,
+          justifyContent: 'center', alignItems: 'center',
+          opacity: deleting ? 0.4 : 1,
+        }}
+      >
+        {Icon.moreH(theme.ink, 20)}
+      </TouchableOpacity>
+
+      {menuOpen && (
+        <Modal transparent visible animationType="none" onRequestClose={() => setMenuOpen(false)}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setMenuOpen(false)}>
+            <View style={{
+              position: 'absolute', top: 100, right: 18, minWidth: 160,
+              backgroundColor: theme.paper,
+              borderWidth: 1, borderColor: theme.line,
+              borderRadius: 16, padding: 6,
+              shadowColor: '#3A332B', shadowOpacity: 0.2, shadowRadius: 16,
+              shadowOffset: { width: 0, height: 10 }, elevation: 10,
+            }}>
+              {menuItems.map((item, i) => (
+                <TouchableOpacity
+                  key={i}
+                  onPress={item.onPress}
+                  activeOpacity={0.7}
+                  style={{
+                    flexDirection: 'row', alignItems: 'center', gap: 10,
+                    paddingVertical: 12, paddingHorizontal: 14,
+                    borderRadius: 12,
+                  }}
+                >
+                  {item.icon(item.danger ? theme.danger : theme.ink)}
+                  <Text style={{
+                    fontFamily: theme.fonts.head, fontSize: 15,
+                    color: item.danger ? theme.danger : theme.ink,
+                  }}>{item.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </Pressable>
+        </Modal>
+      )}
+    </View>
   );
 
   // 封存中：内容锁住不渲染，但分享 / 删除照常可用
   if (locked) {
     return (
       <View style={{ flex: 1, backgroundColor: theme.cream }}>
-        <LayerHeader title={t('drawer.sealed')} onBack={() => navigation.goBack()} right={deleteButton} />
+        <LayerHeader title={t('drawer.sealed')} onBack={() => navigation.goBack()} right={moreButton} />
         <ScrollView
           style={{ flex: 1 }}
           contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', padding: 36, paddingBottom: 50 }}
@@ -586,7 +647,7 @@ export function MemoryPage({ route, navigation }) {
       <LayerHeader
         title={perspective ? perspective.long : ''}
         onBack={() => navigation.goBack()}
-        right={deleteButton}
+        right={moreButton}
       />
       <ScrollView
         style={{ flex: 1 }}
@@ -733,15 +794,32 @@ export function MemoryPage({ route, navigation }) {
 
         {/* ── Page body ── */}
         <View style={{ paddingHorizontal: 28, paddingTop: 24 }}>
-          {/* Sequence badge */}
-          <View style={{
-            alignSelf: 'flex-start',
-            backgroundColor: tn.soft, paddingHorizontal: 11, paddingVertical: 5,
-            borderRadius: 999,
-          }}>
-            <Text style={{
-              fontFamily: theme.fonts.head, fontSize: 13, color: tn.ink,
-            }}>{t('memory.nthThingFull', { n: memSeq(m, memories) })}</Text>
+          {/* Sequence badge + done-N-times pill */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <View style={{
+              backgroundColor: tn.soft, paddingHorizontal: 11, paddingVertical: 5,
+              borderRadius: 999,
+            }}>
+              <Text style={{
+                fontFamily: theme.fonts.head, fontSize: 13, color: tn.ink,
+              }}>{t('memory.nthThingFull', { n: memSeq(m, memories) })}</Text>
+            </View>
+            {memoriesForLevel(m.levelNum).length >= 2 && (
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => navigation.navigate('LevelTimeline', { levelNum: m.levelNum, kidId: m.kid })}
+                style={{
+                  flexDirection: 'row', alignItems: 'center', gap: 4,
+                  backgroundColor: theme.sand, paddingHorizontal: 10, paddingVertical: 5,
+                  borderRadius: 999,
+                }}
+              >
+                {Icon.eye(theme.inkSoft, 12)}
+                <Text style={{
+                  fontFamily: theme.fonts.body, fontSize: 12.5, color: theme.inkSoft,
+                }}>{t('memory.doneNTimes', { count: memoriesForLevel(m.levelNum).length })}</Text>
+              </TouchableOpacity>
+            )}
           </View>
 
           {/* Title */}
@@ -858,6 +936,7 @@ export function MemoryPage({ route, navigation }) {
               elevation: 6,
             }}
           />
+
         </View>
       </ScrollView>
 
@@ -932,6 +1011,7 @@ function MemoryThreadItem({ m, onOpen, showWho, showDate = true }) {
   const shots = shotCount(m);
   const locked = isMemoryLocked(m);          // 封存中：内容打不开
   const justOpenable = isMemoryUnsealed(m);  // 已到期：可以打开了
+  const sameLevelCount = memories.filter(x => x.levelNum === m.levelNum).length;
 
   return (
     <View style={{ position: 'relative', paddingLeft: 34, paddingBottom: 18 }}>
@@ -1051,6 +1131,18 @@ function MemoryThreadItem({ m, onOpen, showWho, showDate = true }) {
                 fontFamily: theme.fonts.head, fontSize: 11, color: tn.ink,
               }}>{t('records.nthThing', { n: memSeq(m, memories) })}</Text>
             </View>
+            {sameLevelCount >= 2 && (
+              <View style={{
+                flexDirection: 'row', alignItems: 'center', gap: 3,
+                backgroundColor: theme.sand,
+                paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999,
+              }}>
+                {Icon.eye(theme.inkSoft, 10)}
+                <Text style={{
+                  fontFamily: theme.fonts.body, fontSize: 10.5, color: theme.inkSoft,
+                }}>{t('memory.doneNTimes', { count: sameLevelCount })}</Text>
+              </View>
+            )}
             {showWho && (
               <View style={{
                 flexDirection: 'row', alignItems: 'center', gap: 4,

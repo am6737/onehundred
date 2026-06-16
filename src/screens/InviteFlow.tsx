@@ -8,7 +8,7 @@ import { useData } from '../data/DataProvider';
 import { Icon, KidAvatar } from '../components/Icons';
 import { LayerHeader, PrimaryButton, SecondaryButton, Sheet, Chip } from '../components/common';
 
-function InvAvatar({ label, tone, size = 52, theme }) {
+function InvAvatar({ label, tone, size = 52, theme }: any) {
   return (
     <View style={{
       width: size, height: size, borderRadius: size / 2,
@@ -22,7 +22,7 @@ function InvAvatar({ label, tone, size = 52, theme }) {
   );
 }
 
-function KidCluster({ theme }) {
+function KidCluster({ theme }: any) {
   const { kids } = useData();
   return (
     <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 8, marginVertical: 16 }}>
@@ -33,7 +33,7 @@ function KidCluster({ theme }) {
   );
 }
 
-function InvMemberRow({ role, canRemove = false, onRemove = null, theme }) {
+function InvMemberRow({ role, canRemove = false, onRemove = null, theme }: any) {
   const t = useT();
   return (
     <View style={{
@@ -71,7 +71,7 @@ export default function InviteFlow({ navigation, route }) {
     { id: 'wechat', icon: 'users', label: t('invite.optWechatLabel'), desc: t('invite.optWechatDesc') },
   ];
   const [step, setStep] = useState('list');
-  const [showShare, setShowShare] = useState(false);
+  const [showShare, setShowShare] = useState<any>(false);
 
   const { family, removeMember } = useData();
   const inviteCode = family?.inviteCode || '——';

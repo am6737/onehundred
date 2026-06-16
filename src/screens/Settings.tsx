@@ -5,7 +5,7 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   View, Text, TouchableOpacity, ScrollView, Switch,
   Modal, Pressable, TextInput, StyleSheet, Dimensions,
-  useColorScheme, Alert, ActivityIndicator,
+  Alert, ActivityIndicator,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -14,6 +14,7 @@ import { useI18n, useT } from '../i18n';
 import { ROLES, DEFAULT_ME, meName, meChar, roleLabel, NOW_YM } from '../data';
 import { useData } from '../data/DataProvider';
 import { signOut, isAnonymous, bindEmail, deleteAccount } from '../lib/auth';
+import { supabase } from '../lib/supabase';
 import { Icon, KidAvatar } from '../components/Icons';
 import { LayerHeader, Sheet, Chip, PrimaryButton, SecondaryButton, Section } from '../components/common';
 
@@ -23,11 +24,8 @@ const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
    Helpers
    ══════════════════════════════════════════════════════════ */
 
-const NOW = { y: NOW_YM.y, m: NOW_YM.m };
-
-function ageFrom(y, m) {
-  let a = NOW.y - y - (NOW.m < m ? 1 : 0);
-  return Math.max(0, a);
+function ageFrom(y: any, m: any) {
+  return Math.max(0, NOW_YM.y - y - (NOW_YM.m < m ? 1 : 0));
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -35,7 +33,7 @@ function ageFrom(y, m) {
    ══════════════════════════════════════════════════════════ */
 
 // SettingGroup — a card-like group of setting rows
-function SettingGroup({ label, note = null, children }) {
+function SettingGroup({ label, note = null, children }: any) {
   const { theme } = useTheme();
   return (
     <View style={{ marginTop: 26 }}>
@@ -63,7 +61,7 @@ function SettingGroup({ label, note = null, children }) {
 }
 
 // Row — a setting row with label, optional value, optional onPress with chevron
-function Row({ icon = null, title, sub = null, value = null, onPress = null, last = false, children = null }) {
+function Row({ icon = null, title, sub = null, value = null, onPress = null, last = false, children = null }: any) {
   const { theme } = useTheme();
   const tappable = !!onPress;
 
@@ -102,11 +100,11 @@ function Row({ icon = null, title, sub = null, value = null, onPress = null, las
   );
 
   if (!tappable) return <View>{inner}</View>;
-  return <TouchableOpacity onPress={onPress} activeOpacity={0.7}>{inner}</TouchableOpacity>;
+  return <TouchableOpacity onPress={onPress} activeOpacity={0.7} accessibilityRole="button">{inner}</TouchableOpacity>;
 }
 
 // Toggle — a row with a Switch toggle
-function ToggleRow({ icon, title, sub, value, onValueChange, last }) {
+function ToggleRow({ icon, title, sub, value, onValueChange, last }: any) {
   const { theme } = useTheme();
   return (
     <View style={{
@@ -143,7 +141,7 @@ function ToggleRow({ icon, title, sub, value, onValueChange, last }) {
 }
 
 // Seg — segmented control (row of buttons acting as radio)
-function Seg({ options, value, onChange }) {
+function Seg({ options, value, onChange }: any) {
   const { theme } = useTheme();
   return (
     <View style={{
@@ -178,7 +176,7 @@ function Seg({ options, value, onChange }) {
 }
 
 // Stepper — round step control: < value >
-function Stepper({ value, min, max, onChange, fmt = (v) => String(v), wrap = false }) {
+function Stepper({ value, min, max, onChange, fmt = (v: any) => String(v), wrap = false }: any) {
   const { theme } = useTheme();
   const step = (d) => {
     let v = value + d;
@@ -186,7 +184,7 @@ function Stepper({ value, min, max, onChange, fmt = (v) => String(v), wrap = fal
     else v = Math.min(max, Math.max(min, v));
     onChange(v);
   };
-  const StepBtn = ({ d, dis }) => (
+  const StepBtn = ({ d, dis }: any) => (
     <TouchableOpacity
       onPress={() => step(d)}
       disabled={dis}
@@ -214,7 +212,7 @@ function Stepper({ value, min, max, onChange, fmt = (v) => String(v), wrap = fal
 }
 
 // RoleAvatar — small role avatar
-function RoleAvatar({ ch, size = 48, on }) {
+function RoleAvatar({ ch, size = 48, on }: any) {
   const { theme } = useTheme();
   return (
     <View style={{
@@ -234,11 +232,11 @@ function RoleAvatar({ ch, size = 48, on }) {
    IdentityRow — shows current identity with floating picker
    ══════════════════════════════════════════════════════════ */
 
-function IdentityRow({ me, options, onSelect, divider = false }) {
+function IdentityRow({ me, options, onSelect, divider = false }: any) {
   const { theme } = useTheme();
   const t = useT();
   const [open, setOpen] = useState(false);
-  const triggerRef = useRef(null);
+  const triggerRef = useRef<View>(null);
   const [pos, setPos] = useState({ top: 0, right: 20 });
 
   const handleOpen = () => {
@@ -325,10 +323,10 @@ function IdentityRow({ me, options, onSelect, divider = false }) {
    SelectRow — row with dropdown picker
    ══════════════════════════════════════════════════════════ */
 
-function SelectRow({ icon = null, title, sub = null, options, value, onSelect, last = false }) {
+function SelectRow({ icon = null, title, sub = null, options, value, onSelect, last = false }: any) {
   const { theme } = useTheme();
   const [open, setOpen] = useState(false);
-  const triggerRef = useRef(null);
+  const triggerRef = useRef<View>(null);
   const [pos, setPos] = useState({ top: 0, right: 20 });
   // options 可为字符串数组或 {key,label} 数组：用 key 判等、label 显示
   const norm = (o) => (typeof o === 'string' ? { key: o, label: o } : o);
@@ -429,7 +427,7 @@ function SelectRow({ icon = null, title, sub = null, options, value, onSelect, l
    ChildProfileSheet
    ══════════════════════════════════════════════════════════ */
 
-function ChildProfileSheet({ kid, onChange, onClose }) {
+function ChildProfileSheet({ kid, onChange, onClose }: any) {
   const { theme } = useTheme();
   const t = useT();
   const insets = useSafeAreaInsets();
@@ -437,7 +435,7 @@ function ChildProfileSheet({ kid, onChange, onClose }) {
   const [y, setY] = useState(kid.y);
   const [m, setM] = useState(kid.m);
   const age = ageFrom(y, m);
-  const toEighteen = Math.max(0, y + 18 - NOW.y);
+  const toEighteen = Math.max(0, y + 18 - NOW_YM.y);
   const trimmed = name.trim();
   const canSave = trimmed.length > 0;
   const save = () => { if (canSave) { onChange({ name: trimmed, y, m }); onClose(); } };
@@ -485,7 +483,7 @@ function ChildProfileSheet({ kid, onChange, onClose }) {
               borderBottomWidth: 1, borderBottomColor: theme.line,
             }}>
               <Text style={{ fontFamily: theme.fonts.body, fontSize: 15.5, color: theme.ink }}>{t('onboarding.birthYear')}</Text>
-              <Stepper value={y} min={2008} max={NOW.y} onChange={setY} fmt={v => t('onboarding.yearFmt', { v })} />
+              <Stepper value={y} min={2008} max={NOW_YM.y} onChange={setY} fmt={v => t('onboarding.yearFmt', { v })} />
             </View>
             <View style={{
               flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
@@ -521,7 +519,7 @@ function ChildProfileSheet({ kid, onChange, onClose }) {
    AddChildSheet
    ══════════════════════════════════════════════════════════ */
 
-function AddChildSheet({ onAdd, onClose }) {
+function AddChildSheet({ onAdd, onClose }: any) {
   const { theme } = useTheme();
   const t = useT();
   const insets = useSafeAreaInsets();
@@ -597,7 +595,7 @@ function AddChildSheet({ onAdd, onClose }) {
               borderBottomWidth: 1, borderBottomColor: theme.line,
             }}>
               <Text style={{ fontFamily: theme.fonts.body, fontSize: 15.5, color: theme.ink }}>{t('onboarding.birthYear')}</Text>
-              <Stepper value={y} min={2008} max={NOW.y} onChange={setY} fmt={v => t('onboarding.yearFmt', { v })} />
+              <Stepper value={y} min={2008} max={NOW_YM.y} onChange={setY} fmt={v => t('onboarding.yearFmt', { v })} />
             </View>
             <View style={{
               flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
@@ -670,7 +668,7 @@ function AddChildSheet({ onAdd, onClose }) {
    InviteSheet — family members + invite code
    ══════════════════════════════════════════════════════════ */
 
-function ParentAvatar({ ch }) {
+function ParentAvatar({ ch }: any) {
   const { theme } = useTheme();
   return (
     <View style={{
@@ -683,7 +681,7 @@ function ParentAvatar({ ch }) {
   );
 }
 
-function MemberRow({ avatar, name, role, last = false }) {
+function MemberRow({ avatar, name, role, last = false }: any) {
   const { theme } = useTheme();
   return (
     <View style={{
@@ -698,7 +696,7 @@ function MemberRow({ avatar, name, role, last = false }) {
   );
 }
 
-function InviteSheet({ kids, me, onClose, onJoinFamily }) {
+function InviteSheet({ kids, me, onClose, onJoinFamily }: any) {
   const { theme } = useTheme();
   const t = useT();
   const insets = useSafeAreaInsets();
@@ -831,7 +829,7 @@ function InviteSheet({ kids, me, onClose, onJoinFamily }) {
    ReminderTimeSheet
    ══════════════════════════════════════════════════════════ */
 
-function ReminderTimeSheet({ value, onChange, onClose }) {
+function ReminderTimeSheet({ value, onChange, onClose }: any) {
   const { theme } = useTheme();
   const t = useT();
   const insets = useSafeAreaInsets();
@@ -950,7 +948,7 @@ const APP_VERSION = '1.0.0';
 const APP_BUILD = '1';
 const APP_EMAIL = 'hi@yibaijianshi.app';
 
-function DocSheet({ kind, onClose }) {
+function DocSheet({ kind, onClose }: any) {
   const { theme } = useTheme();
   const { t, tRaw } = useI18n();
   const insets = useSafeAreaInsets();
@@ -987,11 +985,11 @@ function DocSheet({ kind, onClose }) {
    AboutSheet
    ══════════════════════════════════════════════════════════ */
 
-function AboutSheet({ onClose }) {
+function AboutSheet({ onClose }: any) {
   const { theme } = useTheme();
   const t = useT();
   const insets = useSafeAreaInsets();
-  const [doc, setDoc] = useState(null);
+  const [doc, setDoc] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -1092,14 +1090,14 @@ function AboutSheet({ onClose }) {
    ChangePhoneSheet
    ══════════════════════════════════════════════════════════ */
 
-function ChangePhoneSheet({ anon, onClose }) {
+function ChangePhoneSheet({ anon, onClose }: any) {
   const { theme } = useTheme();
   const t = useT();
   const insets = useSafeAreaInsets();
   const [phone, setPhone] = useState('');
   const [code, setCode] = useState('');
   const [countdown, setCountdown] = useState(0);
-  const timerRef = useRef(null);
+  const timerRef = useRef<any>(null);
 
   const canSend = phone.trim().length >= 11 && countdown === 0;
   const canSave = phone.trim().length >= 11 && code.trim().length === 6;
@@ -1225,7 +1223,7 @@ function ChangePhoneSheet({ anon, onClose }) {
    ConfirmDialog — reusable centered confirmation dialog
    ══════════════════════════════════════════════════════════ */
 
-function ConfirmDialog({ visible, icon, title, message, confirmLabel, confirmColor, onConfirm, cancelLabel, onCancel }) {
+function ConfirmDialog({ visible, icon, title, message, confirmLabel, confirmColor, onConfirm, cancelLabel, onCancel }: any) {
   const { theme } = useTheme();
   if (!visible) return null;
 
@@ -1293,7 +1291,7 @@ function ConfirmDialog({ visible, icon, title, message, confirmLabel, confirmCol
    DeleteAccountSheet
    ══════════════════════════════════════════════════════════ */
 
-function DeleteAccountSheet({ onClose }) {
+function DeleteAccountSheet({ onClose }: any) {
   const { theme } = useTheme();
   const t = useT();
   const insets = useSafeAreaInsets();
@@ -1423,7 +1421,7 @@ function DeleteAccountSheet({ onClose }) {
    BindEmailSheet
    ══════════════════════════════════════════════════════════ */
 
-function BindEmailSheet({ onBound, onClose }) {
+function BindEmailSheet({ onBound, onClose }: any) {
   const { theme } = useTheme();
   const t = useT();
   const insets = useSafeAreaInsets();
@@ -1524,13 +1522,28 @@ function BindEmailSheet({ onBound, onClose }) {
    AccountSecuritySheet
    ══════════════════════════════════════════════════════════ */
 
-function AccountSecuritySheet({ anon, onAnonChanged, onClose }) {
+function AccountSecuritySheet({ anon, onAnonChanged, onClose }: any) {
   const { theme } = useTheme();
   const t = useT();
   const insets = useSafeAreaInsets();
-  const [subSheet, setSubSheet] = useState(null); // 'changePhone' | 'deleteAccount' | 'bindEmail'
+  const [subSheet, setSubSheet] = useState<string | null>(null); // 'changePhone' | 'deleteAccount' | 'bindEmail'
   const [showLogout, setShowLogout] = useState(false);
   const [showUnbindWechat, setShowUnbindWechat] = useState(false);
+  const [uid, setUid] = useState('');
+  const [uidCopied, setUidCopied] = useState(false);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      if (data?.user?.id) setUid(data.user.id.slice(0, 8));
+    });
+  }, []);
+
+  const copyUid = async () => {
+    if (!uid) return;
+    await Clipboard.setStringAsync(uid);
+    setUidCopied(true);
+    setTimeout(() => setUidCopied(false), 1800);
+  };
 
   return (
     <Modal visible animationType="slide" onRequestClose={onClose}>
@@ -1543,6 +1556,18 @@ function AccountSecuritySheet({ anon, onAnonChanged, onClose }) {
           }}>
             {anon ? t('settings.accountDescAnon') : t('settings.accountDesc')}
           </Text>
+
+          {uid ? (
+            <SettingGroup label={t('settings.userId')}>
+              <Row
+                icon={Icon.shieldCheck(theme.accent, 19)}
+                title={uid}
+                value={uidCopied ? t('settings.userIdCopied') : t('settings.copyId')}
+                onPress={copyUid}
+                last
+              />
+            </SettingGroup>
+          ) : null}
 
           {/* Login methods */}
           <SettingGroup label={t('settings.loginMethods')}>
@@ -1663,8 +1688,8 @@ function AccountSecuritySheet({ anon, onAnonChanged, onClose }) {
    Main Settings Screen
    ══════════════════════════════════════════════════════════ */
 
-export default function Settings({ navigation, route }) {
-  const { theme, setTheme } = useTheme();
+export default function Settings({ navigation, route }: any) {
+  const { theme, mode: themeMode, setTheme } = useTheme();
   const { lang, setLang, t } = useI18n();
   const insets = useSafeAreaInsets();
   const { kids: dataKids, editKid, FAMILY, getKid, kidLabel } = useData();
@@ -1672,15 +1697,15 @@ export default function Settings({ navigation, route }) {
   // Route params: me and setMe — use local state so UI updates immediately
   const parentSetMe = route?.params?.setMe || (() => {});
   const [me, setMeLocal] = useState(route?.params?.me || DEFAULT_ME);
-  const setMe = useCallback((m) => {
+  const setMe = useCallback((m: any) => {
     setMeLocal(m);
     parentSetMe(m);
   }, [parentSetMe]);
 
   // Local state
   const [kids, setKids] = useState(() => dataKids.map(k => ({ ...k })));
-  const [editId, setEditId] = useState(null);
-  const [sheet, setSheet] = useState(null); // 'add'|'invite'|'remindTime'|'about'|'account'
+  const [editId, setEditId] = useState<string | null>(null);
+  const [sheet, setSheet] = useState<string | null>(null); // 'add'|'invite'|'remindTime'|'about'|'account'
   const [remindOn, setRemindOn] = useState(true);
   const [remindAt, setRemindAt] = useState('sun evening');
   const [defView, setDefView] = useState('together');
@@ -1688,7 +1713,7 @@ export default function Settings({ navigation, route }) {
   const [anon, setAnon] = useState(false);
 
   // 把 'sun evening' 这样的 key 对翻成展示文案
-  const formatRemind = (v) => {
+  const formatRemind = (v: any) => {
     const [d, tm] = (v || 'sun evening').split(' ');
     return t('settings.remindAtFmt', { day: t('settings.day.' + d), time: t('settings.time.' + tm) });
   };
@@ -1705,16 +1730,9 @@ export default function Settings({ navigation, route }) {
     if (navigation && navigation.goBack) navigation.goBack();
   };
 
-  // Appearance mode: 'system' | 'light' | 'dark'
-  const colorScheme = useColorScheme();
-  const [themeMode, setThemeMode] = useState('system');
-
   const handleThemeMode = useCallback((mode) => {
-    setThemeMode(mode);
-    if (mode === 'dark') setTheme.setIsDark(true);
-    else if (mode === 'light') setTheme.setIsDark(false);
-    else setTheme.setIsDark(colorScheme === 'dark');
-  }, [colorScheme, setTheme]);
+    setTheme.setMode(mode);
+  }, [setTheme]);
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.cream }}>

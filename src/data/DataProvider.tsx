@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
 import {
   fetchLevels, fetchKids, fetchMemories, fetchMascots,
   fetchWardrobe, fetchCustomLevels, fetchProfile, insertCustomLevel,
@@ -12,29 +13,49 @@ import {
   fetchMyFamily, createFamily as apiCreateFamily, joinFamily as apiJoinFamily,
   removeFamilyMember, leaveFamily as apiLeaveFamily, clearFamilyCache,
 } from './index';
+import { t } from '../i18n';
 
-const DataContext = createContext(null);
+const MAX_RETRIES = 3;
+const RETRY_DELAYS = [1000, 2000, 4000];
+
+async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    try {
+      return await fn();
+    } catch (e) {
+      if (attempt === MAX_RETRIES - 1) throw e;
+      await new Promise(r => setTimeout(r, RETRY_DELAYS[attempt]));
+    }
+  }
+  throw new Error('unreachable');
+}
+
+const DataContext = createContext<Record<string, any> | null>(null);
 
 export function DataProvider({ children, userId }) {
-  const [levels, setLevels] = useState([]);
-  const [kids, setKids] = useState([]);
-  const [memories, setMemories] = useState([]);
-  const [mascots, setMascots] = useState({});
-  const [wardrobe, setWardrobe] = useState([]);
-  const [customLevels, setCustomLevels] = useState([]);
-  const [profile, setProfile] = useState(null);
-  const [family, setFamily] = useState(null);
+  const [levels, setLevels] = useState<any[]>([]);
+  const [kids, setKids] = useState<any[]>([]);
+  const [memories, setMemories] = useState<any[]>([]);
+  const [mascots, setMascots] = useState<Record<string, any>>({});
+  const [wardrobe, setWardrobe] = useState<any[]>([]);
+  const [customLevels, setCustomLevels] = useState<any[]>([]);
+  const [profile, setProfile] = useState<any>(null);
+  const [family, setFamily] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const loadAll = useCallback(async () => {
     if (!userId) { setLoading(false); return; }
     clearFamilyCache();
     setLoading(true);
+    setError(null);
     try {
-      const [lv, ki, me, ma, wa, cl, pr, fam] = await Promise.all([
-        fetchLevels(), fetchKids(), fetchMemories(), fetchMascots(),
-        fetchWardrobe(), fetchCustomLevels(), fetchProfile(), fetchMyFamily(),
-      ]);
+      const [lv, ki, me, ma, wa, cl, pr, fam] = await withRetry(() =>
+        Promise.all([
+          fetchLevels(), fetchKids(), fetchMemories(), fetchMascots(),
+          fetchWardrobe(), fetchCustomLevels(), fetchProfile(), fetchMyFamily(),
+        ])
+      );
       setLevels(lv);
       setKids(ki);
       setMemories(me);
@@ -45,6 +66,7 @@ export function DataProvider({ children, userId }) {
       setFamily(fam);
     } catch (e) {
       console.error('DataProvider loadAll error:', e);
+      setError(t('common.networkError'));
     } finally {
       setLoading(false);
     }
@@ -132,9 +154,11 @@ export function DataProvider({ children, userId }) {
     setFamily(await fetchMyFamily());
   }, []);
 
+  const dismissError = useCallback(() => setError(null), []);
+
   const value = {
-    levels, kids, memories, mascots, wardrobe, customLevels, profile, family, loading,
-    refresh: loadAll,
+    levels, kids, memories, mascots, wardrobe, customLevels, profile, family, loading, error,
+    refresh: loadAll, dismissError,
     getKid, kidLabel, kidDone, memoriesForKid, memoriesForLevel, allLevels,
     getMascot, wardrobeState, nextUnlock, throwback, yearReview,
     frameLabel, levelWeight, weightedShuffle,
@@ -143,8 +167,46 @@ export function DataProvider({ children, userId }) {
     FAMILY,
   };
 
-  return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
+  return (
+    <DataContext.Provider value={value}>
+      {children}
+      {error && <ErrorBanner message={error} onRetry={loadAll} onDismiss={dismissError} />}
+    </DataContext.Provider>
+  );
 }
+
+function ErrorBanner({ message, onRetry, onDismiss }: { message: string; onRetry: () => void; onDismiss: () => void }) {
+  return (
+    <View style={bannerStyles.container}>
+      <Text style={bannerStyles.text}>{message}</Text>
+      <View style={bannerStyles.actions}>
+        <Pressable onPress={onRetry} style={bannerStyles.retryBtn}>
+          <Text style={bannerStyles.retryText}>{t('common.retry')}</Text>
+        </Pressable>
+        <Pressable onPress={onDismiss} style={bannerStyles.dismissBtn}>
+          <Text style={bannerStyles.dismissText}>✕</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+const bannerStyles = StyleSheet.create({
+  container: {
+    position: 'absolute', bottom: 48, left: 16, right: 16,
+    backgroundColor: '#3B2E1E', borderRadius: 12,
+    flexDirection: 'row', alignItems: 'center',
+    paddingVertical: 12, paddingHorizontal: 16,
+    shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 8, shadowOffset: { width: 0, height: 2 },
+    elevation: 6,
+  },
+  text: { flex: 1, color: '#FAF3E6', fontSize: 14 },
+  actions: { flexDirection: 'row', alignItems: 'center', gap: 8, marginLeft: 8 },
+  retryBtn: { backgroundColor: '#DE8C57', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
+  retryText: { color: '#fff', fontSize: 13, fontWeight: '600' },
+  dismissBtn: { padding: 4 },
+  dismissText: { color: '#FAF3E6', fontSize: 16 },
+});
 
 export function useData() {
   const ctx = useContext(DataContext);

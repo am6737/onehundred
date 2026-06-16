@@ -35,9 +35,12 @@ function AppleIcon({ size = 22, color = '#3A332B' }) {
 
 function BackButton({ onPress }) {
   const { theme } = useTheme();
+  const t = useT();
   return (
     <TouchableOpacity
       onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={t('common.a11y.back')}
       style={{
         width: 42, height: 42, borderRadius: 21,
         backgroundColor: theme.paper,
@@ -80,6 +83,7 @@ function PhoneInput({ value, onChangeText }) {
         onChangeText={onChangeText}
         placeholder={t('login.phonePlaceholder')}
         placeholderTextColor={theme.inkSoft}
+        accessibilityLabel={t('login.phonePlaceholder')}
         keyboardType="phone-pad"
         maxLength={11}
         style={{
@@ -102,6 +106,7 @@ function BottomButton({ label, enabled, onPress }) {
     <TouchableOpacity
       onPress={enabled ? onPress : undefined}
       activeOpacity={0.8}
+      accessibilityRole="button"
       style={{
         paddingVertical: 17,
         borderRadius: 999,
@@ -246,6 +251,7 @@ export function LoginWelcome({ navigation }) {
         <TouchableOpacity
           onPress={() => navigation.replace('Home')}
           activeOpacity={0.8}
+          accessibilityRole="button"
           style={{
             marginTop: 14,
             paddingVertical: 17,
@@ -287,6 +293,7 @@ export function LoginWelcome({ navigation }) {
           }}
           activeOpacity={0.8}
           disabled={loading}
+          accessibilityRole="button"
           style={{
             marginTop: 12,
             paddingVertical: 17,
@@ -353,7 +360,7 @@ export function PhoneLogin({ navigation }) {
   const [agreed, setAgreed] = useState(true);
   const [countdown, setCountdown] = useState(0);
   const [showSocial, setShowSocial] = useState(false);
-  const timerRef = useRef(null);
+  const timerRef = useRef<any>(null);
 
   const canSendCode = phone.trim().length >= 11 && countdown === 0;
   const canLogin = phone.trim().length >= 11 && password.length > 0;
@@ -408,6 +415,7 @@ export function PhoneLogin({ navigation }) {
               onChangeText={setPassword}
               placeholder={t('login.passwordPlaceholder')}
               placeholderTextColor={theme.inkSoft}
+              accessibilityLabel={t('login.passwordPlaceholder')}
               secureTextEntry
               style={{
                 flex: 1,
@@ -637,7 +645,7 @@ export function ForgotPassword({ navigation }) {
   const insets = useSafeAreaInsets();
   const [phone, setPhone] = useState('');
   const [countdown, setCountdown] = useState(0);
-  const timerRef = useRef(null);
+  const timerRef = useRef<any>(null);
 
   const canSend = phone.trim().length >= 11 && countdown === 0;
 

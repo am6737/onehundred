@@ -148,7 +148,7 @@ export default function LevelDetail({ route, navigation }) {
 
 /* ── SectionBlock — custom section with accent kicker dot ── */
 
-function SectionBlock({ kicker, body, theme }) {
+function SectionBlock({ kicker, body, theme }: any) {
   return (
     <View style={styles.sectionBlock}>
       <View style={styles.kickerRow}>

@@ -19,7 +19,7 @@ const BOOK_TEMPLATES = [
   { id: 'classic', nameKey: 'tplClassic', bg: '#F5F0E8', accent: '#8B7D6B', ornament: 'lines' },
 ];
 
-function BookLeaf({ type, content, template, theme, index, total }) {
+function BookLeaf({ type, content, template, theme, index, total }: any) {
   const tpl = template;
   const t = useT();
 
@@ -140,7 +140,7 @@ function BookLeaf({ type, content, template, theme, index, total }) {
 }
 
 function buildBookPages(memories, kidNames, t) {
-  const pages = [];
+  const pages: any[] = [];
   pages.push({ type: 'cover', content: {
     title: kidNames ? t('bookPreview.storyWith', { names: kidNames }) : t('bookPreview.defaultTitle'),
     subtitle: t('bookPreview.subtitle'),
@@ -171,7 +171,7 @@ export function BookFlip({ navigation, route }) {
   const template = BOOK_TEMPLATES[templateIdx];
   const pages = buildBookPages(memories, kidNames, t);
   const [pageIndex, setPageIndex] = useState(0);
-  const flatListRef = useRef(null);
+  const flatListRef = useRef<any>(null);
 
   const goPage = (idx) => {
     const clamped = Math.max(0, Math.min(pages.length - 1, idx));

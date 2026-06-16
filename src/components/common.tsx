@@ -6,12 +6,14 @@ import {
 import { GestureHandlerRootView, GestureDetector, Gesture } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/tokens';
+import { useT } from '../i18n';
 import { Icon } from './Icons';
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 
-export function LayerHeader({ title, onBack, right = null }) {
+export function LayerHeader({ title, onBack, right = null }: any) {
   const { theme } = useTheme();
+  const t = useT();
   const insets = useSafeAreaInsets();
 
   return (
@@ -25,6 +27,8 @@ export function LayerHeader({ title, onBack, right = null }) {
     }}>
       <TouchableOpacity
         onPress={onBack}
+        accessibilityRole="button"
+        accessibilityLabel={t('common.a11y.back')}
         style={{
           width: 42, height: 42, borderRadius: 21,
           backgroundColor: theme.paper,
@@ -46,8 +50,9 @@ export function LayerHeader({ title, onBack, right = null }) {
   );
 }
 
-export function Sheet({ visible, onClose, children, title }) {
+export function Sheet({ visible, onClose, children, title }: any) {
   const { theme } = useTheme();
+  const t = useT();
   const insets = useSafeAreaInsets();
   const slideAnim = useRef(new Animated.Value(SCREEN_H)).current;
   const onCloseRef = useRef(onClose);
@@ -108,7 +113,7 @@ export function Sheet({ visible, onClose, children, title }) {
     <Modal transparent visible={visible} animationType="fade" onRequestClose={handleClose}>
       {/* Modal 是独立原生根，gesture-handler 需要自己的 RootView 才能工作 */}
       <GestureHandlerRootView style={{ flex: 1 }}>
-      <Pressable style={styles.overlay} onPress={handleClose}>
+      <Pressable style={styles.overlay} onPress={handleClose} accessibilityLabel={t('common.a11y.close')} accessibilityRole="button">
         <Pressable onPress={e => e.stopPropagation()}>
           <GestureDetector gesture={panGesture}>
           <Animated.View
@@ -153,7 +158,7 @@ export function Sheet({ visible, onClose, children, title }) {
   );
 }
 
-export function Chip({ label, active, onPress, color = undefined, style = undefined }) {
+export function Chip({ label, active, onPress, color = undefined, style = undefined }: any) {
   const { theme } = useTheme();
   const bg = active ? (color || theme.accent) : theme.sand;
   const fg = active ? '#FFFDF7' : theme.ink;
@@ -174,12 +179,13 @@ export function Chip({ label, active, onPress, color = undefined, style = undefi
   );
 }
 
-export function PrimaryButton({ label, onPress, icon = null, style = undefined }) {
+export function PrimaryButton({ label, onPress, icon = null, style = undefined }: any) {
   const { theme } = useTheme();
   return (
     <TouchableOpacity
       onPress={onPress}
       activeOpacity={0.8}
+      accessibilityRole="button"
       style={[{
         flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
         gap: 8, padding: 16, borderRadius: 999,
@@ -195,12 +201,13 @@ export function PrimaryButton({ label, onPress, icon = null, style = undefined }
   );
 }
 
-export function SecondaryButton({ label, onPress, style }) {
+export function SecondaryButton({ label, onPress, style }: any) {
   const { theme } = useTheme();
   return (
     <TouchableOpacity
       onPress={onPress}
       activeOpacity={0.8}
+      accessibilityRole="button"
       style={[{
         flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
         padding: 16, borderRadius: 999,
@@ -216,7 +223,7 @@ export function SecondaryButton({ label, onPress, style }) {
   );
 }
 
-export function Section({ title, children, style }) {
+export function Section({ title, children, style }: any) {
   const { theme } = useTheme();
   return (
     <View style={[{ marginTop: 22 }, style]}>
@@ -232,7 +239,7 @@ export function Section({ title, children, style }) {
   );
 }
 
-export function Card({ children, style = undefined, onPress = null }) {
+export function Card({ children, style = undefined, onPress = null }: any) {
   const { theme } = useTheme();
   const content = (
     <View style={[{

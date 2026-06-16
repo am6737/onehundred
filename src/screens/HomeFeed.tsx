@@ -40,7 +40,7 @@ const REFRESH_HOLD = 64;        // 刷新中刷新头停留的位移
    KidFace — avatar badge used inside the KidSwitcher
    ════════════════════════════════════════════════════════════ */
 
-function KidFace({ id, size = 30 }) {
+function KidFace({ id, size = 30 }: any) {
   const { kids, getKid } = useData();
   if (id === 'all') {
     const a = getKid(kids[0]?.id);
@@ -66,7 +66,7 @@ function KidFace({ id, size = 30 }) {
    KidSwitcher — dropdown to switch between kids or "all"
    ════════════════════════════════════════════════════════════ */
 
-function KidSwitcher({ kidId, onSelect }) {
+function KidSwitcher({ kidId, onSelect }: any) {
   const { theme } = useTheme();
   const t = useT();
   const { kids, getKid } = useData();
@@ -154,7 +154,7 @@ function KidSwitcher({ kidId, onSelect }) {
    TopBar — perspective tabs + menu + kid switcher
    ════════════════════════════════════════════════════════════ */
 
-function TopBar({ perspective, setPerspective, onMore, kidId, onSelectKid }) {
+function TopBar({ perspective, setPerspective, onMore, kidId, onSelectKid }: any) {
   const { theme } = useTheme();
   const t = useT();
   const insets = useSafeAreaInsets();
@@ -222,7 +222,7 @@ function TopBar({ perspective, setPerspective, onMore, kidId, onSelectKid }) {
    SuggestChip — small hint about best recording method
    ════════════════════════════════════════════════════════════ */
 
-function SuggestChip({ suggest, theme }) {
+function SuggestChip({ suggest, theme }: any) {
   const t = useT();
   const map = {
     voice: { ic: Icon.mic, txt: t('home.suggestVoice') },
@@ -251,7 +251,7 @@ function SuggestChip({ suggest, theme }) {
    ════════════════════════════════════════════════════════════ */
 
 // 整张卡的骨架占位：插画未就绪时铺在内容之上，整体做呼吸式 loading
-function LevelCardSkeleton({ theme, tone }) {
+function LevelCardSkeleton({ theme, tone }: any) {
   const t = TONE[tone] || TONE.orange;
   const pulse = useSharedValue(0.5);
   useEffect(() => {
@@ -291,7 +291,7 @@ function LevelCardSkeleton({ theme, tone }) {
   );
 }
 
-function LevelCard({ level, onOpen, onSkip, kidId, meLabel, cardHeight }) {
+function LevelCard({ level, onOpen, onSkip, kidId, meLabel, cardHeight }: any) {
   const { theme } = useTheme();
   const t = useT();
   const { frameLabel } = useData();
@@ -490,7 +490,7 @@ function LevelCard({ level, onOpen, onSkip, kidId, meLabel, cardHeight }) {
    EndCard — shown at end of feed
    ════════════════════════════════════════════════════════════ */
 
-function EndCard({ onBook, onReshuffle, onAddOwn, cardHeight, allDone }) {
+function EndCard({ onBook, onReshuffle, onAddOwn, cardHeight, allDone }: any) {
   const { theme } = useTheme();
   const t = useT();
 
@@ -600,7 +600,7 @@ export default function HomeFeed({ navigation, onOpenDrawer, perspective, setPer
       const shuf = weightedShuffle(pool, kidId, shuffleKey + 1);
       // 当前孩子做过的活动不再出现（kid='all' 的记录对每个孩子都算做过）
       const lv = shuf.filter((l) => !doneSet.has(`${l.perspective}|${l.num}`));
-      const items = [];
+      const items: any[] = [];
       lv.forEach((l, i) => {
         items.push({ type: 'level', key: `${l.num}-${p}-${shuffleKey}`, level: l, index: i });
       });

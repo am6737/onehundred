@@ -19,7 +19,7 @@ const { width: SCREEN_W } = Dimensions.get('window');
    Heart particle — a small SVG heart used for pat feedback
    ═══════════════════════════════════════════════════════════════ */
 
-function HeartParticle({ color, startX, onDone }) {
+function HeartParticle({ color, startX, onDone }: any) {
   const anim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -65,7 +65,7 @@ function HeartParticle({ color, startX, onDone }) {
    UnlockMoment — celebration overlay
    ═══════════════════════════════════════════════════════════════ */
 
-export function UnlockMoment({ visible, item, mascot, onClose }) {
+export function UnlockMoment({ visible, item, mascot, onClose }: any) {
   const { theme } = useTheme();
   const t = useT();
   const [showCard, setShowCard] = useState(false);
@@ -680,7 +680,7 @@ export default function MascotPage({ route, navigation }) {
   const wearing = worn.filter(id => unlocked.some(w => w.id === id));
 
   // Unlock overlay state
-  const [unlock, setUnlock] = useState(null);
+  const [unlock, setUnlock] = useState<any>(null);
 
   // Squish animation on pat
   const squishAnim = useRef(new Animated.Value(1)).current;
@@ -689,7 +689,7 @@ export default function MascotPage({ route, navigation }) {
   const [mood, setMood] = useState('happy');
 
   // Heart particles
-  const [hearts, setHearts] = useState([]);
+  const [hearts, setHearts] = useState<any[]>([]);
 
   // Bobbing animation
   const bobAnim = useRef(new Animated.Value(0)).current;

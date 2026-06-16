@@ -36,9 +36,9 @@ const PAD = ITEM_H * Math.floor(VISIBLE / 2);
 const WHEEL_H = ITEM_H * VISIBLE;
 
 // 单列滚轮：原生 ScrollView + 吸附，松手后取中间那行。
-function Wheel({ data, value, onChange, format }) {
+function Wheel({ data, value, onChange, format }: any) {
   const { theme } = useTheme();
-  const ref = useRef(null);
+  const ref = useRef<ScrollView>(null);
   const mounted = useRef(false);
   const idx = Math.max(0, data.indexOf(value));
 
@@ -85,7 +85,7 @@ function Wheel({ data, value, onChange, format }) {
   );
 }
 
-export default function SealDateSheet({ visible, onClose, onConfirm, title = undefined }) {
+export default function SealDateSheet({ visible, onClose, onConfirm, title = undefined }: any) {
   const { theme } = useTheme();
   const t = useT();
   const insets = useSafeAreaInsets();
@@ -131,7 +131,7 @@ export default function SealDateSheet({ visible, onClose, onConfirm, title = und
   };
 
   const colCap = {
-    flex: 1, textAlign: 'center', paddingBottom: 4,
+    flex: 1, textAlign: 'center' as const, paddingBottom: 4,
     fontFamily: theme.fonts.head, fontSize: 14, color: theme.inkSoft,
   };
 

@@ -148,7 +148,7 @@ export default function OwnLevels({ navigation }) {
                       }]}
                       activeOpacity={0.8}
                       disabled={busy}
-                      onPress={() => l.recurring ? navigation.navigate('SpotTimeline', { level: l }) : goEdit(l)}
+                      onPress={() => goEdit(l)}
                       onLongPress={() => confirmDelete(l)}
                       delayLongPress={300}
                     >
@@ -171,14 +171,6 @@ export default function OwnLevels({ navigation }) {
                               {l.num}
                             </Text>
                           </View>
-                          {l.recurring && (
-                            <View style={[styles.pill, { backgroundColor: tn.soft, flexDirection: 'row', alignItems: 'center', gap: 3 }]}>
-                              {Icon.camera(tn.ink, 10)}
-                              <Text style={[styles.pillStrong, { color: tn.ink, fontFamily: theme.fonts.head }]}>
-                                {t('ownLevels.recurring')}
-                              </Text>
-                            </View>
-                          )}
                           <View style={[styles.pill, { backgroundColor: theme.sand }]}>
                             <Text style={[styles.pillSoft, { color: theme.inkSoft, fontFamily: theme.fonts.body }]}>
                               {persp}

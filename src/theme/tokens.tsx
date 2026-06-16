@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useMemo } from 'react';
+import { useColorScheme } from 'react-native';
 
 /* ── colour presets ── */
 
@@ -32,13 +33,13 @@ export const FONTS = {
 
 /* ── createTheme ── */
 
-export function createTheme(presetName, isDark, accent) {
+export function createTheme(presetName: string, isDark: boolean, accent: string) {
   const base = isDark
     ? DARK_PALETTE
-    : (THEME_PRESETS[presetName] || THEME_PRESETS['融合·暖']);
+    : ((THEME_PRESETS as Record<string, any>)[presetName] || THEME_PRESETS['融合·暖']);
 
-  const accentTone = TONE[accent] || TONE.orange;
-  const accentColor = COLORS[accent] || COLORS.orange;
+  const accentTone = (TONE as Record<string, any>)[accent] || TONE.orange;
+  const accentColor = (COLORS as Record<string, any>)[accent] || COLORS.orange;
 
   return {
     ...base,
@@ -55,12 +56,25 @@ export function createTheme(presetName, isDark, accent) {
 
 /* ── ThemeContext ── */
 
-const ThemeContext = createContext(null);
+type ThemeValue = {
+  theme: ReturnType<typeof createTheme>;
+  mode: string;
+  setTheme: {
+    setPreset: (p: string) => void;
+    setMode: (m: string) => void;
+    setAccent: (a: string) => void;
+  };
+};
 
-export function ThemeProvider({ children, initialPreset, initialDark = false, initialAccent }) {
+const ThemeContext = createContext<ThemeValue | null>(null);
+
+export function ThemeProvider({ children, initialPreset, initialAccent }) {
   const [preset, setPreset] = useState(initialPreset || '融合·暖');
-  const [isDark, setIsDark] = useState(!!initialDark);
+  const [mode, setMode] = useState('system');
   const [accent, setAccent] = useState(initialAccent || 'orange');
+  const colorScheme = useColorScheme();
+
+  const isDark = mode === 'system' ? colorScheme === 'dark' : mode === 'dark';
 
   const theme = useMemo(
     () => createTheme(preset, isDark, accent),
@@ -69,12 +83,12 @@ export function ThemeProvider({ children, initialPreset, initialDark = false, in
 
   const setTheme = useMemo(() => ({
     setPreset,
-    setIsDark,
+    setMode,
     setAccent,
   }), []);
 
   return (
-    <ThemeContext.Provider value={{ theme, setTheme }}>
+    <ThemeContext.Provider value={{ theme, mode, setTheme }}>
       {children}
     </ThemeContext.Provider>
   );

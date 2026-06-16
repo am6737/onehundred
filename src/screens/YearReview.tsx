@@ -29,7 +29,7 @@ export default function YearReview({ navigation, route }) {
   ];
   const maxP = Math.max(1, ...P_LABELS.map(([k]) => data.byP[k] || 0));
 
-  const cards = [];
+  const cards: any[] = [];
 
   // Card 0: Cover
   cards.push(

@@ -1,11 +1,12 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { View, ActivityIndicator, Linking } from 'react-native';
+import { View, Text, ActivityIndicator, Linking, Pressable } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { getLocales } from 'expo-localization';
 
 import { ThemeProvider, useTheme } from './src/theme/tokens';
 import { I18nProvider, loadSavedLang, type Lang } from './src/i18n';
@@ -19,7 +20,7 @@ import Drawer from './src/screens/Drawer';
 import LevelDetail from './src/screens/LevelDetail';
 import AddOwnLevel from './src/screens/AddOwnLevel';
 import OwnLevels from './src/screens/OwnLevels';
-import SpotTimeline from './src/screens/SpotTimeline';
+import LevelTimeline from './src/screens/SpotTimeline';
 import SpotCompare from './src/screens/SpotCompare';
 import RecordFlow from './src/screens/RecordFlow';
 import { MemoryPage, MemoryBook } from './src/screens/Memory';
@@ -38,6 +39,51 @@ import OnboardingScreen from './src/screens/Onboarding';
 
 const Stack = createNativeStackNavigator();
 export const navigationRef = createNavigationContainerRef();
+
+function isZh() {
+  try { return getLocales()[0]?.languageCode === 'zh'; } catch { return true; }
+}
+
+class ErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean }
+> {
+  state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
+    console.error('ErrorBoundary caught:', error, info.componentStack);
+  }
+
+  render() {
+    if (!this.state.hasError) return this.props.children;
+    const zh = isZh();
+    return (
+      <View style={{ flex: 1, backgroundColor: '#FAF3E6', justifyContent: 'center', alignItems: 'center', padding: 32 }}>
+        <Text style={{ fontSize: 48, marginBottom: 16 }}>😵</Text>
+        <Text style={{ fontSize: 18, fontWeight: '600', color: '#3B2E1E', textAlign: 'center', marginBottom: 8 }}>
+          {zh ? '哎呀，出了点问题' : 'Oops, something went wrong'}
+        </Text>
+        <Text style={{ fontSize: 14, color: '#8B7355', textAlign: 'center', marginBottom: 24 }}>
+          {zh ? '应用遇到了一个意外错误，请重试' : 'The app encountered an unexpected error. Please retry.'}
+        </Text>
+        <Pressable
+          onPress={() => this.setState({ hasError: false })}
+          accessibilityRole="button"
+          accessibilityLabel={zh ? '重试' : 'Retry'}
+          style={{ backgroundColor: '#DE8C57', paddingHorizontal: 32, paddingVertical: 12, borderRadius: 24 }}
+        >
+          <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600' }}>
+            {zh ? '重试' : 'Retry'}
+          </Text>
+        </Pressable>
+      </View>
+    );
+  }
+}
 
 function HomeWithDrawer({ navigation }) {
   const { theme, setTheme } = useTheme();
@@ -204,7 +250,7 @@ function AppNavigator() {
           options={{ animation: 'slide_from_bottom' }}
         />
         <Stack.Screen name="OwnLevels" component={OwnLevels} />
-        <Stack.Screen name="SpotTimeline" component={SpotTimeline} />
+        <Stack.Screen name="LevelTimeline" component={LevelTimeline} />
         <Stack.Screen
           name="SpotCompare"
           component={SpotCompare}
@@ -301,13 +347,15 @@ export default function App() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaProvider>
-        <I18nProvider initialLang={lang}>
-          <ThemeProvider initialPreset="融合·暖" initialAccent="orange">
-            <AuthGate />
-          </ThemeProvider>
-        </I18nProvider>
-      </SafeAreaProvider>
+      <ErrorBoundary>
+        <SafeAreaProvider>
+          <I18nProvider initialLang={lang}>
+            <ThemeProvider initialPreset="融合·暖" initialAccent="orange">
+              <AuthGate />
+            </ThemeProvider>
+          </I18nProvider>
+        </SafeAreaProvider>
+      </ErrorBoundary>
     </GestureHandlerRootView>
   );
 }

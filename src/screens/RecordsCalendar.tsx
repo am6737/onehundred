@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Modal, Pressable } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme, TONE } from '../theme/tokens';
 import { useI18n } from '../i18n';
@@ -12,16 +12,18 @@ import { LayerHeader, Chip } from '../components/common';
 const REC_WK_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 const REC_CN_MONTH = ['一', '二', '三', '四', '五', '六', '七', '八', '九', '十', '十一', '十二'];
 const REC_EN_MONTH = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-const REC_YEAR = 2026;
 
 function parseMem(s) {
-  if (!s) return { mo: null, da: null };
+  if (!s) return { yr: null, mo: null, da: null };
   const mo = (s || '').match(/(\d+)\s*月/);
   const da = (s || '').match(/(\d+)\s*日/);
-  if (mo && da) return { mo: +mo[1], da: +da[1] };
+  if (mo && da) {
+    const yrM = (s || '').match(/(\d{4})\s*年/);
+    return { yr: yrM ? +yrM[1] : new Date().getFullYear(), mo: +mo[1], da: +da[1] };
+  }
   const d = new Date(s);
-  if (!isNaN(d.getTime())) return { mo: d.getMonth() + 1, da: d.getDate() };
-  return { mo: null, da: null };
+  if (!isNaN(d.getTime())) return { yr: d.getFullYear(), mo: d.getMonth() + 1, da: d.getDate() };
+  return { yr: null, mo: null, da: null };
 }
 
 function bookFilter(memories, filter) {
@@ -53,57 +55,88 @@ export default function RecordsCalendar({ navigation, route }) {
   const monthHeader = (m) => lang === 'zh' ? `${REC_CN_MONTH[m - 1]}月` : REC_EN_MONTH[m - 1];
   const kidId = route?.params?.kidId || 'all';
   const initialMonth = route?.params?.initialMonth;
+  const initialYear = route?.params?.initialYear;
 
   const [filter, setFilter] = useState(kidId === 'all' ? 'everything' : kidId);
 
-  const { byMonth, months } = useMemo(() => {
-    const bm = {};
+  const { byYear, years, allYM } = useMemo(() => {
+    const by: Record<number, Record<number, Record<number, any[]>>> = {};
     bookFilter(memories, filter).forEach(m => {
-      const { mo, da } = parseMem(m.date);
-      if (!mo || !da) return;
-      if (!bm[mo]) bm[mo] = {};
-      if (!bm[mo][da]) bm[mo][da] = [];
-      bm[mo][da].push(m);
+      const { yr, mo, da } = parseMem(m.date);
+      if (!yr || !mo || !da) return;
+      if (!by[yr]) by[yr] = {};
+      if (!by[yr][mo]) by[yr][mo] = {};
+      if (!by[yr][mo][da]) by[yr][mo][da] = [];
+      by[yr][mo][da].push(m);
     });
-    const ms = Object.keys(bm).map(Number).sort((a, b) => a - b);
-    return { byMonth: bm, months: ms };
+    const ys = Object.keys(by).map(Number).sort((a, b) => a - b);
+    const pairs: { y: number; m: number }[] = [];
+    for (const y of ys) {
+      const ms = Object.keys(by[y]).map(Number).sort((a, b) => a - b);
+      for (const m of ms) pairs.push({ y, m });
+    }
+    return { byYear: by, years: ys, allYM: pairs };
   }, [filter, memories]);
 
-  const latest = months[months.length - 1] || 5;
-  const [month, setMonth] = useState(initialMonth || latest);
+  const latestYM = allYM[allYM.length - 1] || { y: new Date().getFullYear(), m: new Date().getMonth() + 1 };
+  const [year, setYear] = useState(initialYear || latestYM.y);
+  const [month, setMonth] = useState(initialMonth || latestYM.m);
 
-  const pickDefaultDay = (mo) => {
-    const days = Object.keys(byMonth[mo] || {}).map(Number);
+  const pickDefaultDay = (yr: number, mo: number) => {
+    const days = Object.keys(byYear[yr]?.[mo] || {}).map(Number);
     return days.length ? Math.max(...days) : null;
   };
-  const [day, setDay] = useState(() => pickDefaultDay(initialMonth || latest));
+  const [day, setDay] = useState(() => pickDefaultDay(initialYear || latestYM.y, initialMonth || latestYM.m));
 
   useEffect(() => {
-    const m = months[months.length - 1] || 5;
-    setMonth(m);
-    const days = Object.keys(byMonth[m] || {}).map(Number);
+    const lym = allYM[allYM.length - 1];
+    if (!lym) return;
+    setYear(lym.y);
+    setMonth(lym.m);
+    const days = Object.keys(byYear[lym.y]?.[lym.m] || {}).map(Number);
     setDay(days.length ? Math.max(...days) : null);
   }, [filter]);
 
-  const minMonth = months[0] || month;
-  const maxMonth = months[months.length - 1] || month;
+  const [showPicker, setShowPicker] = useState(false);
+  const [pickerYear, setPickerYear] = useState(year);
 
-  const changeMonth = (dir) => {
-    const next = month + dir;
-    if (next < minMonth || next > maxMonth) return;
-    setMonth(next);
-    setDay(pickDefaultDay(next));
+  const curIdx = allYM.findIndex(p => p.y === year && p.m === month);
+  const canPrev = curIdx > 0;
+  const canNext = curIdx < allYM.length - 1;
+
+  const changeMonth = (dir: number) => {
+    const next = curIdx + dir;
+    if (next < 0 || next >= allYM.length) return;
+    const { y, m } = allYM[next];
+    setYear(y);
+    setMonth(m);
+    setDay(pickDefaultDay(y, m));
   };
 
-  const first = new Date(REC_YEAR, month - 1, 1);
+  const jumpTo = (y: number, m: number) => {
+    setYear(y);
+    setMonth(m);
+    setDay(pickDefaultDay(y, m));
+    setShowPicker(false);
+  };
+
+  const first = new Date(year, month - 1, 1);
   const lead = (first.getDay() + 6) % 7;
-  const daysIn = new Date(REC_YEAR, month, 0).getDate();
+  const daysIn = new Date(year, month, 0).getDate();
   const cells = [...Array(lead).fill(null), ...Array.from({ length: daysIn }, (_, i) => i + 1)];
 
-  const monthMap = byMonth[month] || {};
+  const monthMap = byYear[year]?.[month] || {};
+  const activeDay = (day != null && monthMap[day]) ? day : (() => {
+    const ds = Object.keys(monthMap).map(Number);
+    return ds.length ? Math.max(...ds) : null;
+  })();
+
+  useEffect(() => {
+    if (activeDay !== day) setDay(activeDay);
+  }, [activeDay]);
   const monthDays = Object.keys(monthMap).length;
   const monthCount = (Object.values(monthMap) as any[]).reduce((a: number, list: any) => a + list.length, 0);
-  const selected = (day && monthMap[day]) || [];
+  const selected = activeDay != null ? (monthMap[activeDay] || []) : [];
 
   const filterOptions = [
     { id: 'everything', label: t('records.filterAll') },
@@ -140,32 +173,43 @@ export default function RecordsCalendar({ navigation, route }) {
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
             <TouchableOpacity
               onPress={() => changeMonth(-1)}
-              disabled={month <= minMonth}
+              disabled={!canPrev}
+              accessibilityRole="button"
+              accessibilityLabel={t('common.a11y.prevMonth')}
               style={{
                 width: 36, height: 36, borderRadius: 18,
                 backgroundColor: theme.cream,
                 justifyContent: 'center', alignItems: 'center',
-                opacity: month <= minMonth ? 0.3 : 1,
+                opacity: canPrev ? 1 : 0.3,
               }}
             >
               {Icon.chevL(theme.ink, 18)}
             </TouchableOpacity>
-            <View style={{ alignItems: 'center' }}>
-              <Text style={{ fontFamily: theme.fonts.head, fontSize: 20, color: theme.ink }}>
-                {monthHeader(month)}
-              </Text>
+            <TouchableOpacity
+              onPress={() => { setPickerYear(year); setShowPicker(true); }}
+              activeOpacity={0.7}
+              style={{ alignItems: 'center', flexDirection: 'column' }}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <Text style={{ fontFamily: theme.fonts.head, fontSize: 20, color: theme.ink }}>
+                  {monthHeader(month)}
+                </Text>
+                {Icon.chevDown(theme.inkSoft, 14)}
+              </View>
               <Text style={{ fontFamily: theme.fonts.body, fontSize: 12, color: theme.inkSoft, marginTop: 1 }}>
-                {t('records.yearLabel', { y: REC_YEAR })}
+                {t('records.yearLabel', { y: year })}
               </Text>
-            </View>
+            </TouchableOpacity>
             <TouchableOpacity
               onPress={() => changeMonth(1)}
-              disabled={month >= maxMonth}
+              disabled={!canNext}
+              accessibilityRole="button"
+              accessibilityLabel={t('common.a11y.nextMonth')}
               style={{
                 width: 36, height: 36, borderRadius: 18,
                 backgroundColor: theme.cream,
                 justifyContent: 'center', alignItems: 'center',
-                opacity: month >= maxMonth ? 0.3 : 1,
+                opacity: canNext ? 1 : 0.3,
               }}
             >
               {Icon.chevR(theme.ink, 18)}
@@ -187,7 +231,7 @@ export default function RecordsCalendar({ navigation, route }) {
               if (d == null) return <View key={'p' + i} style={{ width: '14.28%', aspectRatio: 1 }} />;
               const list = monthMap[d];
               const has = !!list;
-              const sel = has && d === day;
+              const sel = has && d === activeDay;
               const tone = has ? TONE[list[0].tone] : null;
               return (
                 <TouchableOpacity
@@ -243,8 +287,8 @@ export default function RecordsCalendar({ navigation, route }) {
         {/* Selected day memories */}
         <View style={{ marginTop: 22 }}>
           {selected.length > 0 ? (
-            [day].map(d => {
-              const dayMemories = monthMap[d] || [];
+            [activeDay].map(d => {
+              const dayMemories = d != null ? (monthMap[d] || []) : [];
               return (
                 <View key={d}>
                   <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8, marginBottom: 12, marginHorizontal: 2 }}>
@@ -333,6 +377,75 @@ export default function RecordsCalendar({ navigation, route }) {
           )}
         </View>
       </ScrollView>
+
+      {/* Year + month picker */}
+      <Modal visible={showPicker} transparent animationType="fade" onRequestClose={() => setShowPicker(false)}>
+        <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'center', alignItems: 'center' }} onPress={() => setShowPicker(false)}>
+          <Pressable style={{
+            width: 300, borderRadius: 22, backgroundColor: theme.paper,
+            padding: 20, paddingBottom: 16,
+          }}>
+            {/* Year switcher */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 16, marginBottom: 18 }}>
+              <TouchableOpacity
+                onPress={() => { const i = years.indexOf(pickerYear); if (i > 0) setPickerYear(years[i - 1]); }}
+                disabled={years.indexOf(pickerYear) <= 0}
+                accessibilityRole="button"
+                accessibilityLabel={t('common.a11y.prevYear')}
+                style={{ opacity: years.indexOf(pickerYear) <= 0 ? 0.25 : 1, padding: 4 }}
+              >
+                {Icon.chevL(theme.ink, 18)}
+              </TouchableOpacity>
+              <Text style={{ fontFamily: theme.fonts.head, fontSize: 20, color: theme.ink, minWidth: 60, textAlign: 'center' as const }}>
+                {t('records.yearLabel', { y: pickerYear })}
+              </Text>
+              <TouchableOpacity
+                onPress={() => { const i = years.indexOf(pickerYear); if (i < years.length - 1) setPickerYear(years[i + 1]); }}
+                disabled={years.indexOf(pickerYear) >= years.length - 1}
+                accessibilityRole="button"
+                accessibilityLabel={t('common.a11y.nextYear')}
+                style={{ opacity: years.indexOf(pickerYear) >= years.length - 1 ? 0.25 : 1, padding: 4 }}
+              >
+                {Icon.chevR(theme.ink, 18)}
+              </TouchableOpacity>
+            </View>
+            {/* Month grid */}
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+              {Array.from({ length: 12 }, (_, i) => i + 1).map(m => {
+                const hasData = !!byYear[pickerYear]?.[m];
+                const isCur = pickerYear === year && m === month;
+                return (
+                  <TouchableOpacity
+                    key={m}
+                    onPress={() => hasData && jumpTo(pickerYear, m)}
+                    activeOpacity={hasData ? 0.7 : 1}
+                    style={{ width: '33.33%', paddingVertical: 8, alignItems: 'center' }}
+                  >
+                    <View style={{
+                      width: 72, paddingVertical: 10, borderRadius: 14, alignItems: 'center',
+                      backgroundColor: isCur ? theme.accent : hasData ? theme.cream : 'transparent',
+                    }}>
+                      <Text style={{
+                        fontFamily: theme.fonts.head, fontSize: 15,
+                        color: isCur ? theme.paper : hasData ? theme.ink : theme.inkSoft,
+                        opacity: hasData ? 1 : 0.4,
+                      }}>
+                        {lang === 'zh' ? `${REC_CN_MONTH[m - 1]}月` : REC_EN_MONTH[m - 1].slice(0, 3)}
+                      </Text>
+                      {hasData && !isCur && (
+                        <View style={{
+                          marginTop: 4, width: 4, height: 4, borderRadius: 2,
+                          backgroundColor: theme.accent,
+                        }} />
+                      )}
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }

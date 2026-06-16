@@ -100,7 +100,7 @@ function DrawerRow({ icon, title, sub, value, onPress, isStatic = false }) {
 
   if (tappable) {
     return (
-      <TouchableOpacity activeOpacity={0.65} onPress={onPress}>
+      <TouchableOpacity activeOpacity={0.65} onPress={onPress} accessibilityRole="button" accessibilityLabel={title}>
         {content}
       </TouchableOpacity>
     );
@@ -514,6 +514,8 @@ export default function Drawer({ visible, onClose, onNavigate, kidId = 'all', me
           style={StyleSheet.absoluteFill}
           activeOpacity={1}
           onPress={onClose}
+          accessibilityLabel={t('common.a11y.close')}
+          accessibilityRole="button"
         />
       </Animated.View>
 
@@ -734,6 +736,8 @@ export default function Drawer({ visible, onClose, onNavigate, kidId = 'all', me
           <TouchableOpacity
             activeOpacity={0.65}
             onPress={() => go('settings')}
+            accessibilityRole="button"
+            accessibilityLabel={t('drawer.settings')}
             style={drawerStyles.settingsRow}
           >
             <View

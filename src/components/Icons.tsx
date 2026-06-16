@@ -160,6 +160,21 @@ export const Icon = {
     </Svg>
   ),
 
+  redo: (c = '#3A332B', s = 22) => (
+    <Svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M21 2v6h-6" />
+      <Path d="M21 8A9 9 0 1 0 6.67 19.33" />
+    </Svg>
+  ),
+
+  moreH: (c = '#3A332B', s = 22) => (
+    <Svg width={s} height={s} viewBox="0 0 24 24" fill={c}>
+      <Circle cx={5} cy={12} r={2} />
+      <Circle cx={12} cy={12} r={2} />
+      <Circle cx={19} cy={12} r={2} />
+    </Svg>
+  ),
+
   menu: (c = '#3A332B', s = 22) => (
     <Svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
       <Line x1={3} y1={6} x2={21} y2={6} />
@@ -237,7 +252,7 @@ const AVATAR_TONES = {
 
 /* ── PhotoSlot ────────────────────────────────────────────────── */
 
-export function PhotoSlot({ tone = 'orange', label = undefined, radius = 22, style, children = null, striped = true }) {
+export function PhotoSlot({ tone = 'orange', label = undefined, radius = 22, style, children = null, striped = true }: any) {
   const t = useT();
   const colors = PHOTO_TONES[tone] || PHOTO_TONES.orange;
   const stripeCount = 12;

@@ -456,12 +456,31 @@ services:
       SUPABASE_DB_URL: postgresql://postgres:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
       # TODO: Allow configuring VERIFY_JWT per function.
       VERIFY_JWT: "${FUNCTIONS_VERIFY_JWT}"
+      ASR_PROVIDER: "${ASR_PROVIDER:-openai}"
+      ASR_API_KEY: "${ASR_API_KEY:-}"
+      ASR_MODEL: "${ASR_MODEL:-}"
+      ASR_BASE_URL: "${ASR_BASE_URL:-}"
     command:
       [
         "start",
         "--main-service",
         "/home/deno/functions/main"
       ]
+
+  whisper:
+    container_name: whisper-asr
+    image: fedirz/faster-whisper-server:latest-cpu
+    restart: unless-stopped
+    volumes:
+      - whisper-cache:/root/.cache
+    healthcheck:
+      test: ["CMD-SHELL", "timeout 1 bash -c '</dev/tcp/127.0.0.1/8000'"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    environment:
+      WHISPER__MODEL: Systran/faster-whisper-base
+      WHISPER__COMPUTE_TYPE: int8
 
   # Comment out everything below this point if you are using an external Postgres database
   db:
@@ -575,3 +594,4 @@ services:
 volumes:
   db-config:
   deno-cache:
+  whisper-cache:

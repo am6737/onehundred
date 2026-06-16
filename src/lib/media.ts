@@ -56,16 +56,16 @@ export async function fetchMemoryMedia(memoryId: string): Promise<MemoryMediaIte
     .filter(item => !!item.url);
   const liveByBase = new Map<string, string>();
   for (const it of all) {
-    if (isLivePhotoVideo(it.name)) liveByBase.set(baseKey(it.name), it.url);
+    if (isLivePhotoVideo(it.name)) liveByBase.set(baseKey(it.name), it.url!);
   }
-  const items = all
+  const items: MemoryMediaItem[] = all
     .filter(it => !isLivePhotoVideo(it.name)) // 配对视频不单独列出
     .map(it =>
       it.kind === 'image' && liveByBase.has(baseKey(it.name))
         ? { ...it, livePhotoUrl: liveByBase.get(baseKey(it.name)) }
         : it
-    )
-    .sort((a, b) => a.name.localeCompare(b.name));
+    ) as any;
+  items.sort((a, b) => a.name.localeCompare(b.name));
   if (items.length > 0) mediaCache.set(memoryId, items);
   return items;
 }

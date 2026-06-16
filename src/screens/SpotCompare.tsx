@@ -8,7 +8,7 @@ import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-na
 import { useTheme, TONE } from '../theme/tokens';
 import { useT } from '../i18n';
 import { useData } from '../data/DataProvider';
-import { yearFromDate, kidAgeAtYear } from '../data';
+import { yearFromDate, monthFromDate, dayFromDate, kidAgeAtYear, MONTH_EN } from '../data';
 import { useMemoryMedia } from '../lib/media';
 import { LayerHeader } from '../components/common';
 
@@ -25,13 +25,46 @@ export default function SpotCompare({ route, navigation }) {
   const { memories: [mem1, mem2], level } = route.params || {};
   const tn = TONE[level?.tone] || TONE.orange;
 
-  // Sort so older year is first (before), newer is second (after)
-  const y1 = yearFromDate(mem1?.date);
-  const y2 = yearFromDate(mem2?.date);
-  const [before, after] = (y1 && y2 && y1 > y2) ? [mem2, mem1] : [mem1, mem2];
-  const yearBefore = yearFromDate(before?.date) || 0;
-  const yearAfter = yearFromDate(after?.date) || 0;
-  const diff = Math.abs(yearAfter - yearBefore);
+  // Sort so older date is first
+  const d1 = mem1?.date || '';
+  const d2 = mem2?.date || '';
+  const [before, after] = d1 > d2 ? [mem2, mem1] : [mem1, mem2];
+  const dateBefore = before?.date || '';
+  const dateAfter = after?.date || '';
+  const yearBefore = yearFromDate(dateBefore) || 0;
+  const yearAfter = yearFromDate(dateAfter) || 0;
+
+  const monthBefore = monthFromDate(dateBefore);
+  const monthAfter = monthFromDate(dateAfter);
+  const dayBefore_ = dayFromDate(dateBefore);
+  const dayAfter_ = dayFromDate(dateAfter);
+  const sameYear = yearBefore === yearAfter;
+  const sameMonth = sameYear && monthBefore === monthAfter;
+
+  const makeLabel = (year, month, day) => {
+    if (sameMonth && month && day)
+      return t('spotCompare.labelMonthDay', { m: month, d: day, monthName: MONTH_EN[month] });
+    if (sameYear && month)
+      return t('spotCompare.labelMonth', { m: month, monthName: MONTH_EN[month] });
+    return String(year || '');
+  };
+  const labelBefore = makeLabel(yearBefore, monthBefore, dayBefore_);
+  const labelAfter = makeLabel(yearAfter, monthAfter, dayAfter_);
+
+  const gapLabel = (() => {
+    const a = new Date(dateBefore);
+    const b = new Date(dateAfter);
+    if (isNaN(a.getTime()) || isNaN(b.getTime())) return '';
+    const diffDays = Math.round((b.getTime() - a.getTime()) / 86400000);
+    if (diffDays < 1) return '';
+    if (diffDays < 30) return t('spotCompare.apartDays', { count: diffDays });
+    const diffMonths = (b.getFullYear() - a.getFullYear()) * 12 + b.getMonth() - a.getMonth();
+    if (diffMonths < 12) return t('spotCompare.apartMonths', { count: diffMonths });
+    const diffYears = Math.floor(diffMonths / 12);
+    const remainMonths = diffMonths % 12;
+    if (remainMonths === 0) return t('spotCompare.apartYears', { count: diffYears });
+    return t('spotCompare.apartYearsMonths', { years: diffYears, months: remainMonths });
+  })();
 
   const media1 = useMemoryMedia(before?.id);
   const media2 = useMemoryMedia(after?.id);
@@ -63,7 +96,7 @@ export default function SpotCompare({ route, navigation }) {
   const ageTags = kids.map(kid => {
     const ageBefore = kidAgeAtYear(kid, yearBefore);
     const ageAfter = kidAgeAtYear(kid, yearAfter);
-    if (ageBefore === null || ageAfter === null) return null;
+    if (ageBefore === null || ageAfter === null || ageBefore === ageAfter) return null;
     return t('spotCompare.ageChange', { name: kid.name, from: ageBefore, to: ageAfter });
   }).filter(Boolean);
 
@@ -72,13 +105,15 @@ export default function SpotCompare({ route, navigation }) {
       <LayerHeader title={t('spotCompare.title')} onBack={() => navigation.goBack()} />
 
       <View style={styles.content}>
-        {/* Year range */}
+        {/* Date range */}
         <Text style={{ fontFamily: theme.fonts.body, fontSize: 14, color: theme.inkSoft, textAlign: 'center' }}>
-          {yearBefore} ↔ {yearAfter}
+          {dateBefore} ↔ {dateAfter}
         </Text>
-        <Text style={{ fontFamily: theme.fonts.head, fontSize: 26, color: theme.ink, textAlign: 'center', marginTop: 4 }}>
-          {t('spotCompare.apart', { diff })}
-        </Text>
+        {gapLabel ? (
+          <Text style={{ fontFamily: theme.fonts.head, fontSize: 26, color: theme.ink, textAlign: 'center', marginTop: 4 }}>
+            {gapLabel}
+          </Text>
+        ) : null}
 
         {/* Age tags */}
         {ageTags.length > 0 && (
@@ -122,7 +157,7 @@ export default function SpotCompare({ route, navigation }) {
                 )}
                 {/* Year label on right (after) */}
                 <View style={{ position: 'absolute', bottom: 10, right: 12 }}>
-                  <Text style={[styles.sliderYear, { fontFamily: theme.fonts.head }]}>{yearAfter}</Text>
+                  <Text style={[styles.sliderYear, { fontFamily: theme.fonts.head }]}>{labelAfter}</Text>
                 </View>
 
                 {/* Before image (clipped) */}
@@ -133,7 +168,7 @@ export default function SpotCompare({ route, navigation }) {
                   )}
                   {/* Year label on left (before) */}
                   <View style={{ position: 'absolute', bottom: 10, left: 12 }}>
-                    <Text style={[styles.sliderYear, { fontFamily: theme.fonts.head }]}>{yearBefore}</Text>
+                    <Text style={[styles.sliderYear, { fontFamily: theme.fonts.head }]}>{labelBefore}</Text>
                   </View>
                 </Animated.View>
 
@@ -152,13 +187,13 @@ export default function SpotCompare({ route, navigation }) {
               <View style={[styles.sideImage, { flex: 1 }]}>
                 {img1 && <Image source={{ uri: img1 }} style={styles.sideFill} resizeMode="cover" />}
                 <View style={styles.sideLabel}>
-                  <Text style={[styles.sliderYear, { fontFamily: theme.fonts.head, fontSize: 20 }]}>{yearBefore}</Text>
+                  <Text style={[styles.sliderYear, { fontFamily: theme.fonts.head, fontSize: 20 }]}>{labelBefore}</Text>
                 </View>
               </View>
               <View style={[styles.sideImage, { flex: 1 }]}>
                 {img2 && <Image source={{ uri: img2 }} style={styles.sideFill} resizeMode="cover" />}
                 <View style={styles.sideLabel}>
-                  <Text style={[styles.sliderYear, { fontFamily: theme.fonts.head, fontSize: 20 }]}>{yearAfter}</Text>
+                  <Text style={[styles.sliderYear, { fontFamily: theme.fonts.head, fontSize: 20 }]}>{labelAfter}</Text>
                 </View>
               </View>
             </View>
@@ -168,7 +203,7 @@ export default function SpotCompare({ route, navigation }) {
         {/* Drag hint */}
         {mode === 'slider' && (
           <Text style={{ fontFamily: theme.fonts.body, fontSize: 12.5, color: theme.inkSoft, textAlign: 'center', marginTop: 12 }}>
-            {t('spotCompare.dragHint', { year1: yearBefore, year2: yearAfter })}
+            {t('spotCompare.dragHint', { label1: labelBefore, label2: labelAfter })}
           </Text>
         )}
 
@@ -176,7 +211,7 @@ export default function SpotCompare({ route, navigation }) {
         <View style={{ marginTop: 20, gap: 12 }}>
           {!!before?.caption && (
             <View style={[styles.captionRow, { backgroundColor: theme.paper, borderColor: theme.line }]}>
-              <Text style={{ fontFamily: theme.fonts.head, fontSize: 18, color: theme.accent }}>{yearBefore}</Text>
+              <Text style={{ fontFamily: theme.fonts.head, fontSize: 18, color: theme.accent }}>{labelBefore}</Text>
               <Text style={{ fontFamily: theme.fonts.body, fontSize: 13.5, color: theme.ink, flex: 1, lineHeight: 21 }}>
                 {before.caption}
               </Text>
@@ -184,7 +219,7 @@ export default function SpotCompare({ route, navigation }) {
           )}
           {!!after?.caption && (
             <View style={[styles.captionRow, { backgroundColor: theme.paper, borderColor: theme.line }]}>
-              <Text style={{ fontFamily: theme.fonts.head, fontSize: 18, color: theme.accent }}>{yearAfter}</Text>
+              <Text style={{ fontFamily: theme.fonts.head, fontSize: 18, color: theme.accent }}>{labelAfter}</Text>
               <Text style={{ fontFamily: theme.fonts.body, fontSize: 13.5, color: theme.ink, flex: 1, lineHeight: 21 }}>
                 {after.caption}
               </Text>
