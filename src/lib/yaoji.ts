@@ -80,6 +80,34 @@ export async function deactivateInviteToken(tokenId: string): Promise<void> {
   if (data.error) throw new Error(data.error);
 }
 
+export async function fetchInviteRecordCounts(tokenIds: string[]): Promise<Record<string, number>> {
+  if (!tokenIds.length) return {};
+  const { data, error } = await supabase
+    .from('memories')
+    .select('invite_token_id')
+    .in('invite_token_id', tokenIds);
+
+  if (error) throw error;
+  const counts: Record<string, number> = {};
+  for (const row of data || []) {
+    const tid = row.invite_token_id;
+    if (tid) counts[tid] = (counts[tid] || 0) + 1;
+  }
+  return counts;
+}
+
+export async function hasActiveInvites(levelNum: string): Promise<boolean> {
+  const { count, error } = await supabase
+    .from('invite_tokens')
+    .select('id', { count: 'exact', head: true })
+    .eq('level_num', levelNum)
+    .eq('is_active', true)
+    .gt('expires_at', new Date().toISOString());
+
+  if (error) return false;
+  return (count || 0) > 0;
+}
+
 export function inviteUrl(token: string): string {
   return `${SUPABASE_URL}/functions/v1/yaoji/page/${token}`;
 }

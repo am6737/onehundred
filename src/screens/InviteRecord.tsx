@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity,
   Alert, Share, ActivityIndicator,
@@ -9,33 +9,52 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/tokens';
 import { useT } from '../i18n';
 import { meName } from '../data';
+import { useData } from '../data/DataProvider';
 import { LayerHeader, PrimaryButton, SecondaryButton } from '../components/common';
 import { Icon } from '../components/Icons';
 import {
   createInviteToken, fetchInviteTokens, deactivateInviteToken,
-  inviteUrl, type InviteToken,
+  fetchInviteRecordCounts, inviteUrl, type InviteToken,
 } from '../lib/yaoji';
 
 export default function InviteRecord({ route, navigation }: any) {
   const { theme } = useTheme();
   const t = useT();
   const insets = useSafeAreaInsets();
+  const { refresh } = useData();
   const { level, kidId, me } = route.params;
 
   const [tokens, setTokens] = useState<InviteToken[]>([]);
+  const [counts, setCounts] = useState<Record<string, number>>({});
   const [creating, setCreating] = useState(false);
   const [generated, setGenerated] = useState<{ token: string; url: string } | null>(null);
   const [loading, setLoading] = useState(true);
+  const refreshedRef = useRef(false);
 
   const loadTokens = useCallback(async () => {
     try {
       const list = await fetchInviteTokens(level.num);
-      setTokens(list.filter(t => new Date(t.expiresAt) > new Date()));
+      const active = list.filter(t => new Date(t.expiresAt) > new Date());
+      setTokens(active);
+      if (active.length) {
+        const c = await fetchInviteRecordCounts(active.map(t => t.id));
+        setCounts(c);
+      }
     } catch {}
     setLoading(false);
   }, [level.num]);
 
   useEffect(() => { loadTokens(); }, [loadTokens]);
+
+  useEffect(() => {
+    const unsub = navigation.addListener('beforeRemove', () => {
+      if (!refreshedRef.current) {
+        refreshedRef.current = true;
+        refresh();
+      }
+    });
+    return unsub;
+  }, [navigation, refresh]);
 
   const handleCreate = async () => {
     setCreating(true);
@@ -162,29 +181,38 @@ export default function InviteRecord({ route, navigation }: any) {
 
         {!loading && tokens.length > 0 && (
           <View style={styles.tokenList}>
-            <Text style={[styles.tokenListTitle, { color: theme.inkSoft, fontFamily: theme.fonts.head }]}>
-              {t('yaoji.existingTokens')}
-            </Text>
-            {tokens.map(tk => (
-              <View key={tk.id} style={[styles.tokenItem, { backgroundColor: theme.paper, borderColor: theme.line }]}>
-                <View style={styles.tokenInfo}>
-                  <Text style={[styles.tokenId, { color: theme.ink, fontFamily: theme.fonts.body }]} numberOfLines={1}>
-                    {inviteUrl(tk.id)}
-                  </Text>
-                  <Text style={[styles.tokenMeta, { color: theme.inkSoft, fontFamily: theme.fonts.body }]}>
-                    {t('yaoji.expiresAt', { date: new Date(tk.expiresAt).toLocaleDateString() })}
-                  </Text>
+            <View style={styles.tokenListHeader}>
+              <Text style={[styles.tokenListTitle, { color: theme.inkSoft, fontFamily: theme.fonts.head }]}>
+                {t('yaoji.existingTokens')}
+              </Text>
+              <TouchableOpacity onPress={loadTokens} style={styles.refreshBtn}>
+                {Icon.redo(theme.accent, 16)}
+              </TouchableOpacity>
+            </View>
+            {tokens.map(tk => {
+              const count = counts[tk.id] || 0;
+              return (
+                <View key={tk.id} style={[styles.tokenItem, { backgroundColor: theme.paper, borderColor: theme.line }]}>
+                  <View style={styles.tokenInfo}>
+                    <Text style={[styles.tokenId, { color: theme.ink, fontFamily: theme.fonts.body }]} numberOfLines={1}>
+                      {inviteUrl(tk.id)}
+                    </Text>
+                    <Text style={[styles.tokenMeta, { color: theme.inkSoft, fontFamily: theme.fonts.body }]}>
+                      {t('yaoji.expiresAt', { date: new Date(tk.expiresAt).toLocaleDateString() })}
+                      {count > 0 ? `  ·  ${t('yaoji.receivedCount', { count })}` : ''}
+                    </Text>
+                  </View>
+                  <View style={styles.tokenActions}>
+                    <TouchableOpacity onPress={() => handleCopy(inviteUrl(tk.id))} style={styles.tokenBtn}>
+                      {Icon.share(theme.inkSoft, 18)}
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => handleDeactivate(tk.id)} style={styles.tokenBtn}>
+                      {Icon.trash(theme.inkSoft, 18)}
+                    </TouchableOpacity>
+                  </View>
                 </View>
-                <View style={styles.tokenActions}>
-                  <TouchableOpacity onPress={() => handleCopy(inviteUrl(tk.id))} style={styles.tokenBtn}>
-                    {Icon.share(theme.inkSoft, 18)}
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={() => handleDeactivate(tk.id)} style={styles.tokenBtn}>
-                    {Icon.trash(theme.inkSoft, 18)}
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ))}
+              );
+            })}
           </View>
         )}
       </ScrollView>
@@ -216,7 +244,9 @@ const styles = StyleSheet.create({
   actionLabel: { fontSize: 15 },
 
   tokenList: { marginTop: 32 },
-  tokenListTitle: { fontSize: 14, marginBottom: 12 },
+  tokenListHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+  tokenListTitle: { fontSize: 14 },
+  refreshBtn: { padding: 6 },
   tokenItem: {
     flexDirection: 'row', alignItems: 'center',
     padding: 14, borderRadius: 16, borderWidth: 1,
