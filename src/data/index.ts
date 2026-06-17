@@ -131,6 +131,7 @@ function mapMemory(row) {
     shots: row.shots, date: row.date, place: row.place, title: row.title,
     caption: row.caption, transcript: row.transcript, tone: row.tone,
     sealed: row.sealed, sealUntil: row.seal_until, sealLabel: row.seal_label,
+    inviteTokenId: row.invite_token_id, invitedRole: row.invited_role,
   };
 }
 

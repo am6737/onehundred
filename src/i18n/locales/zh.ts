@@ -782,6 +782,26 @@ export const zh = {
     later: '以后再说',
     doneRecord: '做完了，记录一下',
   },
+
+  yaoji: {
+    title: '邀请记录',
+    desc: '生成一个链接，让没有 App 的家人也能帮忙记录这件事。',
+    inviteFamily: '邀请家人记录',
+    generate: '生成邀请链接',
+    generating: '生成中...',
+    copyLink: '复制链接',
+    share: '分享',
+    copied: '链接已复制',
+    shareMessage: '邀请你一起记录「{{title}}」',
+    existingTokens: '已生成的邀请',
+    expiresAt: '{{date}} 过期',
+    deactivate: '停用',
+    deactivateTitle: '停用邀请',
+    deactivateConfirm: '停用后链接将无法使用，已有的记录不会被删除。',
+    viaBadge: '由 {{role}} 通过邀记录入',
+    errorTitle: '生成失败',
+    errorGeneric: '请稍后重试',
+  },
 };
 
 export type Dict = typeof zh;

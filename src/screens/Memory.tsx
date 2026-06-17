@@ -885,6 +885,16 @@ export function MemoryPage({ route, navigation }) {
             }}>{m.place}</Text>
           </View>
 
+          {/* 邀记标记 */}
+          {!!m.invitedRole && (
+            <Text style={{
+              marginTop: 10, fontFamily: theme.fonts.body, fontSize: 13,
+              color: theme.inkSoft,
+            }}>
+              {t('yaoji.viaBadge', { role: m.invitedRole })}
+            </Text>
+          )}
+
           {/* ── Transcript accordion ── */}
           {hasTranscript && (
             <View style={{

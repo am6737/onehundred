@@ -120,6 +120,18 @@ export default function LevelDetail({ route, navigation }) {
             </View>
           </TouchableOpacity>
         )}
+
+        {/* 邀记入口 */}
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={() => navigation.navigate('InviteRecord', { level: L, kidId, me })}
+          style={styles.inviteLink}
+        >
+          {Icon.share(theme.inkSoft, 16)}
+          <Text style={[styles.inviteLinkText, { color: theme.inkSoft, fontFamily: theme.fonts.body }]}>
+            {t('yaoji.inviteFamily')}
+          </Text>
+        </TouchableOpacity>
       </ScrollView>
 
       {/* Sticky bottom bar，上沿用真实渐变把滚动内容柔和淡出 */}
@@ -275,4 +287,15 @@ const styles = StyleSheet.create({
   },
   laterBtn: { paddingHorizontal: 18, paddingVertical: 15 },
   recordBtn: { flex: 1, paddingVertical: 15 },
+
+  /* 邀记入口 */
+  inviteLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 20,
+    paddingVertical: 10,
+  },
+  inviteLinkText: { fontSize: 14 },
 });

@@ -36,6 +36,7 @@ import EmailLogin from './src/screens/EmailLogin';
 import SettingsScreen from './src/screens/Settings';
 import Agreement from './src/screens/Agreement';
 import OnboardingScreen from './src/screens/Onboarding';
+import InviteRecord from './src/screens/InviteRecord';
 
 const Stack = createNativeStackNavigator();
 export const navigationRef = createNavigationContainerRef();
@@ -270,6 +271,11 @@ function AppNavigator() {
           name="YearReview"
           component={YearReview}
           options={{ animation: 'fade' }}
+        />
+        <Stack.Screen
+          name="InviteRecord"
+          component={InviteRecord}
+          options={{ animation: 'slide_from_bottom' }}
         />
         <Stack.Screen name="Invite" component={InviteFlow} />
         <Stack.Screen name="JoinFamily" component={JoinFamily} />
