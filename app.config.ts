@@ -9,7 +9,7 @@ const config: ExpoConfig = {
   orientation: "portrait",
   icon: "./assets/icon.png",
   userInterfaceStyle: "automatic",
-  scheme: IS_DEV ? "100moments-dev" : "100moments",
+  scheme: IS_DEV ? "moments100-dev" : "moments100",
   ios: {
     supportsTablet: true,
     bundleIdentifier: IS_DEV ? "com.hitosea.moments100.dev" : "com.hitosea.moments100",
