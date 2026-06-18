@@ -298,6 +298,7 @@ export const en = {
   login: {
     brand: '100 Things',
     tagline: 'Every little thing\nof growing up together',
+    phoneLogin: 'Log in with phone',
     phonePlaceholder: 'Enter your phone number',
     passwordPlaceholder: 'Enter password',
     carrierService: 'Authentication by China Mobile',

@@ -160,7 +160,7 @@ function Seg({ options, value, onChange }: any) {
               paddingVertical: 7, paddingHorizontal: 14, borderRadius: 999,
               backgroundColor: on ? theme.paper : 'transparent',
               ...(on ? {
-                shadowColor: theme.ink, shadowOffset: { width: 0, height: 1 },
+                shadowColor: theme.shadow, shadowOffset: { width: 0, height: 1 },
                 shadowOpacity: 0.1, shadowRadius: 4, elevation: 2,
               } : {}),
             }}
@@ -816,113 +816,6 @@ function InviteSheet({ kids, me, onClose, onJoinFamily }: any) {
   );
 }
 
-/* ══════════════════════════════════════════════════════════
-   ReminderTimeSheet
-   ══════════════════════════════════════════════════════════ */
-
-function ReminderTimeSheet({ value, onChange, onClose }: any) {
-  const { theme } = useTheme();
-  const t = useT();
-  const insets = useSafeAreaInsets();
-  // 用稳定的 key 存值（如 'sun evening'），展示时再翻译，切语言不丢选中态
-  const DAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
-  const TIME_KEYS = ['morning', 'noon', 'afternoon', 'evening'];
-  const [d0, t0] = (value || 'sun evening').split(' ');
-  const [day, setDay] = useState(DAY_KEYS.includes(d0) ? d0 : 'sun');
-  const [time, setTime] = useState(TIME_KEYS.includes(t0) ? t0 : 'evening');
-  const save = () => { onChange(`${day} ${time}`); onClose(); };
-
-  return (
-    <Modal visible animationType="slide" onRequestClose={onClose}>
-      <View style={{ flex: 1, backgroundColor: theme.cream }}>
-        <LayerHeader
-          title={t('settings.remindTime')}
-          onBack={onClose}
-          right={
-            <TouchableOpacity onPress={save} activeOpacity={0.7} style={{
-              paddingVertical: 8, paddingHorizontal: 16, borderRadius: 999,
-              backgroundColor: theme.accent,
-            }}>
-              <Text style={{ fontFamily: theme.fonts.head, fontSize: 14, color: '#FFFDF7' }}>{t('settings.recordIt')}</Text>
-            </TouchableOpacity>
-          }
-        />
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 22, paddingBottom: 48 + insets.bottom }}>
-          {/* Day picker */}
-          <Text style={{
-            marginTop: 22, paddingHorizontal: 4, paddingBottom: 10,
-            fontFamily: theme.fonts.head, fontSize: 14, color: theme.inkSoft,
-          }}>{t('settings.whichDay')}</Text>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 9 }}>
-            {DAY_KEYS.map(d => {
-              const on = day === d;
-              return (
-                <TouchableOpacity
-                  key={d}
-                  onPress={() => setDay(d)}
-                  activeOpacity={0.7}
-                  style={{
-                    width: (SCREEN_W - 44 - 27) / 4, // 4 columns with gaps
-                    paddingVertical: 13, borderRadius: 16, alignItems: 'center',
-                    backgroundColor: on ? theme.accent : theme.paper,
-                    borderWidth: 1.5, borderColor: on ? theme.accent : theme.line,
-                  }}
-                >
-                  <Text style={{
-                    fontFamily: theme.fonts.body, fontSize: 14.5,
-                    color: on ? '#FFFDF7' : theme.ink,
-                  }}>{t('settings.day.' + d)}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-
-          {/* Time picker */}
-          <Text style={{
-            marginTop: 24, paddingHorizontal: 4, paddingBottom: 10,
-            fontFamily: theme.fonts.head, fontSize: 14, color: theme.inkSoft,
-          }}>{t('settings.whichTime')}</Text>
-          <View style={{ flexDirection: 'row', gap: 9 }}>
-            {TIME_KEYS.map(tm => {
-              const on = time === tm;
-              return (
-                <TouchableOpacity
-                  key={tm}
-                  onPress={() => setTime(tm)}
-                  activeOpacity={0.7}
-                  style={{
-                    flex: 1, paddingVertical: 15, borderRadius: 16, alignItems: 'center',
-                    backgroundColor: on ? theme.accent : theme.paper,
-                    borderWidth: 1.5, borderColor: on ? theme.accent : theme.line,
-                  }}
-                >
-                  <Text style={{
-                    fontFamily: theme.fonts.body, fontSize: 15,
-                    color: on ? '#FFFDF7' : theme.ink,
-                  }}>{t('settings.time.' + tm)}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-
-          {/* Preview card */}
-          <View style={{
-            marginTop: 26, padding: 20, borderRadius: 22,
-            backgroundColor: theme.sand, alignItems: 'center',
-          }}>
-            {Icon.bell(theme.accent, 22)}
-            <Text style={{
-              marginTop: 10, fontFamily: theme.fonts.head, fontSize: 21, color: theme.ink,
-            }}>{t('settings.remindAtFmt', { day: t('settings.day.' + day), time: t('settings.time.' + time) })}</Text>
-            <Text style={{
-              marginTop: 6, fontFamily: theme.fonts.body, fontSize: 13, color: theme.inkSoft,
-            }}>{t('settings.reminderPreview')}</Text>
-          </View>
-        </ScrollView>
-      </View>
-    </Modal>
-  );
-}
 
 /* ══════════════════════════════════════════════════════════
    DocSheet — terms / privacy policy
@@ -1251,7 +1144,7 @@ function ConfirmDialog({ visible, icon, title, message, confirmLabel, confirmCol
           width: SCREEN_W - 56, backgroundColor: theme.paper,
           borderRadius: 26, paddingTop: 30, paddingBottom: 24,
           paddingHorizontal: 24, alignItems: 'center',
-          shadowColor: theme.ink, shadowOffset: { width: 0, height: 20 },
+          shadowColor: theme.shadow, shadowOffset: { width: 0, height: 20 },
           shadowOpacity: 0.2, shadowRadius: 40, elevation: 12,
         }}>
           {/* Icon */}
@@ -1337,13 +1230,13 @@ function DeleteAccountSheet({ onClose }: any) {
           {/* Warning card */}
           <View style={{
             marginTop: 16, padding: 20, borderRadius: 22,
-            backgroundColor: '#FDF5F5',
-            borderWidth: 1.5, borderColor: '#F0D6D6',
+            backgroundColor: theme.isDark ? 'rgba(192,97,107,0.12)' : '#FDF5F5',
+            borderWidth: 1.5, borderColor: theme.isDark ? 'rgba(192,97,107,0.25)' : '#F0D6D6',
           }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               <View style={{
                 width: 34, height: 34, borderRadius: 12,
-                backgroundColor: '#F0D6D6',
+                backgroundColor: theme.isDark ? 'rgba(192,97,107,0.2)' : '#F0D6D6',
                 justifyContent: 'center', alignItems: 'center',
               }}>
                 {Icon.lock('#C0616B', 18)}
@@ -1673,7 +1566,7 @@ function AccountSecuritySheet({ anon, onAnonChanged, onClose }: any) {
               >
                 <View style={{
                   width: 34, height: 34, borderRadius: 12,
-                  backgroundColor: '#F0D6D6',
+                  backgroundColor: theme.isDark ? 'rgba(192,97,107,0.2)' : '#F0D6D6',
                   justifyContent: 'center', alignItems: 'center',
                 }}>
                   {Icon.lock('#D2929A', 19)}
@@ -1768,19 +1661,11 @@ export default function Settings({ navigation, route }: any) {
   // Local state
   const [kids, setKids] = useState(() => dataKids.map(k => ({ ...k })));
   const [editId, setEditId] = useState<string | null>(null);
-  const [sheet, setSheet] = useState<string | null>(null); // 'add'|'invite'|'remindTime'|'about'|'account'
-  const [remindOn, setRemindOn] = useState(true);
-  const [remindAt, setRemindAt] = useState('sun evening');
+  const [sheet, setSheet] = useState<string | null>(null); // 'add'|'invite'|'about'|'account'
   const [defView, setDefView] = useState('together');
-  const [rhythm, setRhythm] = useState('biweekly');
   const [anon, setAnon] = useState(false);
   const [inviteExpiry, setInviteExpiry] = useState(DEFAULT_INVITE_EXPIRY);
 
-  // 把 'sun evening' 这样的 key 对翻成展示文案
-  const formatRemind = (v: any) => {
-    const [d, tm] = (v || 'sun evening').split(' ');
-    return t('settings.remindAtFmt', { day: t('settings.day.' + d), time: t('settings.time.' + tm) });
-  };
   useEffect(() => { isAnonymous().then(setAnon); }, []);
   useEffect(() => { getInviteExpiryHours().then(setInviteExpiry); }, []);
 
@@ -1883,30 +1768,6 @@ export default function Settings({ navigation, route }: any) {
           />
         </SettingGroup>
 
-        {/* ── Notifications section ── */}
-        <SettingGroup
-          label={t('settings.groupReminder')}
-        >
-          <SelectRow
-            icon={Icon.bell(theme.accent, 20)}
-            title={t('settings.remindOnce')}
-            options={[
-              { key: 'off', label: t('settings.remindOff') },
-              { key: 'weekly', label: t('settings.remindWeekly') },
-              { key: 'biweekly', label: t('settings.remindBiweekly') },
-            ]}
-            value={rhythm}
-            onSelect={setRhythm}
-          />
-          <Row
-            icon={Icon.seed(theme.accent, 20)}
-            title={t('settings.remindTime')}
-            value={rhythm === 'off' ? t('settings.remindClosed') : formatRemind(remindAt)}
-            onPress={rhythm === 'off' ? undefined : () => setSheet('remindTime')}
-            last
-          />
-        </SettingGroup>
-
         {/* ── Preservation section ── */}
         <SettingGroup label={t('settings.groupKeep')} note={t('settings.keepNote')}>
           <Row
@@ -1977,10 +1838,7 @@ export default function Settings({ navigation, route }: any) {
       {sheet === 'invite' ? (
         <InviteSheet kids={kids} me={me} onClose={() => setSheet(null)} onJoinFamily={() => { setSheet(null); navigation.navigate('JoinFamily'); }} />
       ) : null}
-      {sheet === 'remindTime' ? (
-        <ReminderTimeSheet value={remindAt} onChange={setRemindAt} onClose={() => setSheet(null)} />
-      ) : null}
-      {sheet === 'about' ? (
+{sheet === 'about' ? (
         <AboutSheet onClose={() => setSheet(null)} />
       ) : null}
       {sheet === 'account' ? (

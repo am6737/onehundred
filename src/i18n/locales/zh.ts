@@ -296,6 +296,7 @@ export const zh = {
   login: {
     brand: '一 百 件 事',
     tagline: '陪孩子长大的\n每一件事',
+    phoneLogin: '手机号登录',
     phonePlaceholder: '请输入手机号',
     passwordPlaceholder: '请输入密码',
     carrierService: '中国移动  提供认证服务',

@@ -183,7 +183,7 @@ services:
 
       # Apple Sign In (native ID token flow — no client secret needed)
       GOTRUE_EXTERNAL_APPLE_ENABLED: "true"
-      GOTRUE_EXTERNAL_APPLE_CLIENT_ID: "com.t1137.yibai"
+      GOTRUE_EXTERNAL_APPLE_CLIENT_ID: "com.hitosea.moments100"
       GOTRUE_EXTERNAL_APPLE_SECRET: "unused-for-id-token-flow"
       GOTRUE_EXTERNAL_APPLE_REDIRECT_URI: ${API_EXTERNAL_URL}/auth/v1/callback
 

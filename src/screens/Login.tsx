@@ -177,6 +177,10 @@ export function LoginWelcome({ navigation }) {
   const insets = useSafeAreaInsets();
   const [agreed, setAgreed] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [showSocial, setShowSocial] = useState(false);
+  const [appleAvailable, setAppleAvailable] = useState(false);
+
+  React.useEffect(() => { isAppleSignInAvailable().then(setAppleAvailable); }, []);
 
   return (
     <View style={{
@@ -219,15 +223,6 @@ export function LoginWelcome({ navigation }) {
 
       {/* Middle login section */}
       <View style={{ paddingHorizontal: 24 }}>
-        {/* Phone login */}
-        <View style={{ alignItems: 'center', marginBottom: 14 }}>
-          <Text style={{
-            fontFamily: theme.fonts.head,
-            fontSize: 24,
-            color: theme.ink,
-          }}>{t('login.codeLogin')}</Text>
-        </View>
-
         <TouchableOpacity
           onPress={() => navigation.navigate('PhoneLogin')}
           activeOpacity={0.8}
@@ -249,7 +244,7 @@ export function LoginWelcome({ navigation }) {
             fontFamily: theme.fonts.head,
             fontSize: 17,
             color: '#FFFDF7',
-          }}>{t('login.getCode')}</Text>
+          }}>{t('login.phoneLogin')}</Text>
         </TouchableOpacity>
 
         {/* Guest login */}
@@ -305,22 +300,176 @@ export function LoginWelcome({ navigation }) {
         </View>
       </View>
 
-      {/* Bottom: login other account */}
-      <TouchableOpacity
-        onPress={() => navigation.navigate('PhoneLogin')}
-        activeOpacity={0.7}
-        style={{
-          alignItems: 'center',
-          paddingBottom: insets.bottom + 16,
-          paddingTop: 20,
-        }}
+      {/* Bottom shortcuts */}
+      <View style={{
+        flexDirection: 'row',
+        justifyContent: 'center',
+        gap: 48,
+        marginTop: 40,
+        paddingBottom: 8,
+      }}>
+        <TouchableOpacity
+          onPress={() => navigation.navigate('ForgotPassword')}
+          activeOpacity={0.7}
+          style={{ alignItems: 'center', gap: 8 }}
+        >
+          <View style={{
+            width: 48, height: 48, borderRadius: 24,
+            backgroundColor: theme.sand,
+            justifyContent: 'center', alignItems: 'center',
+          }}>
+            {Icon.users(theme.inkSoft, 22)}
+          </View>
+          <Text style={{
+            fontFamily: theme.fonts.body,
+            fontSize: 12,
+            color: theme.inkSoft,
+          }}>{t('login.recoverAccount')}</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={() => setShowSocial(true)}
+          activeOpacity={0.7}
+          style={{ alignItems: 'center', gap: 8 }}
+        >
+          <View style={{
+            width: 48, height: 48, borderRadius: 24,
+            backgroundColor: theme.sand,
+            justifyContent: 'center', alignItems: 'center',
+          }}>
+            <View style={{ flexDirection: 'row', gap: 3 }}>
+              {[0, 1, 2].map(i => (
+                <View key={i} style={{
+                  width: 5, height: 5, borderRadius: 2.5,
+                  backgroundColor: theme.inkSoft,
+                }} />
+              ))}
+            </View>
+          </View>
+          <Text style={{
+            fontFamily: theme.fonts.body,
+            fontSize: 12,
+            color: theme.inkSoft,
+          }}>{t('login.otherWays')}</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Social login sheet */}
+      <Modal
+        transparent
+        visible={showSocial}
+        animationType="fade"
+        onRequestClose={() => setShowSocial(false)}
       >
-        <Text style={{
-          fontFamily: theme.fonts.body,
-          fontSize: 14,
-          color: theme.accent,
-        }}>{t('login.loginOtherAccount')}</Text>
-      </TouchableOpacity>
+        <Pressable
+          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'flex-end' }}
+          onPress={() => setShowSocial(false)}
+        >
+          <Pressable onPress={e => e.stopPropagation()}>
+            <View style={{
+              backgroundColor: theme.paper,
+              borderTopLeftRadius: 28,
+              borderTopRightRadius: 28,
+              paddingTop: 10,
+              paddingBottom: insets.bottom + 24,
+              paddingHorizontal: 24,
+            }}>
+              <View style={{ alignItems: 'center', paddingBottom: 6 }}>
+                <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: theme.line }} />
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 16 }}>
+                <View style={{ width: 32 }} />
+                <Text style={{
+                  flex: 1,
+                  fontFamily: theme.fonts.head,
+                  fontSize: 18,
+                  color: theme.ink,
+                  textAlign: 'center',
+                }}>{t('login.otherWays')}</Text>
+                <TouchableOpacity
+                  onPress={() => setShowSocial(false)}
+                  activeOpacity={0.7}
+                  hitSlop={8}
+                  style={{
+                    width: 32, height: 32, borderRadius: 16,
+                    backgroundColor: theme.sand,
+                    justifyContent: 'center', alignItems: 'center',
+                  }}
+                >
+                  <View style={{ transform: [{ rotate: '45deg' }] }}>{Icon.plus(theme.inkSoft, 15)}</View>
+                </TouchableOpacity>
+              </View>
+              <View style={{
+                flexDirection: 'row',
+                justifyContent: 'center',
+                gap: 40,
+                paddingVertical: 12,
+              }}>
+                <TouchableOpacity activeOpacity={0.7} style={{ alignItems: 'center', gap: 10 }}>
+                  <View style={{
+                    width: 56, height: 56, borderRadius: 28,
+                    backgroundColor: theme.cream,
+                    justifyContent: 'center', alignItems: 'center',
+                  }}>
+                    <WeChatIcon size={30} />
+                  </View>
+                  <Text style={{
+                    fontFamily: theme.fonts.body, fontSize: 13, color: theme.inkSoft,
+                  }}>{t('login.wechat')}</Text>
+                </TouchableOpacity>
+                {appleAvailable ? (
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  style={{ alignItems: 'center', gap: 10 }}
+                  onPress={async () => {
+                    if (!agreed) {
+                      Alert.alert(t('login.agreeFirstTitle'), t('login.agreeFirstBody'));
+                      return;
+                    }
+                    setShowSocial(false);
+                    try {
+                      await signInWithApple();
+                      navigation.replace('Home');
+                    } catch (e: any) {
+                      if (e?.code !== 'ERR_REQUEST_CANCELED') {
+                        Alert.alert(t('login.loginFailTitle'), e?.message || t('login.connectFailBody'));
+                      }
+                    }
+                  }}
+                >
+                  <View style={{
+                    width: 56, height: 56, borderRadius: 28,
+                    backgroundColor: theme.cream,
+                    justifyContent: 'center', alignItems: 'center',
+                  }}>
+                    <AppleIcon size={24} color={theme.ink} />
+                  </View>
+                  <Text style={{
+                    fontFamily: theme.fonts.body, fontSize: 13, color: theme.inkSoft,
+                  }}>{t('login.apple')}</Text>
+                </TouchableOpacity>
+                ) : null}
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  style={{ alignItems: 'center', gap: 10 }}
+                  onPress={() => { setShowSocial(false); navigation.navigate('EmailLogin'); }}
+                >
+                  <View style={{
+                    width: 56, height: 56, borderRadius: 28,
+                    backgroundColor: theme.cream,
+                    justifyContent: 'center', alignItems: 'center',
+                  }}>
+                    {Icon.mail(theme.ink, 24)}
+                  </View>
+                  <Text style={{
+                    fontFamily: theme.fonts.body, fontSize: 13, color: theme.inkSoft,
+                  }}>{t('login.email')}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -341,11 +490,7 @@ export function PhoneLogin({ navigation }) {
   const [countdown, setCountdown] = useState(0);
   const [codeSent, setCodeSent] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [showSocial, setShowSocial] = useState(false);
-  const [appleAvailable, setAppleAvailable] = useState(false);
   const timerRef = useRef<any>(null);
-
-  React.useEffect(() => { isAppleSignInAvailable().then(setAppleAvailable); }, []);
 
   const validPhone = phone.replace(/\D/g, '').length === 11;
   const canSendCode = validPhone && countdown === 0 && !loading;
@@ -554,170 +699,7 @@ export function PhoneLogin({ navigation }) {
           />
         </View>
 
-        {/* Bottom shortcuts */}
-        <View style={{
-          flexDirection: 'row',
-          justifyContent: 'center',
-          gap: 48,
-          marginTop: 24,
-        }}>
-          <TouchableOpacity
-            onPress={() => navigation.navigate('ForgotPassword')}
-            activeOpacity={0.7}
-            style={{ alignItems: 'center', gap: 8 }}
-          >
-            <View style={{
-              width: 48, height: 48, borderRadius: 24,
-              backgroundColor: theme.sand,
-              justifyContent: 'center', alignItems: 'center',
-            }}>
-              {Icon.users(theme.inkSoft, 22)}
-            </View>
-            <Text style={{
-              fontFamily: theme.fonts.body,
-              fontSize: 12,
-              color: theme.inkSoft,
-            }}>{t('login.recoverAccount')}</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={() => setShowSocial(true)}
-            activeOpacity={0.7}
-            style={{ alignItems: 'center', gap: 8 }}
-          >
-            <View style={{
-              width: 48, height: 48, borderRadius: 24,
-              backgroundColor: theme.sand,
-              justifyContent: 'center', alignItems: 'center',
-            }}>
-              <View style={{ flexDirection: 'row', gap: 3 }}>
-                {[0, 1, 2].map(i => (
-                  <View key={i} style={{
-                    width: 5, height: 5, borderRadius: 2.5,
-                    backgroundColor: theme.inkSoft,
-                  }} />
-                ))}
-              </View>
-            </View>
-            <Text style={{
-              fontFamily: theme.fonts.body,
-              fontSize: 12,
-              color: theme.inkSoft,
-            }}>{t('login.otherWays')}</Text>
-          </TouchableOpacity>
-        </View>
       </View>
-
-      {/* Social login sheet */}
-      <Modal
-        transparent
-        visible={showSocial}
-        animationType="fade"
-        onRequestClose={() => setShowSocial(false)}
-      >
-        <Pressable
-          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'flex-end' }}
-          onPress={() => setShowSocial(false)}
-        >
-          <Pressable onPress={e => e.stopPropagation()}>
-            <View style={{
-              backgroundColor: theme.paper,
-              borderTopLeftRadius: 28,
-              borderTopRightRadius: 28,
-              paddingTop: 10,
-              paddingBottom: insets.bottom + 24,
-              paddingHorizontal: 24,
-            }}>
-              <View style={{ alignItems: 'center', paddingBottom: 6 }}>
-                <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: theme.line }} />
-              </View>
-              <Text style={{
-                fontFamily: theme.fonts.head,
-                fontSize: 18,
-                color: theme.ink,
-                textAlign: 'center',
-                paddingVertical: 16,
-              }}>{t('login.otherWays')}</Text>
-              <View style={{
-                flexDirection: 'row',
-                justifyContent: 'center',
-                gap: 40,
-                paddingVertical: 12,
-              }}>
-                <TouchableOpacity activeOpacity={0.7} style={{ alignItems: 'center', gap: 10 }}>
-                  <View style={{
-                    width: 56, height: 56, borderRadius: 28,
-                    backgroundColor: theme.cream,
-                    justifyContent: 'center', alignItems: 'center',
-                  }}>
-                    <WeChatIcon size={30} />
-                  </View>
-                  <Text style={{
-                    fontFamily: theme.fonts.body, fontSize: 13, color: theme.inkSoft,
-                  }}>{t('login.wechat')}</Text>
-                </TouchableOpacity>
-                {appleAvailable ? (
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  style={{ alignItems: 'center', gap: 10 }}
-                  onPress={async () => {
-                    if (!agreed) {
-                      Alert.alert(t('login.agreeFirstTitle'), t('login.agreeFirstBody'));
-                      return;
-                    }
-                    setShowSocial(false);
-                    try {
-                      await signInWithApple();
-                      navigation.replace('Home');
-                    } catch (e: any) {
-                      if (e?.code !== 'ERR_REQUEST_CANCELED') {
-                        Alert.alert(t('login.loginFailTitle'), e?.message || t('login.connectFailBody'));
-                      }
-                    }
-                  }}
-                >
-                  <View style={{
-                    width: 56, height: 56, borderRadius: 28,
-                    backgroundColor: theme.cream,
-                    justifyContent: 'center', alignItems: 'center',
-                  }}>
-                    <AppleIcon size={24} color={theme.ink} />
-                  </View>
-                  <Text style={{
-                    fontFamily: theme.fonts.body, fontSize: 13, color: theme.inkSoft,
-                  }}>{t('login.apple')}</Text>
-                </TouchableOpacity>
-                ) : null}
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  style={{ alignItems: 'center', gap: 10 }}
-                  onPress={() => { setShowSocial(false); navigation.navigate('EmailLogin'); }}
-                >
-                  <View style={{
-                    width: 56, height: 56, borderRadius: 28,
-                    backgroundColor: theme.cream,
-                    justifyContent: 'center', alignItems: 'center',
-                  }}>
-                    {Icon.mail(theme.ink, 24)}
-                  </View>
-                  <Text style={{
-                    fontFamily: theme.fonts.body, fontSize: 13, color: theme.inkSoft,
-                  }}>{t('login.email')}</Text>
-                </TouchableOpacity>
-              </View>
-              <TouchableOpacity
-                onPress={() => setShowSocial(false)}
-                activeOpacity={0.7}
-                style={{ alignItems: 'center', marginTop: 12 }}
-              >
-                <Text style={{
-                  fontFamily: theme.fonts.body, fontSize: 15, color: theme.inkSoft,
-                }}>{t('common.cancel')}</Text>
-              </TouchableOpacity>
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
     </View>
   );
 }
