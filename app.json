@@ -9,7 +9,8 @@
     "scheme": "yibai",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.t1137.yibai"
+      "bundleIdentifier": "com.t1137.yibai",
+      "usesAppleSignIn": true
     },
     "android": {
       "adaptiveIcon": {

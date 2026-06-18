@@ -1,3 +1,6 @@
+import { Platform } from 'react-native';
+import * as AppleAuthentication from 'expo-apple-authentication';
+import * as Crypto from 'expo-crypto';
 import { supabase } from './supabase';
 
 export async function signUp(email: string, password: string) {
@@ -10,6 +13,70 @@ export async function signIn(email: string, password: string) {
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) throw error;
   return data;
+}
+
+
+export function normalizeChinaPhone(phone: string) {
+  const digits = phone.replace(/\D/g, '');
+  if (digits.length === 11) return `+86${digits}`;
+  if (digits.length === 13 && digits.startsWith('86')) return `+${digits}`;
+  if (phone.trim().startsWith('+')) return phone.trim().replace(/\s/g, '');
+  return phone.trim();
+}
+
+export function maskPhone(phone?: string | null) {
+  if (!phone) return '';
+  const normalized = phone.startsWith('+86') ? phone.slice(3) : phone;
+  const digits = normalized.replace(/\D/g, '');
+  if (digits.length >= 7) return `${digits.slice(0, 3)} **** ${digits.slice(-4)}`;
+  return phone;
+}
+
+export async function sendPhoneOtp(phone: string) {
+  const { data, error } = await supabase.auth.signInWithOtp({ phone: normalizeChinaPhone(phone) });
+  if (error) throw error;
+  return data;
+}
+
+export async function verifyPhoneOtp(phone: string, token: string) {
+  const { data, error } = await supabase.auth.verifyOtp({
+    phone: normalizeChinaPhone(phone),
+    token,
+    type: 'sms',
+  });
+  if (error) throw error;
+  return data;
+}
+
+export async function signInWithPhonePassword(phone: string, password: string) {
+  const { data, error } = await supabase.auth.signInWithPassword({
+    phone: normalizeChinaPhone(phone),
+    password,
+  });
+  if (error) throw error;
+  return data;
+}
+
+export async function updatePhone(phone: string) {
+  const { data, error } = await supabase.auth.updateUser({ phone: normalizeChinaPhone(phone) });
+  if (error) throw error;
+  return data;
+}
+
+export async function verifyPhoneChange(phone: string, token: string) {
+  const { data, error } = await supabase.auth.verifyOtp({
+    phone: normalizeChinaPhone(phone),
+    token,
+    type: 'phone_change',
+  });
+  if (error) throw error;
+  return data;
+}
+
+export async function getCurrentUserPhone() {
+  const { data: { user }, error } = await supabase.auth.getUser();
+  if (error) throw error;
+  return user?.phone || '';
 }
 
 export async function signOut() {
@@ -70,4 +137,75 @@ export async function getValidSession() {
 
 export function onAuthStateChange(callback: (event: string, session: any) => void) {
   return supabase.auth.onAuthStateChange(callback);
+}
+
+// ── Apple Sign-In ──
+
+function generateNonce(length = 32): string {
+  const bytes = Crypto.getRandomBytes(length);
+  return Array.from(bytes, (b: number) => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function appleCredential() {
+  const rawNonce = generateNonce();
+  const hashedNonce = await Crypto.digestStringAsync(
+    Crypto.CryptoDigestAlgorithm.SHA256,
+    rawNonce,
+  );
+  const credential = await AppleAuthentication.signInAsync({
+    requestedScopes: [
+      AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+      AppleAuthentication.AppleAuthenticationScope.EMAIL,
+    ],
+    nonce: hashedNonce,
+  });
+  if (!credential.identityToken) throw new Error('Apple Sign-In: no identity token');
+  return { token: credential.identityToken, nonce: rawNonce };
+}
+
+export async function isAppleSignInAvailable(): Promise<boolean> {
+  if (Platform.OS !== 'ios') return false;
+  return AppleAuthentication.isAvailableAsync();
+}
+
+export async function signInWithApple() {
+  const { token, nonce } = await appleCredential();
+  const { data, error } = await supabase.auth.signInWithIdToken({
+    provider: 'apple',
+    token,
+    nonce,
+  });
+  if (error) throw error;
+  return data;
+}
+
+export async function bindApple() {
+  const { token, nonce } = await appleCredential();
+  const { data, error } = await (supabase.auth as any).linkIdentity({
+    provider: 'apple',
+    token,
+    nonce,
+  });
+  if (error) throw error;
+  return data;
+}
+
+// ── Identity management ──
+
+export async function getLinkedProviders(): Promise<string[]> {
+  const { data: { user }, error } = await supabase.auth.getUser();
+  if (error || !user) return [];
+  return (user.identities || []).map((i: any) => i.provider);
+}
+
+export async function unbindProvider(provider: string) {
+  const { data: { user }, error: ue } = await supabase.auth.getUser();
+  if (ue || !user) throw ue || new Error('未登录');
+  const identity = (user.identities || []).find((i: any) => i.provider === provider);
+  if (!identity) throw new Error('该登录方式未绑定');
+  const remaining = (user.identities || []).length;
+  const hasPhone = !!user.phone;
+  if (remaining <= 1 && !hasPhone) throw new Error('至少保留一种登录方式');
+  const { error } = await supabase.auth.unlinkIdentity(identity);
+  if (error) throw error;
 }

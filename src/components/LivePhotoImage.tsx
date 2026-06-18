@@ -11,6 +11,7 @@ import { View, Image, Text, Platform, StyleSheet } from 'react-native';
 import { File, Paths } from 'expo-file-system';
 import { requireOptionalNativeModule } from 'expo-modules-core';
 import { useT } from '../i18n';
+import { Icon } from './Icons';
 
 // 懒加载：dev client 还没重建（原生没链接）时 require 不抛，退化为静态图。
 let LivePhotoView: any = null;
@@ -34,16 +35,18 @@ export const livePhotoSupported: boolean =
     }
   })();
 
-export function LiveBadge({ placement = 'top-left' }: { placement?: 'top-left' | 'bottom-left' }) {
+export function LiveBadge({ placement = 'top-left' }: { placement?: 'top-left' | 'top-right' | 'bottom-left' }) {
   const t = useT();
   return (
     <View
       pointerEvents="none"
-      style={[styles.badge, placement === 'bottom-left' ? styles.badgeBottom : styles.badgeTop]}
+      style={[
+        styles.badge,
+        placement === 'bottom-left' ? styles.badgeBottom : styles.badgeTop,
+        placement === 'top-right' ? styles.badgeRight : styles.badgeLeft,
+      ]}
     >
-      <View style={styles.ring}>
-        <View style={styles.dot} />
-      </View>
+      {Icon.live('#FFFFFF', 14)}
       <Text style={styles.badgeText}>{t('common.live')}</Text>
     </View>
   );
@@ -51,7 +54,8 @@ export function LiveBadge({ placement = 'top-left' }: { placement?: 'top-left' |
 
 // 小尺寸「实况」标记（一个白色圆环），用于列表封面 / 缩略图等放不下整枚药丸的地方。
 export function LiveDot({ size = 13, placement = 'top-left' }: { size?: number; placement?: 'top-left' | 'top-right' }) {
-  const inner = Math.max(3, Math.round(size * 0.3));
+  const pad = 3;
+  const box = size + pad * 2;
   return (
     <View
       pointerEvents="none"
@@ -59,11 +63,9 @@ export function LiveDot({ size = 13, placement = 'top-left' }: { size?: number; 
         {
           position: 'absolute',
           top: 6,
-          width: size,
-          height: size,
-          borderRadius: size / 2,
-          borderWidth: 1.5,
-          borderColor: '#FFFFFF',
+          width: box,
+          height: box,
+          borderRadius: box / 2,
           backgroundColor: 'rgba(0,0,0,0.35)',
           alignItems: 'center',
           justifyContent: 'center',
@@ -71,7 +73,7 @@ export function LiveDot({ size = 13, placement = 'top-left' }: { size?: number; 
         placement === 'top-right' ? { right: 6 } : { left: 6 },
       ]}
     >
-      <View style={{ width: inner, height: inner, borderRadius: inner / 2, backgroundColor: '#FFFFFF' }} />
+      {Icon.live('#FFFFFF', size)}
     </View>
   );
 }
@@ -177,7 +179,6 @@ export function RemoteLivePhotoImage({
 const styles = StyleSheet.create({
   badge: {
     position: 'absolute',
-    left: 12,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
@@ -186,17 +187,9 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     backgroundColor: 'rgba(0,0,0,0.42)',
   },
+  badgeLeft: { left: 12 },
+  badgeRight: { right: 12 },
   badgeTop: { top: 12 },
   badgeBottom: { bottom: 12 },
-  ring: {
-    width: 13,
-    height: 13,
-    borderRadius: 6.5,
-    borderWidth: 1.5,
-    borderColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  dot: { width: 3.5, height: 3.5, borderRadius: 1.75, backgroundColor: '#FFFFFF' },
   badgeText: { color: '#FFFFFF', fontSize: 11, fontWeight: '600' },
 });

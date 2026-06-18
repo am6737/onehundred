@@ -95,19 +95,40 @@ describe('yearFromDate / monthFromDate / dayFromDate', () => {
 
 describe('kidDoneFrom', () => {
   const memories = [
-    { kid: 'k1', levelNum: '01' },
-    { kid: 'k1', levelNum: '02' },
-    { kid: 'k2', levelNum: '01' },
-    { kid: 'all', levelNum: '03' },
+    { kid: 'k1', levelNum: '01', perspective: 'parent' },
+    { kid: 'k1', levelNum: '02', perspective: 'parent' },
+    { kid: 'k2', levelNum: '01', perspective: 'parent' },
+    { kid: 'all', levelNum: '03', perspective: 'together' },
   ];
 
-  it('returns total count for "all"', () => {
-    expect(kidDoneFrom(memories, 'all')).toBe(4);
+  it('returns unique levelNum count for "all"', () => {
+    // 01, 02, 03 — deduped by levelNum only
+    expect(kidDoneFrom(memories, 'all')).toBe(3);
   });
 
-  it('counts kid-specific + "all" memories', () => {
+  it('counts kid-specific + "all" memories (deduplicated by levelNum)', () => {
+    // k1: 01, 02, 03(from 'all') → 3 unique
     expect(kidDoneFrom(memories, 'k1')).toBe(3);
+    // k2: 01, 03(from 'all') → 2 unique
     expect(kidDoneFrom(memories, 'k2')).toBe(2);
+  });
+
+  it('deduplicates repeated records of the same activity', () => {
+    const withRepeat = [
+      ...memories,
+      { kid: 'k1', levelNum: '01', perspective: 'parent' },
+      { kid: 'k1', levelNum: '01', perspective: 'parent' },
+    ];
+    expect(kidDoneFrom(withRepeat, 'k1')).toBe(3);
+    expect(kidDoneFrom(withRepeat, 'all')).toBe(3);
+  });
+
+  it('same levelNum from different perspectives still counts as one', () => {
+    const multiPerspective = [
+      { kid: 'k1', levelNum: '01', perspective: 'parent' },
+      { kid: 'k1', levelNum: '01', perspective: 'child' },
+    ];
+    expect(kidDoneFrom(multiPerspective, 'k1')).toBe(1);
   });
 });
 

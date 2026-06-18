@@ -309,11 +309,13 @@ CREATE TABLE IF NOT EXISTS public.invite_tokens (
   level_title   TEXT NOT NULL,
   level_why     TEXT NOT NULL DEFAULT '',
   level_how     TEXT NOT NULL DEFAULT '',
+  level_record  TEXT NOT NULL DEFAULT '',
   level_suggest TEXT NOT NULL DEFAULT 'photo',
   level_tone    TEXT NOT NULL DEFAULT 'orange',
   kid_id        TEXT,
   kid_name      TEXT,
   inviter_role  TEXT NOT NULL DEFAULT '',
+  illustration_path TEXT,
   expires_at    TIMESTAMPTZ NOT NULL,
   is_active     BOOLEAN NOT NULL DEFAULT true,
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -323,7 +325,12 @@ CREATE POLICY "invite_tokens_family" ON public.invite_tokens
   FOR ALL USING (family_id = public.my_family_id())
   WITH CHECK (family_id = public.my_family_id());
 
--- 11.1 memories 增加邀记来源字段
+-- 11.1 invite_tokens 增加插画路径 + 记录些什么
+ALTER TABLE public.invite_tokens
+  ADD COLUMN IF NOT EXISTS illustration_path TEXT,
+  ADD COLUMN IF NOT EXISTS level_record TEXT NOT NULL DEFAULT '';
+
+-- 11.2 memories 增加邀记来源字段
 ALTER TABLE public.memories
   ADD COLUMN IF NOT EXISTS invite_token_id TEXT REFERENCES public.invite_tokens(id) ON DELETE SET NULL,
   ADD COLUMN IF NOT EXISTS invited_role TEXT;

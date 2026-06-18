@@ -1,20 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, TouchableOpacity, ScrollView, FlatList,
-  StyleSheet, Dimensions, Image, Alert, Share, Modal, Pressable,
+  StyleSheet, Dimensions, Image, Alert, Share, Modal, Pressable, Platform, ActivityIndicator,
 } from 'react-native';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { createAudioPlayer, setAudioModeAsync } from 'expo-audio';
 import { useEvent, useEventListener } from 'expo';
 import { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
-import * as MediaLibrary from 'expo-media-library';
-import Animated, {
-  useSharedValue, useAnimatedStyle, withSpring, withTiming, runOnJS,
-} from 'react-native-reanimated';
+import { File, Paths } from 'expo-file-system';
+const MediaLibrary = Platform.OS !== 'web' ? require('expo-media-library') as typeof import('expo-media-library') : null;
 import { useTheme, TONE } from '../theme/tokens';
 import { useT, t, getLang } from '../i18n';
-import { PERSPECTIVES, isMemoryLocked, isMemoryUnsealed } from '../data';
+import { PERSPECTIVES, isMemoryLocked, isMemoryUnsealed, roleLabel } from '../data';
 import { useData } from '../data/DataProvider';
 import { useMemoryMedia } from '../lib/media';
 import { MemoryCover } from '../components/MemoryCover';
@@ -29,12 +27,6 @@ const { width: SCREEN_W } = Dimensions.get('window');
    Helpers
    ════════════════════════════════════════════════════════════ */
 
-function memSeq(m, memories) {
-  if (!memories || !memories.length) return 0;
-  const sorted = [...memories].sort((a, b) => (a.date > b.date ? 1 : a.date < b.date ? -1 : 0));
-  const i = sorted.findIndex(x => x.id === m.id);
-  return i < 0 ? 0 : i + 1;
-}
 
 const MEM_MONTHS_EN = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
@@ -46,6 +38,12 @@ function shareDate(d) {
     return t('memory.shareDateFmt', { y, m, d: day, mon: MEM_MONTHS_EN[m - 1] });
   }
   return d;
+}
+
+/** Format a duration in seconds as m:ss (e.g. 75 → "1:15"). */
+function fmtDur(secs) {
+  const s = Math.max(0, Math.round(secs || 0));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
 
 /** Number of photos in a memory (shots can be an array or a number). */
@@ -64,7 +62,9 @@ function normalType(type) {
 /** Filter memories by kid id or show all. */
 function bookFilter(memories, f) {
   const filtered = f === 'everything' ? memories : memories.filter(m => m.kid === f);
-  return [...filtered].sort((a, b) => (b.date > a.date ? 1 : b.date < a.date ? -1 : 0));
+  return [...filtered].sort((a, b) =>
+    b.date > a.date ? 1 : b.date < a.date ? -1
+    : (b.createdAt || '') > (a.createdAt || '') ? 1 : (b.createdAt || '') < (a.createdAt || '') ? -1 : 0);
 }
 
 /** Label for who participated. */
@@ -137,15 +137,20 @@ const badgeStyles = StyleSheet.create({
    MemoryVideo — inline video with first-frame preview & play
    ════════════════════════════════════════════════════════════ */
 
-function MemoryVideo({ url, tone }) {
+function MemoryVideo({ url, tone, dur }) {
   const t = useT();
   const tn = TONE[tone] || TONE.orange;
   const player = useVideoPlayer(url);
   const { isPlaying } = useEvent(player, 'playingChange', { isPlaying: player.playing });
+  const [secs, setSecs] = useState(0);
+  // 真实时长来自播放器（sourceLoad 后才有），先用记录时存的 dur 兜底
+  useEventListener(player, 'sourceLoad', ({ duration }) => setSecs(duration || 0));
   useEventListener(player, 'playToEnd', () => {
     player.pause();
     player.currentTime = 0;
   });
+
+  const shownDur = secs > 0 ? fmtDur(secs) : (dur || '');
 
   return (
     <View style={{ height: 300, backgroundColor: '#1a1a1a' }}>
@@ -172,6 +177,12 @@ function MemoryVideo({ url, tone }) {
           </View>
         )}
       </TouchableOpacity>
+      {/* 左下角时长（播放中也保留，方便对照） */}
+      {!!shownDur && (
+        <View pointerEvents="none" style={{ position: 'absolute', left: 16, bottom: 16 }}>
+          <TypeBadge type="video" dur={shownDur} />
+        </View>
+      )}
     </View>
   );
 }
@@ -180,7 +191,7 @@ function MemoryVideo({ url, tone }) {
    MemoryAudio — real playback of a saved voice memory
    ════════════════════════════════════════════════════════════ */
 
-function MemoryAudio({ url, tone }) {
+function MemoryAudio({ url, tone, level }) {
   const { theme } = useTheme();
   const t = useT();
   const tn = TONE[tone] || TONE.orange;
@@ -226,21 +237,14 @@ function MemoryAudio({ url, tone }) {
     }
   };
 
-  const bars = [14, 28, 20, 40, 26, 52, 34, 46, 22, 38, 30, 50, 24, 44, 18, 36, 28, 48, 20, 32, 16];
-
   return (
     <View style={{ height: 300, backgroundColor: tn.soft, justifyContent: 'center', alignItems: 'center' }}>
-      <View style={{
-        flexDirection: 'row', alignItems: 'center',
-        height: 60, gap: 4, marginBottom: 28, paddingHorizontal: 28,
-      }}>
-        {bars.map((h, i) => (
-          <View key={i} style={{
-            width: 4, height: h, borderRadius: 4,
-            backgroundColor: tn.deep, opacity: playing ? 0.8 : 0.32,
-          }} />
-        ))}
+      {/* 背景：这件事的插画（没插画时回退到居中 motif） */}
+      <View pointerEvents="none" style={[StyleSheet.absoluteFill, { justifyContent: 'center', alignItems: 'center' }]}>
+        <SceneSlot level={level} tone={tone} size={300} style={{ width: '100%', height: '100%' }} />
       </View>
+      {/* 暖色柔和蒙版：压淡插画，保证播放键 / 文案可读（淡一点让插画更清楚） */}
+      <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(255,253,247,0.32)' }]} />
       <TouchableOpacity
         onPress={toggle}
         activeOpacity={0.85}
@@ -269,12 +273,18 @@ function MemoryAudio({ url, tone }) {
           }} />
         )}
       </TouchableOpacity>
-      <Text style={{
+      {/* 文案垫一层半透明药丸底，深色字落浅底上，插画再花也清楚 */}
+      <View style={{
         marginTop: 16,
-        fontFamily: theme.fonts.body, fontSize: 13, color: tn.ink,
+        paddingHorizontal: 12, paddingVertical: 5, borderRadius: 999,
+        backgroundColor: 'rgba(255,253,247,0.78)',
       }}>
-        {playing ? t('memory.playing') : t('memory.tapToPlay')}
-      </Text>
+        <Text style={{
+          fontFamily: theme.fonts.body, fontSize: 13, color: theme.ink,
+        }}>
+          {playing ? t('memory.playing') : t('memory.tapToPlay')}
+        </Text>
+      </View>
     </View>
   );
 }
@@ -286,7 +296,7 @@ function MemoryAudio({ url, tone }) {
 function ShareSheet({ m, visible, onClose }) {
   const { theme } = useTheme();
   const t = useT();
-  const { getKid, memories } = useData();
+  const { getKid } = useData();
   const tn = TONE[m.tone] || TONE.orange;
   const perspective = PERSPECTIVES[m.perspective];
   const locked = isMemoryLocked(m);   // 封存中：分享只透出标题与到期，不泄露内容
@@ -315,7 +325,7 @@ function ShareSheet({ m, visible, onClose }) {
         await Share.share({
           message: locked
             ? t('memory.shareLockedMsg', { title: m.title, label: m.sealLabel || t('drawer.theAppointedDay') })
-            : t('memory.shareMsg', { caption: m.caption, who, n: memSeq(m, memories), date: shareDate(m.date) }),
+            : t('memory.shareMsg', { caption: m.caption, who, date: shareDate(m.date) }),
         });
       }
     } catch (e) {
@@ -327,7 +337,7 @@ function ShareSheet({ m, visible, onClose }) {
 
   // 把这一页截成图片存进系统相册
   const onSaveToAlbum = async () => {
-    if (busy) return;
+    if (!MediaLibrary || busy) return;
     setBusy(true);
     try {
       const perm = await MediaLibrary.requestPermissionsAsync(true); // writeOnly：只要写入权限
@@ -403,7 +413,7 @@ function ShareSheet({ m, visible, onClose }) {
             <Text style={{
               fontFamily: theme.fonts.head, fontSize: 12, color: tn.ink,
             }}>
-              {t('memory.nthThingDot', { n: memSeq(m, memories) })}{perspective ? perspective.long : ''}
+              {perspective ? perspective.long : ''}
             </Text>
           </View>
           <Text style={{
@@ -428,6 +438,7 @@ function ShareSheet({ m, visible, onClose }) {
 
       {/* Action buttons */}
       <View style={{ flexDirection: 'row', gap: 12 }}>
+        {Platform.OS !== 'web' && (
         <TouchableOpacity
           onPress={onSaveToAlbum}
           disabled={busy}
@@ -444,6 +455,7 @@ function ShareSheet({ m, visible, onClose }) {
             fontFamily: theme.fonts.head, fontSize: 15, color: theme.ink,
           }}>{t('memory.saveToAlbum')}</Text>
         </TouchableOpacity>
+        )}
         <TouchableOpacity
           onPress={onShare}
           disabled={busy}
@@ -469,16 +481,26 @@ function ShareSheet({ m, visible, onClose }) {
    ════════════════════════════════════════════════════════════ */
 
 export function MemoryPage({ route, navigation }) {
-  const m = route?.params?.memory;
-  const locked = isMemoryLocked(m);            // 封存中：不取媒体、不渲染内容
   const { theme } = useTheme();
   const t = useT();
-  const { removeMemory, allLevels, memories, memoriesForLevel } = useData();
+  const { removeMemory, allLevels, memories, memoriesForLevel, family } = useData();
+  const m = route?.params?.memory
+    || (route?.params?.memoryId ? memories.find(x => x.id === route.params.memoryId) : null);
+  const locked = isMemoryLocked(m);
   const tn = TONE[m?.tone] || TONE.orange;
+
+  // 谁记录的：邀记用 invitedRole；自己录入的按 user_id 映射到家庭成员角色
+  const recorderLabel = (() => {
+    if (m?.invitedRole) return roleLabel(m.invitedRole);
+    const member = family?.members?.find(mb => mb.userId === m?.userId);
+    if (!member) return '';
+    return member.role === '其他' ? (member.customRole || roleLabel('其他')) : roleLabel(member.role);
+  })();
   const [shareVisible, setShareVisible] = useState(false);
   const [openText, setOpenText] = useState(false);
   const [heroIndex, setHeroIndex] = useState(0);
   const [deleting, setDeleting] = useState(false);
+  const [savingMedia, setSavingMedia] = useState(false);
   const media = useMemoryMedia(locked ? null : m?.id);
   const images = media.filter(x => x.kind === 'image');
   const heroImg = images.length > 0 ? images[Math.min(heroIndex, images.length - 1)] : null;
@@ -512,34 +534,59 @@ export function MemoryPage({ route, navigation }) {
     );
   };
 
+  // 把单个媒体（签名 URL）下到缓存再写入相册。
+  // MediaLibrary 只认本地文件、靠后缀判类型；target.name 自带正确后缀（如 photo_0.heic / clip.mp4），直接沿用。
+  const downloadAndSave = async (target: { name: string; url: string }) => {
+    if (!MediaLibrary) return;
+    const safe = `${m.id}_${target.name}`.replace(/[^\w.-]/g, '_');
+    const file = new File(Paths.cache, `dl_${safe}`);
+    if (!file.exists) await File.downloadFileAsync(target.url, file);
+    await MediaLibrary.Asset.create(file.uri);
+  };
+
+  // 实际执行保存：视频 / 单张 / 全部
+  const runSave = async (mode: 'video' | 'one' | 'all') => {
+    if (!MediaLibrary || savingMedia) return;
+    setSavingMedia(true);
+    try {
+      const perm = await MediaLibrary.requestPermissionsAsync(true); // writeOnly：只要写入权限
+      if (!perm.granted) {
+        Alert.alert(t('memory.albumPermTitle'), t('memory.albumPermBody'));
+        return;
+      }
+      if (mode === 'video' && video) {
+        await downloadAndSave(video);
+        Alert.alert(t('memory.savedTitle'), t('memory.savedMediaBody'));
+      } else if (mode === 'all') {
+        for (const img of images) await downloadAndSave(img);
+        Alert.alert(t('memory.savedTitle'), t('memory.savedAllBody', { n: images.length }));
+      } else if (heroImg) {
+        await downloadAndSave(heroImg);
+        // 实况照片只能存下静态图（动态部分暂不支持），给个说明
+        Alert.alert(t('memory.savedTitle'), heroImg.livePhotoUrl ? t('memory.savedLiveStillBody') : t('memory.savedMediaBody'));
+      }
+    } catch (e) {
+      Alert.alert(t('memory.saveFailTitle'), t('memory.saveFailBody'));
+    } finally {
+      setSavingMedia(false);
+    }
+  };
+
+  // 菜单入口：视频 / 单图直接存；多图先弹「保存这张 / 保存全部」让用户选
+  const onSaveMedia = () => {
+    if (!MediaLibrary || savingMedia) return;
+    setMenuOpen(false);
+    if (video) { runSave('video'); return; }
+    if (images.length <= 1) { runSave('one'); return; }
+    Alert.alert(t('memory.saveSheetTitle'), undefined, [
+      { text: t('memory.saveThis'), onPress: () => runSave('one') },
+      { text: t('memory.saveAll', { n: images.length }), onPress: () => runSave('all') },
+      { text: t('common.cancel'), style: 'cancel' },
+    ]);
+  };
+
   // 删除按钮：封存中 / 已解封都能用
   const [menuOpen, setMenuOpen] = useState(false);
-  const menuDropY = useSharedValue(-14);
-  const menuDropOpacity = useSharedValue(0);
-  const menuScrimOpacity = useSharedValue(0);
-  const openMenu = () => {
-    menuDropY.value = -14;
-    menuDropOpacity.value = 0;
-    menuScrimOpacity.value = 0;
-    setMenuOpen(true);
-    menuDropY.value = withSpring(0, { damping: 20, stiffness: 260 });
-    menuDropOpacity.value = withTiming(1, { duration: 200 });
-    menuScrimOpacity.value = withTiming(1, { duration: 200 });
-  };
-  const closeMenu = () => {
-    menuDropY.value = withTiming(-8, { duration: 140 });
-    menuScrimOpacity.value = withTiming(0, { duration: 140 });
-    menuDropOpacity.value = withTiming(0, { duration: 140 }, (fin) => {
-      if (fin) runOnJS(setMenuOpen)(false);
-    });
-  };
-  const menuCardStyle = useAnimatedStyle(() => ({
-    opacity: menuDropOpacity.value,
-    transform: [{ translateY: menuDropY.value }],
-  }));
-  const menuScrimStyle = useAnimatedStyle(() => ({
-    opacity: menuScrimOpacity.value,
-  }));
 
   const sameLevelCount = memoriesForLevel(m.levelNum).length;
 
@@ -547,25 +594,30 @@ export function MemoryPage({ route, navigation }) {
     ...(level && !locked ? [{
       label: t('memory.doAgain'),
       icon: (c: string) => Icon.redo(c, 16),
-      onPress: () => { closeMenu(); navigation.navigate('Record', { level, kidId: m.kid, me: route.params?.me }); },
+      onPress: () => { setMenuOpen(false); navigation.navigate('Record', { level, kidId: m.kid, me: route.params?.me }); },
     }] : []),
     ...(sameLevelCount >= 2 ? [{
       label: t('memory.menuSeeAll'),
       icon: (c: string) => Icon.eye(c, 16),
-      onPress: () => { closeMenu(); navigation.navigate('LevelTimeline', { levelNum: m.levelNum, kidId: m.kid }); },
+      onPress: () => { setMenuOpen(false); navigation.navigate('LevelTimeline', { levelNum: m.levelNum, kidId: m.kid }); },
+    }] : []),
+    ...(MediaLibrary && !locked && (video || heroImg) ? [{
+      label: video ? t('memory.saveVideo') : t('memory.savePhoto'),
+      icon: (c: string) => Icon.download(c, 16),
+      onPress: onSaveMedia,
     }] : []),
     {
       label: t('common.delete'),
       icon: (c: string) => Icon.trash(c, 16),
       danger: true,
-      onPress: () => { closeMenu(); confirmDelete(); },
+      onPress: () => { setMenuOpen(false); confirmDelete(); },
     },
   ];
 
   const moreButton = (
     <View style={{ position: 'relative' }}>
       <TouchableOpacity
-        onPress={() => menuOpen ? closeMenu() : openMenu()}
+        onPress={() => setMenuOpen(o => !o)}
         disabled={deleting}
         activeOpacity={0.7}
         accessibilityRole="button"
@@ -581,17 +633,16 @@ export function MemoryPage({ route, navigation }) {
         {Icon.moreH(theme.ink, 20)}
       </TouchableOpacity>
 
-      <Modal transparent visible={menuOpen} animationType="none" onRequestClose={closeMenu}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={closeMenu}>
-          <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.08)' }, menuScrimStyle]} />
-          <Animated.View style={[{
+      <Modal transparent visible={menuOpen} animationType="fade" onRequestClose={() => setMenuOpen(false)}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={() => setMenuOpen(false)}>
+          <View style={{
             position: 'absolute', top: 100, right: 18, minWidth: 160,
             backgroundColor: theme.paper,
             borderWidth: 1, borderColor: theme.line,
             borderRadius: 16, padding: 6,
             shadowColor: '#3A332B', shadowOpacity: 0.2, shadowRadius: 16,
             shadowOffset: { width: 0, height: 10 }, elevation: 10,
-          }, menuCardStyle]}>
+          }}>
             {menuItems.map((item, i) => (
               <TouchableOpacity
                 key={i}
@@ -610,7 +661,7 @@ export function MemoryPage({ route, navigation }) {
                 }}>{item.label}</Text>
               </TouchableOpacity>
             ))}
-          </Animated.View>
+          </View>
         </Pressable>
       </Modal>
     </View>
@@ -693,9 +744,9 @@ export function MemoryPage({ route, navigation }) {
             elevation: 8,
           }}>
             {video ? (
-              <MemoryVideo url={video.url} tone={m.tone} />
+              <MemoryVideo url={video.url} tone={m.tone} dur={m.dur} />
             ) : audio ? (
-              <MemoryAudio url={audio.url} tone={m.tone} />
+              <MemoryAudio url={audio.url} tone={m.tone} level={level} />
             ) : heroImg ? (
               heroImg.livePhotoUrl ? (
                 <RemoteLivePhotoImage
@@ -716,8 +767,8 @@ export function MemoryPage({ route, navigation }) {
               // 纯文字：用这件事本身的插画兜底，与回忆册列表保持一致
               <SceneSlot level={level} tone={m.tone} size={220} style={{ width: '100%', height: 300, borderRadius: 28 }} />
             )}
-            {/* Type badge overlay */}
-            {(type === 'voice' || type === 'video') && (
+            {/* Type badge overlay（视频的时长角标已在 MemoryVideo 内部渲染，这里只管语音） */}
+            {type === 'voice' && (
               <View pointerEvents="none" style={{ position: 'absolute', left: 16, bottom: 16 }}>
                 <TypeBadge type={type} dur={m.dur} />
               </View>
@@ -768,7 +819,7 @@ export function MemoryPage({ route, navigation }) {
                   />
                   {i === 0 && (
                     <View style={{
-                      position: 'absolute', top: 4, left: 4,
+                      position: 'absolute', bottom: 4, left: 4,
                       backgroundColor: theme.accent,
                       paddingHorizontal: 6, paddingVertical: 2, borderRadius: 999,
                     }}>
@@ -777,7 +828,7 @@ export function MemoryPage({ route, navigation }) {
                       }}>{t('record.cover')}</Text>
                     </View>
                   )}
-                  {img.livePhotoUrl && <LiveDot placement="top-right" />}
+                  {img.livePhotoUrl && <LiveDot />}
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -805,7 +856,7 @@ export function MemoryPage({ route, navigation }) {
                   />
                   {i === 0 && (
                     <View style={{
-                      position: 'absolute', top: 4, left: 4,
+                      position: 'absolute', bottom: 4, left: 4,
                       backgroundColor: theme.accent,
                       paddingHorizontal: 6, paddingVertical: 2, borderRadius: 999,
                     }}>
@@ -830,7 +881,7 @@ export function MemoryPage({ route, navigation }) {
             }}>
               <Text style={{
                 fontFamily: theme.fonts.head, fontSize: 13, color: tn.ink,
-              }}>{t('memory.nthThingFull', { n: memSeq(m, memories) })}</Text>
+              }}>{PERSPECTIVES[m.perspective]?.long || ''}</Text>
             </View>
             {memoriesForLevel(m.levelNum).length >= 2 && (
               <TouchableOpacity
@@ -870,30 +921,27 @@ export function MemoryPage({ route, navigation }) {
             }}>{m.caption}</Text>
           </View>
 
-          {/* Date and place */}
+          {/* Date · place · 谁记录的 */}
           <View style={{
-            marginTop: 28, flexDirection: 'row', alignItems: 'center', gap: 10,
+            marginTop: 28, flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap',
           }}>
-            <Text style={{
-              fontFamily: theme.fonts.body, fontSize: 14, color: theme.inkSoft,
-            }}>{m.date}</Text>
-            <Text style={{
-              fontFamily: theme.fonts.body, fontSize: 14, color: theme.inkSoft, opacity: 0.4,
-            }}>{'·'}</Text>
-            <Text style={{
-              fontFamily: theme.fonts.body, fontSize: 14, color: theme.inkSoft,
-            }}>{m.place}</Text>
+            {[
+              m.date,
+              m.place,
+              recorderLabel ? t('yaoji.recordedBy', { role: recorderLabel }) : null,
+            ].filter(Boolean).map((part, i) => (
+              <React.Fragment key={i}>
+                {i > 0 && (
+                  <Text style={{
+                    fontFamily: theme.fonts.body, fontSize: 14, color: theme.inkSoft, opacity: 0.4,
+                  }}>{'·'}</Text>
+                )}
+                <Text style={{
+                  fontFamily: theme.fonts.body, fontSize: 14, color: theme.inkSoft,
+                }}>{part}</Text>
+              </React.Fragment>
+            ))}
           </View>
-
-          {/* 邀记标记 */}
-          {!!m.invitedRole && (
-            <Text style={{
-              marginTop: 10, fontFamily: theme.fonts.body, fontSize: 13,
-              color: theme.inkSoft,
-            }}>
-              {t('yaoji.viaBadge', { role: m.invitedRole })}
-            </Text>
-          )}
 
           {/* ── Transcript accordion ── */}
           {hasTranscript && (
@@ -980,6 +1028,27 @@ export function MemoryPage({ route, navigation }) {
 
       {/* Share sheet */}
       <ShareSheet m={m} visible={shareVisible} onClose={() => setShareVisible(false)} />
+
+      {/* 保存原图 / 原视频时的等待遮罩（视频下载可能要几秒） */}
+      {savingMedia && (
+        <View
+          pointerEvents="auto"
+          style={[StyleSheet.absoluteFill, {
+            backgroundColor: 'rgba(0,0,0,0.35)',
+            justifyContent: 'center', alignItems: 'center',
+          }]}
+        >
+          <View style={{
+            paddingVertical: 22, paddingHorizontal: 28, borderRadius: 18,
+            backgroundColor: theme.paper, alignItems: 'center', gap: 12,
+          }}>
+            <ActivityIndicator color={theme.accent} />
+            <Text style={{ fontFamily: theme.fonts.body, fontSize: 14, color: theme.ink }}>
+              {t('memory.savingMedia')}
+            </Text>
+          </View>
+        </View>
+      )}
     </View>
   );
 }
@@ -1078,22 +1147,12 @@ function MemoryThreadItem({ m, onOpen, showWho, showDate = true }) {
         }} />
       </View>
 
-      {/* Date and place header — date 只在每个日期组的第一件上显示，同一天不再重复 */}
-      {(showDate || !!m.place) && (
-        <View style={{
-          flexDirection: 'row', alignItems: 'baseline', gap: 8,
-          marginBottom: 8,
-        }}>
-          {showDate && (
-            <Text style={{
-              fontFamily: theme.fonts.head, fontSize: 15, color: theme.ink,
-            }}>{m.date}</Text>
-          )}
-          {!!m.place && (
-            <Text style={{
-              fontFamily: theme.fonts.body, fontSize: 12.5, color: theme.inkSoft,
-            }}>{m.place}</Text>
-          )}
+      {/* Date header — only shown for the first item of each date group */}
+      {showDate && (
+        <View style={{ marginBottom: 8 }}>
+          <Text style={{
+            fontFamily: theme.fonts.head, fontSize: 15, color: theme.ink,
+          }}>{m.date}</Text>
         </View>
       )}
 
@@ -1167,7 +1226,7 @@ function MemoryThreadItem({ m, onOpen, showWho, showDate = true }) {
             }}>
               <Text style={{
                 fontFamily: theme.fonts.head, fontSize: 11, color: tn.ink,
-              }}>{t('records.nthThing', { n: memSeq(m, memories) })}</Text>
+              }}>{PERSPECTIVES[m.perspective]?.long || ''}</Text>
             </View>
             {sameLevelCount >= 2 && (
               <View style={{
@@ -1228,6 +1287,29 @@ function MemoryThreadItem({ m, onOpen, showWho, showDate = true }) {
           }}>{locked ? t('memory.lockedShort') : m.caption}</Text>
         </View>
       </TouchableOpacity>
+
+      {/* Time and place — below the card, on the timeline */}
+      {(!!m.createdAt || !!m.place) && (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 6, flexWrap: 'wrap' }}>
+          {!!m.createdAt && (() => {
+            const d = new Date(m.createdAt);
+            const hh = String(d.getHours()).padStart(2, '0');
+            const mm = String(d.getMinutes()).padStart(2, '0');
+            return (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                {Icon.clock(theme.inkSoft, 11)}
+                <Text style={{ fontFamily: theme.fonts.body, fontSize: 11.5, color: theme.inkSoft }}>{hh}:{mm}</Text>
+              </View>
+            );
+          })()}
+          {!!m.place && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+              {Icon.pin(theme.inkSoft, 11)}
+              <Text style={{ fontFamily: theme.fonts.body, fontSize: 11.5, color: theme.inkSoft }}>{m.place}</Text>
+            </View>
+          )}
+        </View>
+      )}
     </View>
   );
 }

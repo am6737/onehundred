@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, Dimensions, TouchableOpacity,
 } from 'react-native';
@@ -11,19 +11,15 @@ import { useData } from '../data/DataProvider';
 import { Icon } from '../components/Icons';
 import { SceneSlot } from '../components/Motifs';
 import { LayerHeader, PrimaryButton, SecondaryButton } from '../components/common';
-import { hasActiveInvites } from '../lib/yaoji';
 
 const { height: SCREEN_H } = Dimensions.get('window');
 
 export default function LevelDetail({ route, navigation }) {
   const { theme } = useTheme();
   const t = useT();
-  const { customLevels, memories } = useData();
+  const { customLevels } = useData();
   const insets = useSafeAreaInsets();
   const { level, kidId, me } = route.params;
-  const [hasInvites, setHasInvites] = useState(false);
-
-  const inviteMemories = memories.filter((m: any) => m.levelNum === level.num && m.inviteTokenId);
 
   // 自定义事：始终用 context 里最新的一份——这样从编辑页返回能立刻反映改动；
   // 若它被删掉了（liveLevel 变 undefined），就自动退回上一页，避免停在已删除的内容上。
@@ -32,10 +28,6 @@ export default function LevelDetail({ route, navigation }) {
     if (level.custom && !liveLevel) navigation.goBack();
   }, [liveLevel, level.custom]);
   const L = liveLevel || level;
-
-  useEffect(() => {
-    hasActiveInvites(L.num).then(setHasInvites).catch(() => {});
-  }, [L.num]);
 
   const tn = TONE[L.tone] || TONE.orange;
   const perspective = PERSPECTIVES[L.perspective];
@@ -128,30 +120,6 @@ export default function LevelDetail({ route, navigation }) {
             </View>
           </TouchableOpacity>
         )}
-
-        {/* 邀记入口 */}
-        <TouchableOpacity
-          activeOpacity={0.7}
-          onPress={() => navigation.navigate('InviteRecord', { level: L, kidId, me })}
-          style={styles.inviteLink}
-        >
-          {Icon.share(theme.inkSoft, 16)}
-          <Text style={[styles.inviteLinkText, { color: theme.inkSoft, fontFamily: theme.fonts.body }]}>
-            {t('yaoji.inviteFamily')}
-          </Text>
-        </TouchableOpacity>
-
-        {/* 邀记状态 */}
-        {(hasInvites || inviteMemories.length > 0) && (
-          <View style={[styles.inviteStatus, { backgroundColor: theme.paper, borderColor: theme.line }]}>
-            {Icon.users(theme.accent, 16)}
-            <Text style={[styles.inviteStatusText, { color: theme.inkSoft, fontFamily: theme.fonts.body }]}>
-              {inviteMemories.length > 0
-                ? t('yaoji.statusReceived', { count: inviteMemories.length })
-                : t('yaoji.statusWaiting')}
-            </Text>
-          </View>
-        )}
       </ScrollView>
 
       {/* Sticky bottom bar，上沿用真实渐变把滚动内容柔和淡出 */}
@@ -167,8 +135,8 @@ export default function LevelDetail({ route, navigation }) {
         </Svg>
         <View style={styles.bottomButtons}>
           <SecondaryButton
-            label={t('levelDetail.later')}
-            onPress={() => navigation.goBack()}
+            label={t('yaoji.inviteFamily')}
+            onPress={() => navigation.navigate('InviteRecord', { level: L, kidId, me })}
             style={styles.laterBtn}
           />
           <PrimaryButton
@@ -308,25 +276,4 @@ const styles = StyleSheet.create({
   laterBtn: { paddingHorizontal: 18, paddingVertical: 15 },
   recordBtn: { flex: 1, paddingVertical: 15 },
 
-  /* 邀记入口 */
-  inviteLink: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    marginTop: 20,
-    paddingVertical: 10,
-  },
-  inviteLinkText: { fontSize: 14 },
-  inviteStatus: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 14,
-    borderWidth: 1,
-  },
-  inviteStatusText: { fontSize: 13 },
 });

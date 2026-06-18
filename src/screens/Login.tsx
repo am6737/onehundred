@@ -1,13 +1,13 @@
 import React, { useState, useRef } from 'react';
 import {
-  View, Text, TouchableOpacity, TextInput, Dimensions, Modal, Pressable, Alert, ActivityIndicator,
+  View, Text, TouchableOpacity, TextInput, Dimensions, Modal, Pressable, Alert, ActivityIndicator, Keyboard,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/tokens';
 import { useT } from '../i18n';
 import { Icon } from '../components/Icons';
 import Svg, { Path } from 'react-native-svg';
-import { signInAnonymously } from '../lib/auth';
+import { sendPhoneOtp, signInAnonymously, signInWithPhonePassword, verifyPhoneOtp, signInWithApple, isAppleSignInAvailable } from '../lib/auth';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
@@ -219,37 +219,17 @@ export function LoginWelcome({ navigation }) {
 
       {/* Middle login section */}
       <View style={{ paddingHorizontal: 24 }}>
-        {/* Phone number */}
+        {/* Phone login */}
         <View style={{ alignItems: 'center', marginBottom: 14 }}>
           <Text style={{
             fontFamily: theme.fonts.head,
-            fontSize: 34,
+            fontSize: 24,
             color: theme.ink,
-            letterSpacing: 3,
-          }}>188 **** 6066</Text>
-
-          <View style={{
-            marginTop: 12,
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: 6,
-            paddingHorizontal: 16,
-            paddingVertical: 7,
-            borderRadius: 999,
-            backgroundColor: theme.sand,
-          }}>
-            {Icon.shieldCheck(theme.accent, 14)}
-            <Text style={{
-              fontFamily: theme.fonts.body,
-              fontSize: 12,
-              color: theme.inkSoft,
-            }}>{t('login.carrierService')}</Text>
-          </View>
+          }}>{t('login.codeLogin')}</Text>
         </View>
 
-        {/* One-click login */}
         <TouchableOpacity
-          onPress={() => navigation.replace('Home')}
+          onPress={() => navigation.navigate('PhoneLogin')}
           activeOpacity={0.8}
           accessibilityRole="button"
           style={{
@@ -269,7 +249,7 @@ export function LoginWelcome({ navigation }) {
             fontFamily: theme.fonts.head,
             fontSize: 17,
             color: '#FFFDF7',
-          }}>{t('login.oneClickLogin')}</Text>
+          }}>{t('login.getCode')}</Text>
         </TouchableOpacity>
 
         {/* Guest login */}
@@ -321,7 +301,6 @@ export function LoginWelcome({ navigation }) {
             checked={agreed}
             onToggle={() => setAgreed(!agreed)}
             onOpenAgreement={(type) => navigation.navigate('Agreement', { type })}
-            showCarrier
           />
         </View>
       </View>
@@ -357,17 +336,25 @@ export function PhoneLogin({ navigation }) {
   const [tab, setTab] = useState('code');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
+  const [code, setCode] = useState('');
   const [agreed, setAgreed] = useState(true);
   const [countdown, setCountdown] = useState(0);
+  const [codeSent, setCodeSent] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [showSocial, setShowSocial] = useState(false);
+  const [appleAvailable, setAppleAvailable] = useState(false);
   const timerRef = useRef<any>(null);
 
-  const canSendCode = phone.trim().length >= 11 && countdown === 0;
-  const canLogin = phone.trim().length >= 11 && password.length > 0;
+  React.useEffect(() => { isAppleSignInAvailable().then(setAppleAvailable); }, []);
 
-  const sendCode = () => {
-    if (!canSendCode) return;
+  const validPhone = phone.replace(/\D/g, '').length === 11;
+  const canSendCode = validPhone && countdown === 0 && !loading;
+  const canVerifyCode = validPhone && code.trim().length === 6 && !loading;
+  const canLogin = validPhone && password.length > 0 && !loading;
+
+  const startCountdown = () => {
     setCountdown(60);
+    if (timerRef.current) clearInterval(timerRef.current);
     timerRef.current = setInterval(() => {
       setCountdown(prev => {
         if (prev <= 1) { clearInterval(timerRef.current); return 0; }
@@ -375,6 +362,57 @@ export function PhoneLogin({ navigation }) {
       });
     }, 1000);
   };
+
+  const sendCode = async () => {
+    if (!canSendCode) return;
+    if (!agreed) { Alert.alert(t('login.agreeFirstTitle'), t('login.agreeFirstBody')); return; }
+    setLoading(true);
+    try {
+      await sendPhoneOtp(phone);
+      setCodeSent(true);
+      startCountdown();
+      Alert.alert(t('login.codeSentTitle'), t('login.codeSentBody'));
+    } catch (e: any) {
+      Alert.alert(t('login.loginFailTitle'), e?.message || t('login.connectFailBody'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const verifyCode = async () => {
+    if (!canVerifyCode) return;
+    if (!agreed) { Alert.alert(t('login.agreeFirstTitle'), t('login.agreeFirstBody')); return; }
+    setLoading(true);
+    try {
+      await verifyPhoneOtp(phone, code.trim());
+      navigation.replace('Home');
+    } catch (e: any) {
+      Alert.alert(t('login.loginFailTitle'), e?.message || t('login.connectFailBody'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loginWithPassword = async () => {
+    if (!canLogin) return;
+    if (!agreed) { Alert.alert(t('login.agreeFirstTitle'), t('login.agreeFirstBody')); return; }
+    setLoading(true);
+    try {
+      await signInWithPhonePassword(phone, password);
+      navigation.replace('Home');
+    } catch (e: any) {
+      Alert.alert(t('login.loginFailTitle'), e?.message || t('login.passwordLoginUnavailable'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  React.useEffect(() => {
+    setCodeSent(false);
+    setCode('');
+  }, [phone]);
+
+  React.useEffect(() => () => { if (timerRef.current) clearInterval(timerRef.current); }, []);
 
   return (
     <View style={{
@@ -397,10 +435,38 @@ export function PhoneLogin({ navigation }) {
       </View>
 
       {/* Content */}
-      <View style={{ flex: 1, paddingHorizontal: 24, marginTop: 28 }}>
-        <PhoneInput value={phone} onChangeText={setPhone} />
+      <Pressable onPress={Keyboard.dismiss} style={{ flex: 1 }}>
+        <View style={{ flex: 1, paddingHorizontal: 24, marginTop: 28 }}>
+          <PhoneInput value={phone} onChangeText={setPhone} />
 
-        {tab !== 'code' && (
+          {tab === 'code' ? (
+          <View style={{
+            marginTop: 14,
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: theme.paper,
+            borderRadius: 16,
+            paddingHorizontal: 18,
+            height: 56,
+          }}>
+            <TextInput
+              value={code}
+              onChangeText={setCode}
+              placeholder={t('login.codePlaceholder6')}
+              placeholderTextColor={theme.inkSoft}
+              accessibilityLabel={t('login.codePlaceholder6')}
+              keyboardType="number-pad"
+              maxLength={6}
+              style={{
+                flex: 1,
+                fontFamily: theme.fonts.body,
+                fontSize: 16,
+                color: theme.ink,
+                padding: 0,
+              }}
+            />
+          </View>
+        ) : (
           <View style={{
             marginTop: 14,
             flexDirection: 'row',
@@ -428,37 +494,38 @@ export function PhoneLogin({ navigation }) {
           </View>
         )}
 
-        {/* Toggle + forgot password row */}
-        <View style={{
-          flexDirection: 'row',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginTop: 14,
-          paddingHorizontal: 4,
-        }}>
-          <TouchableOpacity
-            onPress={() => setTab(tab === 'code' ? 'password' : 'code')}
-            activeOpacity={0.7}
-            style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
-          >
-            <Text style={{
-              fontFamily: theme.fonts.body,
-              fontSize: 14,
-              color: theme.accent,
-            }}>{tab === 'code' ? t('login.passwordLogin') : t('login.codeLogin')}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => navigation.navigate('ForgotPassword')}
-            activeOpacity={0.7}
-          >
-            <Text style={{
-              fontFamily: theme.fonts.body,
-              fontSize: 14,
-              color: theme.inkSoft,
-            }}>{t('login.forgotPassword')}</Text>
-          </TouchableOpacity>
+          {/* Toggle + forgot password row */}
+          <View style={{
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginTop: 14,
+            paddingHorizontal: 4,
+          }}>
+            <TouchableOpacity
+              onPress={() => setTab(tab === 'code' ? 'password' : 'code')}
+              activeOpacity={0.7}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
+            >
+              <Text style={{
+                fontFamily: theme.fonts.body,
+                fontSize: 14,
+                color: theme.accent,
+              }}>{tab === 'code' ? t('login.passwordLogin') : t('login.codeLogin')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => navigation.navigate('ForgotPassword')}
+              activeOpacity={0.7}
+            >
+              <Text style={{
+                fontFamily: theme.fonts.body,
+                fontSize: 14,
+                color: theme.inkSoft,
+              }}>{t('login.forgotPassword')}</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
+      </Pressable>
 
       {/* Bottom */}
       <View style={{
@@ -467,15 +534,15 @@ export function PhoneLogin({ navigation }) {
       }}>
         {tab === 'code' ? (
           <BottomButton
-            label={countdown > 0 ? t('login.resend', { n: countdown }) : t('login.getCode')}
-            enabled={canSendCode}
-            onPress={sendCode}
+            label={loading ? '...' : codeSent ? t('login.login') : (countdown > 0 ? t('login.resend', { n: countdown }) : t('login.getCode'))}
+            enabled={codeSent ? canVerifyCode : canSendCode}
+            onPress={codeSent ? verifyCode : sendCode}
           />
         ) : (
           <BottomButton
             label={t('login.login')}
             enabled={canLogin}
-            onPress={() => navigation.replace('Home')}
+            onPress={loginWithPassword}
           />
         )}
 
@@ -589,7 +656,26 @@ export function PhoneLogin({ navigation }) {
                     fontFamily: theme.fonts.body, fontSize: 13, color: theme.inkSoft,
                   }}>{t('login.wechat')}</Text>
                 </TouchableOpacity>
-                <TouchableOpacity activeOpacity={0.7} style={{ alignItems: 'center', gap: 10 }}>
+                {appleAvailable ? (
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  style={{ alignItems: 'center', gap: 10 }}
+                  onPress={async () => {
+                    if (!agreed) {
+                      Alert.alert(t('login.agreeFirstTitle'), t('login.agreeFirstBody'));
+                      return;
+                    }
+                    setShowSocial(false);
+                    try {
+                      await signInWithApple();
+                      navigation.replace('Home');
+                    } catch (e: any) {
+                      if (e?.code !== 'ERR_REQUEST_CANCELED') {
+                        Alert.alert(t('login.loginFailTitle'), e?.message || t('login.connectFailBody'));
+                      }
+                    }
+                  }}
+                >
                   <View style={{
                     width: 56, height: 56, borderRadius: 28,
                     backgroundColor: theme.cream,
@@ -601,6 +687,7 @@ export function PhoneLogin({ navigation }) {
                     fontFamily: theme.fonts.body, fontSize: 13, color: theme.inkSoft,
                   }}>{t('login.apple')}</Text>
                 </TouchableOpacity>
+                ) : null}
                 <TouchableOpacity
                   activeOpacity={0.7}
                   style={{ alignItems: 'center', gap: 10 }}
@@ -645,13 +732,14 @@ export function ForgotPassword({ navigation }) {
   const insets = useSafeAreaInsets();
   const [phone, setPhone] = useState('');
   const [countdown, setCountdown] = useState(0);
+  const [loading, setLoading] = useState(false);
   const timerRef = useRef<any>(null);
 
-  const canSend = phone.trim().length >= 11 && countdown === 0;
+  const canSend = phone.replace(/\D/g, '').length === 11 && countdown === 0 && !loading;
 
-  const sendCode = () => {
-    if (!canSend) return;
+  const startCountdown = () => {
     setCountdown(60);
+    if (timerRef.current) clearInterval(timerRef.current);
     timerRef.current = setInterval(() => {
       setCountdown(prev => {
         if (prev <= 1) { clearInterval(timerRef.current); return 0; }
@@ -659,6 +747,22 @@ export function ForgotPassword({ navigation }) {
       });
     }, 1000);
   };
+
+  const sendCode = async () => {
+    if (!canSend) return;
+    setLoading(true);
+    try {
+      await sendPhoneOtp(phone);
+      startCountdown();
+      Alert.alert(t('login.codeSentTitle'), t('login.codeSentBody'));
+    } catch (e: any) {
+      Alert.alert(t('login.loginFailTitle'), e?.message || t('login.connectFailBody'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  React.useEffect(() => () => { if (timerRef.current) clearInterval(timerRef.current); }, []);
 
   return (
     <View style={{
@@ -698,7 +802,7 @@ export function ForgotPassword({ navigation }) {
         paddingBottom: insets.bottom + 16,
       }}>
         <BottomButton
-          label={countdown > 0 ? t('login.resend', { n: countdown }) : t('login.getCode')}
+          label={loading ? '...' : (countdown > 0 ? t('login.resend', { n: countdown }) : t('login.getCode'))}
           enabled={canSend}
           onPress={sendCode}
         />

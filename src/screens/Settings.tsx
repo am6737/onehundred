@@ -8,15 +8,13 @@ import {
   Alert, ActivityIndicator, Image,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
-import Animated, {
-  useSharedValue, useAnimatedStyle, withSpring, withTiming, runOnJS,
-} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme, COLORS } from '../theme/tokens';
 import { useI18n, useT } from '../i18n';
 import { ROLES, DEFAULT_ME, meName, meChar, roleLabel, NOW_YM } from '../data';
 import { useData } from '../data/DataProvider';
-import { signOut, isAnonymous, bindEmail, deleteAccount } from '../lib/auth';
+import { signOut, isAnonymous, bindEmail, deleteAccount, getCurrentUserPhone, maskPhone, updatePhone, verifyPhoneChange, signInWithApple, bindApple, isAppleSignInAvailable, getLinkedProviders, unbindProvider } from '../lib/auth';
+import { getInviteExpiryHours, setInviteExpiryHours, INVITE_EXPIRY_OPTIONS, DEFAULT_INVITE_EXPIRY } from '../lib/yaoji';
 import { supabase } from '../lib/supabase';
 import { Icon, KidAvatar } from '../components/Icons';
 import { LayerHeader, Sheet, Chip, PrimaryButton, SecondaryButton, Section } from '../components/common';
@@ -238,47 +236,20 @@ function RoleAvatar({ ch, size = 48, on }: any) {
 function IdentityRow({ me, options, onSelect, divider = false }: any) {
   const { theme } = useTheme();
   const t = useT();
-  const [visible, setVisible] = useState(false);
+  const [open, setOpen] = useState(false);
   const triggerRef = useRef<View>(null);
   const [pos, setPos] = useState({ top: 0, right: 20 });
-  const dropY = useSharedValue(-14);
-  const dropOpacity = useSharedValue(0);
-  const scrimOpacity = useSharedValue(0);
-
-  const openDropdown = () => {
-    dropY.value = -14;
-    dropOpacity.value = 0;
-    scrimOpacity.value = 0;
-    setVisible(true);
-    dropY.value = withSpring(0, { damping: 20, stiffness: 260 });
-    dropOpacity.value = withTiming(1, { duration: 200 });
-    scrimOpacity.value = withTiming(1, { duration: 200 });
-  };
-  const closeDropdown = () => {
-    dropY.value = withTiming(-8, { duration: 140 });
-    scrimOpacity.value = withTiming(0, { duration: 140 });
-    dropOpacity.value = withTiming(0, { duration: 140 }, (fin) => {
-      if (fin) runOnJS(setVisible)(false);
-    });
-  };
-  const cardAnimStyle = useAnimatedStyle(() => ({
-    opacity: dropOpacity.value,
-    transform: [{ translateY: dropY.value }],
-  }));
-  const scrimStyle = useAnimatedStyle(() => ({
-    opacity: scrimOpacity.value,
-  }));
 
   const handleOpen = () => {
-    if (visible) { closeDropdown(); return; }
+    if (open) { setOpen(false); return; }
     const node = triggerRef.current;
     if (node) {
       node.measure((_x, _y, w, h, pageX, pageY) => {
         setPos({ top: pageY + h + 6, right: Math.max(16, SCREEN_W - pageX - w + 16) });
-        openDropdown();
+        setOpen(true);
       });
     } else {
-      openDropdown();
+      setOpen(true);
     }
   };
 
@@ -299,33 +270,32 @@ function IdentityRow({ me, options, onSelect, divider = false }: any) {
         </Text>
         <Text style={{
           fontFamily: theme.fonts.body, fontSize: 14.5,
-          color: visible ? theme.accent : theme.inkSoft,
+          color: open ? theme.accent : theme.inkSoft,
         }}>{meName(me)}</Text>
-        <View style={{ transform: [{ rotate: visible ? '180deg' : '0deg' }] }}>
-          {Icon.chevDown(visible ? theme.accent : theme.inkSoft, 18)}
+        <View style={{ transform: [{ rotate: open ? '180deg' : '0deg' }] }}>
+          {Icon.chevDown(open ? theme.accent : theme.inkSoft, 18)}
         </View>
       </TouchableOpacity>
 
-      <Modal transparent visible={visible} animationType="none" onRequestClose={closeDropdown}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={closeDropdown}>
-          <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.08)' }, scrimStyle]} />
+      <Modal transparent visible={open} animationType="fade" onRequestClose={() => setOpen(false)}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={() => setOpen(false)}>
           <Pressable
             onPress={e => e.stopPropagation()}
             style={{ position: 'absolute', top: pos.top, right: pos.right }}
           >
-            <Animated.View style={[{
+            <View style={{
               minWidth: 120, backgroundColor: theme.paper,
               borderWidth: 1, borderColor: theme.line,
               borderRadius: 12, padding: 4,
               shadowColor: theme.ink, shadowOffset: { width: 0, height: 12 },
               shadowOpacity: 0.18, shadowRadius: 24, elevation: 8,
-            }, cardAnimStyle]}>
+            }}>
               {options.map(o => {
                 const on = me.role === o;
                 return (
                   <TouchableOpacity
                     key={o}
-                    onPress={() => { onSelect(o); closeDropdown(); }}
+                    onPress={() => { onSelect(o); setOpen(false); }}
                     activeOpacity={0.7}
                     style={{
                       flexDirection: 'row', alignItems: 'center',
@@ -342,7 +312,7 @@ function IdentityRow({ me, options, onSelect, divider = false }: any) {
                   </TouchableOpacity>
                 );
               })}
-            </Animated.View>
+            </View>
           </Pressable>
         </Pressable>
       </Modal>
@@ -356,50 +326,23 @@ function IdentityRow({ me, options, onSelect, divider = false }: any) {
 
 function SelectRow({ icon = null, title, sub = null, options, value, onSelect, last = false }: any) {
   const { theme } = useTheme();
-  const [visible, setVisible] = useState(false);
+  const [open, setOpen] = useState(false);
   const triggerRef = useRef<View>(null);
   const [pos, setPos] = useState({ top: 0, right: 20 });
-  const dropY = useSharedValue(-14);
-  const dropOpacity = useSharedValue(0);
-  const scrimOpacity = useSharedValue(0);
   const norm = (o) => (typeof o === 'string' ? { key: o, label: o } : o);
   const current = options.map(norm).find(o => o.key === value);
   const valueLabel = current ? current.label : value;
 
-  const openDropdown = () => {
-    dropY.value = -14;
-    dropOpacity.value = 0;
-    scrimOpacity.value = 0;
-    setVisible(true);
-    dropY.value = withSpring(0, { damping: 20, stiffness: 260 });
-    dropOpacity.value = withTiming(1, { duration: 200 });
-    scrimOpacity.value = withTiming(1, { duration: 200 });
-  };
-  const closeDropdown = () => {
-    dropY.value = withTiming(-8, { duration: 140 });
-    scrimOpacity.value = withTiming(0, { duration: 140 });
-    dropOpacity.value = withTiming(0, { duration: 140 }, (fin) => {
-      if (fin) runOnJS(setVisible)(false);
-    });
-  };
-  const cardAnimStyle = useAnimatedStyle(() => ({
-    opacity: dropOpacity.value,
-    transform: [{ translateY: dropY.value }],
-  }));
-  const scrimStyle = useAnimatedStyle(() => ({
-    opacity: scrimOpacity.value,
-  }));
-
   const handleOpen = () => {
-    if (visible) { closeDropdown(); return; }
+    if (open) { setOpen(false); return; }
     const node = triggerRef.current;
     if (node) {
       node.measure((_x, _y, w, h, pageX, pageY) => {
         setPos({ top: pageY + h + 6, right: Math.max(16, SCREEN_W - pageX - w + 16) });
-        openDropdown();
+        setOpen(true);
       });
     } else {
-      openDropdown();
+      setOpen(true);
     }
   };
 
@@ -430,33 +373,32 @@ function SelectRow({ icon = null, title, sub = null, options, value, onSelect, l
         </View>
         <Text style={{
           fontFamily: theme.fonts.body, fontSize: 14,
-          color: visible ? theme.accent : theme.inkSoft,
+          color: open ? theme.accent : theme.inkSoft,
         }}>{valueLabel}</Text>
-        <View style={{ transform: [{ rotate: visible ? '180deg' : '0deg' }] }}>
-          {Icon.chevDown(visible ? theme.accent : theme.inkSoft, 18)}
+        <View style={{ transform: [{ rotate: open ? '180deg' : '0deg' }] }}>
+          {Icon.chevDown(open ? theme.accent : theme.inkSoft, 18)}
         </View>
       </TouchableOpacity>
 
-      <Modal transparent visible={visible} animationType="none" onRequestClose={closeDropdown}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={closeDropdown}>
-          <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.08)' }, scrimStyle]} />
+      <Modal transparent visible={open} animationType="fade" onRequestClose={() => setOpen(false)}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={() => setOpen(false)}>
           <Pressable
             onPress={e => e.stopPropagation()}
             style={{ position: 'absolute', top: pos.top, right: pos.right }}
           >
-            <Animated.View style={[{
+            <View style={{
               minWidth: 120, backgroundColor: theme.paper,
               borderWidth: 1, borderColor: theme.line,
               borderRadius: 12, padding: 4,
               shadowColor: theme.ink, shadowOffset: { width: 0, height: 12 },
               shadowOpacity: 0.18, shadowRadius: 24, elevation: 8,
-            }, cardAnimStyle]}>
+            }}>
               {options.map(norm).map(o => {
                 const on = value === o.key;
                 return (
                   <TouchableOpacity
                     key={o.key}
-                    onPress={() => { onSelect(o.key); closeDropdown(); }}
+                    onPress={() => { onSelect(o.key); setOpen(false); }}
                     activeOpacity={0.7}
                     style={{
                       flexDirection: 'row', alignItems: 'center',
@@ -473,7 +415,7 @@ function SelectRow({ icon = null, title, sub = null, options, value, onSelect, l
                   </TouchableOpacity>
                 );
               })}
-            </Animated.View>
+            </View>
           </Pressable>
         </Pressable>
       </Modal>
@@ -1073,7 +1015,7 @@ function AboutSheet({ onClose }: any) {
               style={{
                 width: 84, height: 84, borderRadius: 24,
                 shadowColor: theme.accent, shadowOffset: { width: 0, height: 16 },
-                shadowOpacity: 0.4, shadowRadius: 30, elevation: 8,
+                shadowOpacity: 0.4, shadowRadius: 30,
               }}
             />
             <Text style={{
@@ -1144,21 +1086,23 @@ function AboutSheet({ onClose }: any) {
    ChangePhoneSheet
    ══════════════════════════════════════════════════════════ */
 
-function ChangePhoneSheet({ anon, onClose }: any) {
+function ChangePhoneSheet({ anon, currentPhone, onChanged, onClose }: any) {
   const { theme } = useTheme();
   const t = useT();
   const insets = useSafeAreaInsets();
   const [phone, setPhone] = useState('');
   const [code, setCode] = useState('');
   const [countdown, setCountdown] = useState(0);
+  const [loading, setLoading] = useState(false);
   const timerRef = useRef<any>(null);
 
-  const canSend = phone.trim().length >= 11 && countdown === 0;
-  const canSave = phone.trim().length >= 11 && code.trim().length === 6;
+  const validPhone = phone.replace(/\D/g, '').length === 11;
+  const canSend = validPhone && countdown === 0 && !loading;
+  const canSave = validPhone && code.trim().length === 6 && !loading;
 
-  const sendCode = () => {
-    if (!canSend) return;
+  const startCountdown = () => {
     setCountdown(60);
+    if (timerRef.current) clearInterval(timerRef.current);
     timerRef.current = setInterval(() => {
       setCountdown(prev => {
         if (prev <= 1) { clearInterval(timerRef.current); return 0; }
@@ -1166,6 +1110,38 @@ function ChangePhoneSheet({ anon, onClose }: any) {
       });
     }, 1000);
   };
+
+  const sendCode = async () => {
+    if (!canSend) return;
+    setLoading(true);
+    try {
+      await updatePhone(phone);
+      startCountdown();
+      Alert.alert(t('settings.codeSentTitle'), t('settings.codeSentBody'));
+    } catch (e: any) {
+      Alert.alert(t('settings.phoneChangeFailTitle'), e?.message || t('settings.tryAgain'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const save = async () => {
+    if (!canSave) return;
+    setLoading(true);
+    try {
+      await verifyPhoneChange(phone, code.trim());
+      const updated = await getCurrentUserPhone();
+      onChanged?.(updated);
+      Alert.alert(t('settings.phoneChangeSuccessTitle'), t('settings.phoneChangeSuccessBody'));
+      onClose();
+    } catch (e: any) {
+      Alert.alert(t('settings.phoneChangeFailTitle'), e?.message || t('settings.tryAgain'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => () => { if (timerRef.current) clearInterval(timerRef.current); }, []);
 
   return (
     <Modal visible animationType="slide" onRequestClose={onClose}>
@@ -1175,7 +1151,7 @@ function ChangePhoneSheet({ anon, onClose }: any) {
           onBack={onClose}
           right={
             <TouchableOpacity
-              onPress={canSave ? onClose : undefined}
+              onPress={canSave ? save : undefined}
               disabled={!canSave}
               activeOpacity={0.7}
               style={{
@@ -1207,7 +1183,7 @@ function ChangePhoneSheet({ anon, onClose }: any) {
               backgroundColor: theme.sand, borderRadius: 18,
             }}>
               <Text style={{ fontFamily: theme.fonts.body, fontSize: 15, color: theme.inkSoft }}>{t('settings.currentNumber')}</Text>
-              <Text style={{ fontFamily: theme.fonts.body, fontSize: 15, color: theme.ink }}>138 **** 6688</Text>
+              <Text style={{ fontFamily: theme.fonts.body, fontSize: 15, color: theme.ink }}>{maskPhone(currentPhone)}</Text>
             </View>
           ) : null}
 
@@ -1264,7 +1240,7 @@ function ChangePhoneSheet({ anon, onClose }: any) {
             >
               <Text style={{
                 fontFamily: theme.fonts.head, fontSize: 14, color: theme.ink,
-              }}>{countdown > 0 ? `${countdown}s` : t('settings.getCode')}</Text>
+              }}>{loading ? '...' : countdown > 0 ? `${countdown}s` : t('settings.getCode')}</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -1580,17 +1556,53 @@ function AccountSecuritySheet({ anon, onAnonChanged, onClose }: any) {
   const { theme } = useTheme();
   const t = useT();
   const insets = useSafeAreaInsets();
-  const [subSheet, setSubSheet] = useState<string | null>(null); // 'changePhone' | 'deleteAccount' | 'bindEmail'
+  const [subSheet, setSubSheet] = useState<string | null>(null);
   const [showLogout, setShowLogout] = useState(false);
-  const [showUnbindWechat, setShowUnbindWechat] = useState(false);
+  const [showUnbind, setShowUnbind] = useState<string | null>(null); // 'apple' | 'wechat'
   const [uid, setUid] = useState('');
   const [uidCopied, setUidCopied] = useState(false);
+  const [currentPhone, setCurrentPhone] = useState('');
+  const [providers, setProviders] = useState<string[]>([]);
+  const [appleAvail, setAppleAvail] = useState(false);
+
+  const refreshProviders = useCallback(() => {
+    getLinkedProviders().then(setProviders);
+  }, []);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
       if (data?.user?.id) setUid(data.user.id.slice(0, 8));
+      setCurrentPhone(data?.user?.phone || '');
     });
+    refreshProviders();
+    isAppleSignInAvailable().then(setAppleAvail);
   }, []);
+
+  const wechatBound = providers.includes('wechat');
+  const appleBound = providers.includes('apple');
+
+  const handleBindApple = async () => {
+    try {
+      await bindApple();
+      refreshProviders();
+      onAnonChanged?.();
+      Alert.alert(t('settings.bindSuccess'), t('settings.bindSuccessMsg'));
+    } catch (e: any) {
+      if (e?.code !== 'ERR_REQUEST_CANCELED') {
+        Alert.alert(t('settings.bindFail'), e?.message || t('settings.tryAgain'));
+      }
+    }
+  };
+
+  const handleUnbind = async (provider: string) => {
+    setShowUnbind(null);
+    try {
+      await unbindProvider(provider);
+      refreshProviders();
+    } catch (e: any) {
+      Alert.alert(t('settings.unbindFail'), e?.message || t('settings.tryAgain'));
+    }
+  };
 
   const copyUid = async () => {
     if (!uid) return;
@@ -1628,16 +1640,24 @@ function AccountSecuritySheet({ anon, onAnonChanged, onClose }: any) {
             <Row
               icon={Icon.phone(theme.accent, 19)}
               title={t('settings.phone')}
-              value={anon ? t('settings.notBound') : '138 **** 6688'}
+              value={currentPhone ? maskPhone(currentPhone) : t('settings.notBound')}
               onPress={() => setSubSheet('changePhone')}
             />
             <Row
               icon={Icon.users(theme.accent, 19)}
               title={t('settings.wechat')}
-              value={anon ? t('settings.notBound') : t('settings.bound')}
-              onPress={anon ? undefined : () => setShowUnbindWechat(true)}
-              last={anon ? false : true}
+              value={wechatBound ? t('settings.bound') : t('settings.notBound')}
+              onPress={() => wechatBound ? setShowUnbind('wechat') : setShowUnbind('wechat')}
             />
+            {appleAvail ? (
+              <Row
+                icon={Icon.apple(theme.accent, 19)}
+                title={t('settings.apple')}
+                value={appleBound ? t('settings.bound') : t('settings.notBound')}
+                onPress={() => appleBound ? setShowUnbind('apple') : handleBindApple()}
+                last={anon ? false : true}
+              />
+            ) : null}
             {anon ? (
               <Row
                 icon={Icon.mail(theme.accent, 19)}
@@ -1698,25 +1718,37 @@ function AccountSecuritySheet({ anon, onAnonChanged, onClose }: any) {
 
       {/* Sub-sheets & dialogs */}
       {subSheet === 'changePhone' ? (
-        <ChangePhoneSheet anon={anon} onClose={() => setSubSheet(null)} />
+        <ChangePhoneSheet anon={anon} currentPhone={currentPhone} onChanged={setCurrentPhone} onClose={() => setSubSheet(null)} />
       ) : null}
       {subSheet === 'deleteAccount' ? (
         <DeleteAccountSheet onClose={() => setSubSheet(null)} />
       ) : null}
       {subSheet === 'bindEmail' ? (
-        <BindEmailSheet onBound={onAnonChanged} onClose={() => setSubSheet(null)} />
+        <BindEmailSheet onBound={() => { refreshProviders(); onAnonChanged?.(); }} onClose={() => setSubSheet(null)} />
       ) : null}
 
       <ConfirmDialog
-        visible={showUnbindWechat}
+        visible={showUnbind === 'wechat'}
         icon={Icon.users(theme.accent, 26)}
         title={t('settings.unbindWechatTitle')}
         message={t('settings.unbindWechatMsg')}
         confirmLabel={t('settings.unbind')}
         confirmColor={theme.accent}
-        onConfirm={() => setShowUnbindWechat(false)}
+        onConfirm={() => handleUnbind('wechat')}
         cancelLabel={t('settings.notNow')}
-        onCancel={() => setShowUnbindWechat(false)}
+        onCancel={() => setShowUnbind(null)}
+      />
+
+      <ConfirmDialog
+        visible={showUnbind === 'apple'}
+        icon={Icon.apple(theme.accent, 26)}
+        title={t('settings.unbindAppleTitle')}
+        message={t('settings.unbindAppleMsg')}
+        confirmLabel={t('settings.unbind')}
+        confirmColor={theme.accent}
+        onConfirm={() => handleUnbind('apple')}
+        cancelLabel={t('settings.notNow')}
+        onCancel={() => setShowUnbind(null)}
       />
 
       <ConfirmDialog
@@ -1765,6 +1797,7 @@ export default function Settings({ navigation, route }: any) {
   const [defView, setDefView] = useState('together');
   const [rhythm, setRhythm] = useState('biweekly');
   const [anon, setAnon] = useState(false);
+  const [inviteExpiry, setInviteExpiry] = useState(DEFAULT_INVITE_EXPIRY);
 
   // 把 'sun evening' 这样的 key 对翻成展示文案
   const formatRemind = (v: any) => {
@@ -1772,6 +1805,7 @@ export default function Settings({ navigation, route }: any) {
     return t('settings.remindAtFmt', { day: t('settings.day.' + d), time: t('settings.time.' + tm) });
   };
   useEffect(() => { isAnonymous().then(setAnon); }, []);
+  useEffect(() => { getInviteExpiryHours().then(setInviteExpiry); }, []);
 
   const editingKid = kids.find(k => k.id === editId);
   const saveKid = (patch) => {
@@ -1858,6 +1892,16 @@ export default function Settings({ navigation, route }: any) {
             ]}
             value={defView}
             onSelect={setDefView}
+          />
+          <SelectRow
+            icon={Icon.share(theme.accent, 20)}
+            title={t('settings.inviteExpiry')}
+            options={INVITE_EXPIRY_OPTIONS.map(h => ({
+              key: String(h),
+              label: h < 24 ? t('settings.expiryHours', { n: h }) : t('settings.expiryDays', { n: h / 24 }),
+            }))}
+            value={String(inviteExpiry)}
+            onSelect={(v) => { const h = Number(v); setInviteExpiry(h); setInviteExpiryHours(h); }}
             last
           />
         </SettingGroup>

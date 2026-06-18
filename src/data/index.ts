@@ -132,6 +132,7 @@ function mapMemory(row) {
     caption: row.caption, transcript: row.transcript, tone: row.tone,
     sealed: row.sealed, sealUntil: row.seal_until, sealLabel: row.seal_label,
     inviteTokenId: row.invite_token_id, invitedRole: row.invited_role,
+    userId: row.user_id, createdAt: row.created_at,
   };
 }
 
@@ -502,8 +503,8 @@ export function kidLabelFrom(kids, id) {
 }
 
 export function kidDoneFrom(memories, id) {
-  if (id === 'all') return memories.length;
-  return memories.filter(m => m.kid === id || m.kid === 'all').length;
+  const list = id === 'all' ? memories : memories.filter(m => m.kid === id || m.kid === 'all');
+  return new Set(list.map(m => m.levelNum)).size;
 }
 
 export function memoriesForKidFrom(memories, id) {

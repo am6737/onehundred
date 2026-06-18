@@ -3,7 +3,7 @@ import {
   View, Text, Image, StyleSheet, Dimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Gesture, GestureDetector, TouchableOpacity } from 'react-native-gesture-handler';
+import { Gesture, GestureDetector, TouchableOpacity, ScrollView } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
 import { useTheme, TONE } from '../theme/tokens';
 import { useT } from '../i18n';
@@ -89,7 +89,8 @@ export default function SpotCompare({ route, navigation }) {
   }));
 
   const dividerStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: sliderX.value }],
+    // shift left by half the handle width (36/2) so the line/handle center sits on the seam at sliderX
+    transform: [{ translateX: sliderX.value - 18 }],
   }));
 
   // Age tags
@@ -104,7 +105,7 @@ export default function SpotCompare({ route, navigation }) {
     <View style={[styles.container, { backgroundColor: theme.cream }]}>
       <LayerHeader title={t('spotCompare.title')} onBack={() => navigation.goBack()} />
 
-      <View style={styles.content}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {/* Date range */}
         <Text style={{ fontFamily: theme.fonts.body, fontSize: 14, color: theme.inkSoft, textAlign: 'center' }}>
           {dateBefore} ↔ {dateAfter}
@@ -151,26 +152,34 @@ export default function SpotCompare({ route, navigation }) {
             <GestureDetector gesture={panGesture}>
               <Animated.View style={[styles.sliderContainer, { width: PHOTO_W, height: PHOTO_H }]}>
                 {/* After image (background, full width) */}
-                {img2 && (
+                {img2 ? (
                   <Image source={{ uri: img2 }} style={[styles.fullImage, { width: PHOTO_W, height: PHOTO_H }]}
                     resizeMode="cover" />
+                ) : (
+                  <View style={[styles.fullImage, styles.emptySlot, { width: PHOTO_W, height: PHOTO_H }]}>
+                    <Text style={[styles.emptySlotText, { fontFamily: theme.fonts.body }]}>{t('spotCompare.noPhoto')}</Text>
+                  </View>
                 )}
-                {/* Year label on right (after) */}
-                <View style={{ position: 'absolute', bottom: 10, right: 12 }}>
-                  <Text style={[styles.sliderYear, { fontFamily: theme.fonts.head }]}>{labelAfter}</Text>
-                </View>
 
                 {/* Before image (clipped) */}
-                <Animated.View style={[{ position: 'absolute', top: 0, left: 0, height: PHOTO_H }, clipStyle]}>
-                  {img1 && (
+                <Animated.View style={[{ position: 'absolute', top: 0, left: 0, height: PHOTO_H, backgroundColor: '#E8DFCF' }, clipStyle]}>
+                  {img1 ? (
                     <Image source={{ uri: img1 }} style={[styles.fullImage, { width: PHOTO_W, height: PHOTO_H }]}
                       resizeMode="cover" />
+                  ) : (
+                    <View style={[styles.fullImage, styles.emptySlot, { width: PHOTO_W, height: PHOTO_H }]}>
+                      <Text style={[styles.emptySlotText, { fontFamily: theme.fonts.body }]}>{t('spotCompare.noPhoto')}</Text>
+                    </View>
                   )}
-                  {/* Year label on left (before) */}
-                  <View style={{ position: 'absolute', bottom: 10, left: 12 }}>
-                    <Text style={[styles.sliderYear, { fontFamily: theme.fonts.head }]}>{labelBefore}</Text>
-                  </View>
                 </Animated.View>
+
+                {/* Year labels — outside clip so they don't get cut */}
+                <View style={{ position: 'absolute', bottom: 10, left: 12 }} pointerEvents="none">
+                  <Text style={[styles.sliderYear, { fontFamily: theme.fonts.head }]}>{labelBefore}</Text>
+                </View>
+                <View style={{ position: 'absolute', bottom: 10, right: 12 }} pointerEvents="none">
+                  <Text style={[styles.sliderYear, { fontFamily: theme.fonts.head }]}>{labelAfter}</Text>
+                </View>
 
                 {/* Divider line + handle */}
                 <Animated.View style={[styles.divider, dividerStyle]}>
@@ -182,18 +191,30 @@ export default function SpotCompare({ route, navigation }) {
               </Animated.View>
             </GestureDetector>
           ) : (
-            /* Side by side */
-            <View style={{ flexDirection: 'row', gap: 6, width: PHOTO_W }}>
-              <View style={[styles.sideImage, { flex: 1 }]}>
-                {img1 && <Image source={{ uri: img1 }} style={styles.sideFill} resizeMode="cover" />}
+            /* Stacked top & bottom */
+            <View style={{ gap: 8, width: PHOTO_W }}>
+              <View style={styles.sideImage}>
+                {img1 ? (
+                  <Image source={{ uri: img1 }} style={styles.sideFill} resizeMode="cover" />
+                ) : (
+                  <View style={[styles.sideFill, styles.emptySlot]}>
+                    <Text style={[styles.emptySlotText, { fontFamily: theme.fonts.body }]}>{t('spotCompare.noPhoto')}</Text>
+                  </View>
+                )}
                 <View style={styles.sideLabel}>
-                  <Text style={[styles.sliderYear, { fontFamily: theme.fonts.head, fontSize: 20 }]}>{labelBefore}</Text>
+                  <Text style={[styles.sliderYear, { fontFamily: theme.fonts.head, fontSize: 22 }]}>{labelBefore}</Text>
                 </View>
               </View>
-              <View style={[styles.sideImage, { flex: 1 }]}>
-                {img2 && <Image source={{ uri: img2 }} style={styles.sideFill} resizeMode="cover" />}
+              <View style={styles.sideImage}>
+                {img2 ? (
+                  <Image source={{ uri: img2 }} style={styles.sideFill} resizeMode="cover" />
+                ) : (
+                  <View style={[styles.sideFill, styles.emptySlot]}>
+                    <Text style={[styles.emptySlotText, { fontFamily: theme.fonts.body }]}>{t('spotCompare.noPhoto')}</Text>
+                  </View>
+                )}
                 <View style={styles.sideLabel}>
-                  <Text style={[styles.sliderYear, { fontFamily: theme.fonts.head, fontSize: 20 }]}>{labelAfter}</Text>
+                  <Text style={[styles.sliderYear, { fontFamily: theme.fonts.head, fontSize: 22 }]}>{labelAfter}</Text>
                 </View>
               </View>
             </View>
@@ -226,14 +247,14 @@ export default function SpotCompare({ route, navigation }) {
             </View>
           )}
         </View>
-      </View>
+      </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  content: { flex: 1, paddingHorizontal: 22, paddingTop: 8 },
+  content: { paddingHorizontal: 22, paddingTop: 8, paddingBottom: 32 },
   ageTag: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999 },
   modeRow: { flexDirection: 'row', justifyContent: 'center', gap: 8 },
   modeChip: {
@@ -263,10 +284,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2, shadowRadius: 4, elevation: 3,
   },
   sideImage: {
-    aspectRatio: 3 / 4, borderRadius: 14, overflow: 'hidden',
+    width: '100%', aspectRatio: 4 / 3, borderRadius: 14, overflow: 'hidden',
     backgroundColor: '#E8DFCF', position: 'relative',
   },
   sideFill: { width: '100%', height: '100%' },
+  emptySlot: { justifyContent: 'center', alignItems: 'center', backgroundColor: '#E8DFCF' },
+  emptySlotText: { fontSize: 13, color: '#B5A991' },
   sideLabel: { position: 'absolute', bottom: 8, left: 8 },
   sliderYear: {
     fontSize: 28, color: '#FFFDF7',

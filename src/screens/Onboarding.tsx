@@ -193,11 +193,6 @@ function MeStep({ value, onChange, onNext }) {
           fontFamily: theme.fonts.head, fontSize: 27,
           lineHeight: 38, color: theme.ink,
         }}>{t('onboarding.whatCallYou')}</Text>
-        <Text style={{
-          marginTop: 12, fontSize: 15, lineHeight: 28,
-          color: theme.inkSoft,
-        }}>{t('onboarding.whatCallYouHint')}</Text>
-
         <View style={{
           marginTop: 26, flexDirection: 'row', flexWrap: 'wrap', gap: 11,
         }}>
@@ -260,7 +255,6 @@ function ChildStep({ child, onChange, onNext }) {
           marginTop: 12, fontSize: 15, lineHeight: 28,
           color: theme.inkSoft,
         }}>{t('onboarding.childHint')}</Text>
-
         <View style={{ alignItems: 'center', marginTop: 22 }}>
           <KidAvatar name={child.name} tone="orange" size={78} />
         </View>

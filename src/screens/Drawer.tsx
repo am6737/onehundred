@@ -452,9 +452,7 @@ export default function Drawer({ visible, onClose, onNavigate, kidId = 'all', me
 
   const isAll = kidId === 'all';
   const focusName = isAll ? t('drawer.kids') : (getKid(kidId)?.name || t('drawer.child'));
-  const done = isAll
-    ? memories.length
-    : memoriesForKid(kidId).length;
+  const done = kidDone(kidId);
   const total = 100;
   const empty = done === 0;
 

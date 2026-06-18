@@ -803,7 +803,8 @@ export default function RecordFlow({ route, navigation }) {
                           accessibilityRole="button"
                           accessibilityLabel={playing ? t('common.a11y.pause') : t('common.a11y.play')}
                           style={{
-                            flexDirection: 'row', alignItems: 'center', gap: 8,
+                            flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+                            gap: 8, minWidth: 110,
                             paddingVertical: 12, paddingHorizontal: 24, borderRadius: 999,
                             backgroundColor: theme.accent,
                           }}
@@ -833,7 +834,8 @@ export default function RecordFlow({ route, navigation }) {
                           onPress={restartRecording}
                           activeOpacity={0.85}
                           style={{
-                            flexDirection: 'row', alignItems: 'center', gap: 7,
+                            flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+                            gap: 7, minWidth: 110,
                             paddingVertical: 12, paddingHorizontal: 20, borderRadius: 999,
                             backgroundColor: theme.paper,
                             borderWidth: 1, borderColor: theme.line,
@@ -967,16 +969,7 @@ export default function RecordFlow({ route, navigation }) {
                   ) : (
                     <View>
                       {/* Cover photo — real image */}
-                      <TouchableOpacity
-                        activeOpacity={0.85}
-                        onLongPress={() => {
-                          Alert.alert(t('record.removeCoverPhoto'), '', [
-                            { text: t('record.remove'), style: 'destructive', onPress: () => removePhoto(0) },
-                            { text: t('common.cancel'), style: 'cancel' },
-                          ]);
-                        }}
-                        style={{ position: 'relative' }}
-                      >
+                      <View style={{ position: 'relative' }}>
                         <View style={{
                           height: 268,
                           borderRadius: 24,
@@ -991,12 +984,9 @@ export default function RecordFlow({ route, navigation }) {
                             contentFit="cover"
                             badge={false}
                           />
-                          {/* 封面已占左上角，实况角标放左下；有配对视频就标，不看能否播放 */}
-                          {photos[0].livePhotoVideoUri && (
-                            <LiveBadge placement="bottom-left" />
-                          )}
+                          {photos[0].livePhotoVideoUri && <LiveBadge />}
                         </View>
-                        <View style={{ position: 'absolute', top: 12, left: 12 }}>
+                        <View style={{ position: 'absolute', bottom: 12, left: 12 }}>
                           <View style={[styles.coverBadge, { backgroundColor: theme.accent }]}>
                             <Text style={{
                               fontFamily: theme.fonts.head,
@@ -1007,7 +997,33 @@ export default function RecordFlow({ route, navigation }) {
                             </Text>
                           </View>
                         </View>
-                      </TouchableOpacity>
+                        <TouchableOpacity
+                          activeOpacity={0.82}
+                          accessibilityRole="button"
+                          accessibilityLabel={t('record.removeCoverPhoto')}
+                          onPress={() => {
+                            Alert.alert(t('record.removeCoverPhoto'), '', [
+                              { text: t('record.remove'), style: 'destructive', onPress: () => removePhoto(0) },
+                              { text: t('common.cancel'), style: 'cancel' },
+                            ]);
+                          }}
+                          style={{
+                            position: 'absolute',
+                            top: 10,
+                            right: 10,
+                            width: 38,
+                            height: 38,
+                            borderRadius: 19,
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            backgroundColor: 'rgba(255,253,247,0.92)',
+                            borderWidth: 1,
+                            borderColor: 'rgba(58,51,43,0.14)',
+                          }}
+                        >
+                          {Icon.trash(theme.ink, 17)}
+                        </TouchableOpacity>
+                      </View>
 
                       {/* Additional photo thumbnails + add button */}
                       <View style={styles.photoRow}>

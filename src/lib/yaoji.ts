@@ -1,6 +1,19 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabase';
 
 const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL!;
+const INVITE_EXPIRY_KEY = 'invite_expiry_hours';
+export const INVITE_EXPIRY_OPTIONS = [1, 6, 24, 72, 168];
+export const DEFAULT_INVITE_EXPIRY = 24;
+
+export async function getInviteExpiryHours(): Promise<number> {
+  const v = await AsyncStorage.getItem(INVITE_EXPIRY_KEY);
+  return v ? Number(v) : DEFAULT_INVITE_EXPIRY;
+}
+
+export async function setInviteExpiryHours(hours: number): Promise<void> {
+  await AsyncStorage.setItem(INVITE_EXPIRY_KEY, String(hours));
+}
 
 async function authHeaders(): Promise<Record<string, string>> {
   const { data: { session } } = await supabase.auth.getSession();
@@ -28,11 +41,13 @@ export async function createInviteToken(params: {
   levelTitle: string;
   levelWhy?: string;
   levelHow?: string;
+  levelRecord?: string;
   levelSuggest?: string;
   levelTone?: string;
   kidId?: string;
   kidName?: string;
   inviterRole?: string;
+  illustrationPath?: string;
   expiresDays?: number;
 }): Promise<{ token: string; url: string; expiresAt: string }> {
   const headers = await authHeaders();

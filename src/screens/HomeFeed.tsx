@@ -70,40 +70,13 @@ function KidSwitcher({ kidId, onSelect }: any) {
   const { theme } = useTheme();
   const t = useT();
   const { kids, getKid } = useData();
-  const [visible, setVisible] = useState(false);
-  const dropY = useSharedValue(-14);
-  const dropOpacity = useSharedValue(0);
-  const scrimOpacity = useSharedValue(0);
+  const [open, setOpen] = useState(false);
   const rows = [...kids.map(k => k.id), 'all'];
-
-  const openDropdown = () => {
-    dropY.value = -14;
-    dropOpacity.value = 0;
-    scrimOpacity.value = 0;
-    setVisible(true);
-    dropY.value = withSpring(0, { damping: 20, stiffness: 260 });
-    dropOpacity.value = withTiming(1, { duration: 200 });
-    scrimOpacity.value = withTiming(1, { duration: 200 });
-  };
-  const closeDropdown = () => {
-    dropY.value = withTiming(-8, { duration: 140 });
-    scrimOpacity.value = withTiming(0, { duration: 140 });
-    dropOpacity.value = withTiming(0, { duration: 140 }, (fin) => {
-      if (fin) runOnJS(setVisible)(false);
-    });
-  };
-  const cardAnimStyle = useAnimatedStyle(() => ({
-    opacity: dropOpacity.value,
-    transform: [{ translateY: dropY.value }],
-  }));
-  const scrimStyle = useAnimatedStyle(() => ({
-    opacity: scrimOpacity.value,
-  }));
 
   return (
     <View style={{ position: 'relative', width: 44, flexShrink: 0 }}>
       <TouchableOpacity
-        onPress={() => visible ? closeDropdown() : openDropdown()}
+        onPress={() => setOpen(o => !o)}
         accessibilityLabel={t('home.switchKid')}
         style={{
           width: 44, height: 44,
@@ -113,17 +86,16 @@ function KidSwitcher({ kidId, onSelect }: any) {
         <KidFace id={kidId} size={kidId === 'all' ? 32 : 36} />
       </TouchableOpacity>
 
-      <Modal transparent visible={visible} animationType="none" onRequestClose={closeDropdown}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={closeDropdown}>
-          <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.08)' }, scrimStyle]} />
-          <Animated.View style={[{
+      <Modal transparent visible={open} animationType="fade" onRequestClose={() => setOpen(false)}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={() => setOpen(false)}>
+          <View style={{
             position: 'absolute', top: 100, right: 18, width: 188,
             backgroundColor: theme.paper,
             borderWidth: 1, borderColor: theme.line,
             borderRadius: 20, padding: 6,
             shadowColor: '#3A332B', shadowOpacity: 0.25, shadowRadius: 20, shadowOffset: { width: 0, height: 12 },
             elevation: 12,
-          }, cardAnimStyle]}>
+          }}>
               <Text style={{
                 paddingHorizontal: 12, paddingTop: 8, paddingBottom: 6,
                 fontFamily: theme.fonts.body, fontSize: 12,
@@ -142,7 +114,7 @@ function KidSwitcher({ kidId, onSelect }: any) {
                 return (
                   <TouchableOpacity
                     key={id}
-                    onPress={() => { onSelect(id); closeDropdown(); }}
+                    onPress={() => { onSelect(id); setOpen(false); }}
                     style={{
                       width: '100%', flexDirection: 'row', alignItems: 'center',
                       gap: 11, paddingVertical: 9, paddingHorizontal: 10,
@@ -169,7 +141,7 @@ function KidSwitcher({ kidId, onSelect }: any) {
                   </TouchableOpacity>
                 );
               })}
-          </Animated.View>
+          </View>
         </Pressable>
       </Modal>
     </View>
