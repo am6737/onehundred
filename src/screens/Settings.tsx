@@ -287,8 +287,6 @@ function IdentityRow({ me, options, onSelect, divider = false }: any) {
               minWidth: 120, backgroundColor: theme.paper,
               borderWidth: 1, borderColor: theme.line,
               borderRadius: 12, padding: 4,
-              shadowColor: theme.ink, shadowOffset: { width: 0, height: 12 },
-              shadowOpacity: 0.18, shadowRadius: 24, elevation: 8,
             }}>
               {options.map(o => {
                 const on = me.role === o;
@@ -390,8 +388,6 @@ function SelectRow({ icon = null, title, sub = null, options, value, onSelect, l
               minWidth: 120, backgroundColor: theme.paper,
               borderWidth: 1, borderColor: theme.line,
               borderRadius: 12, padding: 4,
-              shadowColor: theme.ink, shadowOffset: { width: 0, height: 12 },
-              shadowOpacity: 0.18, shadowRadius: 24, elevation: 8,
             }}>
               {options.map(norm).map(o => {
                 const on = value === o.key;
@@ -852,13 +848,6 @@ function ReminderTimeSheet({ value, onChange, onClose }: any) {
           }
         />
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 22, paddingBottom: 48 + insets.bottom }}>
-          <Text style={{
-            marginTop: 2, marginHorizontal: 4,
-            fontFamily: theme.fonts.body, fontSize: 14.5, lineHeight: 25, color: theme.inkSoft,
-          }}>
-            {t('settings.reminderSheetDesc')}
-          </Text>
-
           {/* Day picker */}
           <Text style={{
             marginTop: 22, paddingHorizontal: 4, paddingBottom: 10,
@@ -1897,7 +1886,6 @@ export default function Settings({ navigation, route }: any) {
         {/* ── Notifications section ── */}
         <SettingGroup
           label={t('settings.groupReminder')}
-          note={t('settings.reminderNote')}
         >
           <SelectRow
             icon={Icon.bell(theme.accent, 20)}

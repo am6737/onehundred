@@ -181,7 +181,7 @@ function HomeWithDrawer({ navigation }) {
 
 function parseJoinUrl(url: string): string | null {
   if (!url) return null;
-  const m = url.match(/(?:yibai:\/\/|https:\/\/yibaijianshi\.app\/)join\/([A-Za-z0-9]+)/);
+  const m = url.match(/(?:100moments:\/\/|https:\/\/yibaijianshi\.app\/)join\/([A-Za-z0-9]+)/);
   return m ? m[1] : null;
 }
 
