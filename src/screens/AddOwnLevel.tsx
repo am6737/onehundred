@@ -265,7 +265,7 @@ export default function AddOwnLevel({ route, navigation }) {
             activeOpacity={0.85}
             style={[styles.saveBtn, {
               backgroundColor: ready ? theme.accent : theme.sand,
-              shadowColor: ready ? theme.accent : 'transparent',
+              shadowColor: ready ? theme.accentShadow : 'transparent',
               shadowOpacity: ready ? 0.35 : 0,
             }]}
           >

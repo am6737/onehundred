@@ -238,7 +238,7 @@ export function LoginWelcome({ navigation }) {
             borderRadius: 999,
             backgroundColor: theme.accent,
             alignItems: 'center',
-            shadowColor: theme.accent,
+            shadowColor: theme.accentShadow,
             shadowOffset: { width: 0, height: 8 },
             shadowOpacity: 0.3,
             shadowRadius: 16,
@@ -337,7 +337,7 @@ export function PhoneLogin({ navigation }) {
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
-  const [agreed, setAgreed] = useState(true);
+  const [agreed, setAgreed] = useState(false);
   const [countdown, setCountdown] = useState(0);
   const [codeSent, setCodeSent] = useState(false);
   const [loading, setLoading] = useState(false);

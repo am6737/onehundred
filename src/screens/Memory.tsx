@@ -93,7 +93,7 @@ function TypeBadge({ type = 'voice', dur }) {
       : t('common.photo');
 
   return (
-    <View style={badgeStyles.container}>
+    <View style={[badgeStyles.container, { shadowColor: theme.shadow }]}>
       <View style={[badgeStyles.iconWrap, { backgroundColor: theme.accent }]}>
         {icon}
       </View>
@@ -115,7 +115,7 @@ const badgeStyles = StyleSheet.create({
     paddingRight: 13,
     borderRadius: 999,
     backgroundColor: 'rgba(255,253,247,0.93)',
-    shadowColor: '#3A332B',
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.25,
     shadowRadius: 9,
@@ -254,7 +254,7 @@ function MemoryAudio({ url, tone, level }) {
           width: 72, height: 72, borderRadius: 36,
           backgroundColor: tn.deep,
           justifyContent: 'center', alignItems: 'center',
-          shadowColor: '#3A332B',
+          shadowColor: theme.shadow,
           shadowOffset: { width: 0, height: 8 },
           shadowOpacity: 0.25, shadowRadius: 12, elevation: 5,
         }}
@@ -280,7 +280,7 @@ function MemoryAudio({ url, tone, level }) {
         backgroundColor: 'rgba(255,253,247,0.78)',
       }}>
         <Text style={{
-          fontFamily: theme.fonts.body, fontSize: 13, color: theme.ink,
+          fontFamily: theme.fonts.body, fontSize: 13, color: '#3A332B',
         }}>
           {playing ? t('memory.playing') : t('memory.tapToPlay')}
         </Text>
@@ -395,7 +395,7 @@ function ShareSheet({ m, visible, onClose }) {
         borderRadius: 24, overflow: 'hidden',
         backgroundColor: theme.paper,
         borderWidth: 1, borderColor: theme.line,
-        shadowColor: '#3A332B',
+        shadowColor: theme.shadow,
         shadowOffset: { width: 0, height: 18 },
         shadowOpacity: 0.22,
         shadowRadius: 20,
@@ -591,10 +591,10 @@ export function MemoryPage({ route, navigation }) {
   const sameLevelCount = memoriesForLevel(m.levelNum).length;
 
   const menuItems = [
-    ...(level && !locked ? [{
+    ...(level ? [{
       label: t('memory.doAgain'),
       icon: (c: string) => Icon.redo(c, 16),
-      onPress: () => { setMenuOpen(false); navigation.navigate('Record', { level, kidId: m.kid, me: route.params?.me }); },
+      onPress: () => { setMenuOpen(false); navigation.navigate('LevelDetail', { level, kidId: m.kid, me: route.params?.me }); },
     }] : []),
     ...(sameLevelCount >= 2 ? [{
       label: t('memory.menuSeeAll'),
@@ -640,7 +640,7 @@ export function MemoryPage({ route, navigation }) {
             backgroundColor: theme.paper,
             borderWidth: 1, borderColor: theme.line,
             borderRadius: 16, padding: 6,
-            shadowColor: '#3A332B', shadowOpacity: 0.2, shadowRadius: 16,
+            shadowColor: theme.shadow, shadowOpacity: 0.2, shadowRadius: 16,
             shadowOffset: { width: 0, height: 10 }, elevation: 10,
           }}>
             {menuItems.map((item, i) => (
@@ -700,7 +700,7 @@ export function MemoryPage({ route, navigation }) {
               onPress={() => setShareVisible(true)}
               style={{
                 marginTop: 32, alignSelf: 'stretch',
-                shadowColor: theme.accent,
+                shadowColor: theme.accentShadow,
                 shadowOffset: { width: 0, height: 10 },
                 shadowOpacity: 0.35,
                 shadowRadius: 12,
@@ -737,7 +737,7 @@ export function MemoryPage({ route, navigation }) {
         <View style={{ paddingHorizontal: 20 }}>
           <View style={{
             borderRadius: 28, overflow: 'hidden',
-            shadowColor: '#3A332B',
+            shadowColor: theme.shadow,
             shadowOffset: { width: 0, height: 20 },
             shadowOpacity: 0.22,
             shadowRadius: 22,
@@ -771,25 +771,6 @@ export function MemoryPage({ route, navigation }) {
             {type === 'voice' && (
               <View pointerEvents="none" style={{ position: 'absolute', left: 16, bottom: 16 }}>
                 <TypeBadge type={type} dur={m.dur} />
-              </View>
-            )}
-            {/* Multi-shot count overlay */}
-            {shots > 1 && (
-              <View style={{
-                position: 'absolute', right: 16, bottom: 16,
-                flexDirection: 'row', alignItems: 'center', gap: 6,
-                paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999,
-                backgroundColor: 'rgba(255,253,247,0.93)',
-                shadowColor: '#3A332B',
-                shadowOffset: { width: 0, height: 8 },
-                shadowOpacity: 0.25,
-                shadowRadius: 9,
-                elevation: 4,
-              }}>
-                {Icon.camera(tn.deep, 14)}
-                <Text style={{
-                  fontFamily: theme.fonts.body, fontSize: 13, color: theme.ink,
-                }}>{t('memory.shotsCount', { n: shots })}</Text>
               </View>
             )}
           </View>
@@ -848,7 +829,7 @@ export function MemoryPage({ route, navigation }) {
                     style={{
                       width: 66, height: 66, aspectRatio: undefined,
                       ...(i === 0
-                        ? { shadowColor: theme.accent, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.4, shadowRadius: 1, elevation: 2 }
+                        ? { shadowColor: theme.accentShadow, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.4, shadowRadius: 1, elevation: 2 }
                         : {}),
                       borderWidth: i === 0 ? 2 : 1,
                       borderColor: i === 0 ? theme.accent : theme.line,
@@ -1015,7 +996,7 @@ export function MemoryPage({ route, navigation }) {
             onPress={() => setShareVisible(true)}
             style={{
               marginTop: 24,
-              shadowColor: theme.accent,
+              shadowColor: theme.accentShadow,
               shadowOffset: { width: 0, height: 10 },
               shadowOpacity: 0.35,
               shadowRadius: 12,
@@ -1086,7 +1067,7 @@ export function KidFilterChips({ value, onChange }) {
               borderWidth: 1,
               borderColor: on ? theme.accent : theme.line,
               ...(on ? {
-                shadowColor: theme.accent,
+                shadowColor: theme.accentShadow,
                 shadowOffset: { width: 0, height: 8 },
                 shadowOpacity: 0.3,
                 shadowRadius: 9,
@@ -1166,7 +1147,7 @@ function MemoryThreadItem({ m, onOpen, showWho, showDate = true }) {
           backgroundColor: theme.paper,
           borderWidth: 1, borderColor: justOpenable ? tn.deep : theme.line,
           borderStyle: locked ? 'dashed' : 'solid',
-          shadowColor: '#3A332B',
+          shadowColor: theme.shadow,
           shadowOffset: { width: 0, height: 8 },
           shadowOpacity: 0.14,
           shadowRadius: 10,
@@ -1421,7 +1402,7 @@ export function MemoryBook({ route, navigation }) {
           position: 'absolute', left: 1, top: 0,
           width: 16, height: 16, borderRadius: 8,
           backgroundColor: theme.accent,
-          shadowColor: theme.accent,
+          shadowColor: theme.accentShadow,
           shadowOffset: { width: 0, height: 0 },
           shadowOpacity: 0.3,
           shadowRadius: 3,

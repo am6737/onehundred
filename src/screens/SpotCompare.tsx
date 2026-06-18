@@ -8,7 +8,7 @@ import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-na
 import { useTheme, TONE } from '../theme/tokens';
 import { useT } from '../i18n';
 import { useData } from '../data/DataProvider';
-import { yearFromDate, monthFromDate, dayFromDate, kidAgeAtYear, MONTH_EN } from '../data';
+import { yearFromDate, monthFromDate, dayFromDate, kidAgeAtYear, MONTH_EN, formatTime } from '../data';
 import { useMemoryMedia } from '../lib/media';
 import { LayerHeader } from '../components/common';
 
@@ -25,10 +25,10 @@ export default function SpotCompare({ route, navigation }) {
   const { memories: [mem1, mem2], level } = route.params || {};
   const tn = TONE[level?.tone] || TONE.orange;
 
-  // Sort so older date is first
-  const d1 = mem1?.date || '';
-  const d2 = mem2?.date || '';
-  const [before, after] = d1 > d2 ? [mem2, mem1] : [mem1, mem2];
+  // Sort so older is first — use createdAt for precision when dates match
+  const ca1 = mem1?.createdAt || mem1?.date || '';
+  const ca2 = mem2?.createdAt || mem2?.date || '';
+  const [before, after] = ca1 > ca2 ? [mem2, mem1] : [mem1, mem2];
   const dateBefore = before?.date || '';
   const dateAfter = after?.date || '';
   const yearBefore = yearFromDate(dateBefore) || 0;
@@ -40,25 +40,34 @@ export default function SpotCompare({ route, navigation }) {
   const dayAfter_ = dayFromDate(dateAfter);
   const sameYear = yearBefore === yearAfter;
   const sameMonth = sameYear && monthBefore === monthAfter;
+  const sameDay = sameMonth && dayBefore_ === dayAfter_;
 
-  const makeLabel = (year, month, day) => {
+  const makeLabel = (year, month, day, createdAt) => {
+    if (sameDay && month && day)
+      return t('spotCompare.labelMonthDayTime', { m: month, d: day, monthName: MONTH_EN[month], time: formatTime(createdAt) });
     if (sameMonth && month && day)
       return t('spotCompare.labelMonthDay', { m: month, d: day, monthName: MONTH_EN[month] });
     if (sameYear && month)
       return t('spotCompare.labelMonth', { m: month, monthName: MONTH_EN[month] });
     return String(year || '');
   };
-  const labelBefore = makeLabel(yearBefore, monthBefore, dayBefore_);
-  const labelAfter = makeLabel(yearAfter, monthAfter, dayAfter_);
+  const labelBefore = makeLabel(yearBefore, monthBefore, dayBefore_, before?.createdAt);
+  const labelAfter = makeLabel(yearAfter, monthAfter, dayAfter_, after?.createdAt);
 
   const gapLabel = (() => {
-    const a = new Date(dateBefore);
-    const b = new Date(dateAfter);
+    const a = new Date(before?.createdAt || dateBefore);
+    const b = new Date(after?.createdAt || dateAfter);
     if (isNaN(a.getTime()) || isNaN(b.getTime())) return '';
-    const diffDays = Math.round((b.getTime() - a.getTime()) / 86400000);
-    if (diffDays < 1) return '';
+    const diffMs = b.getTime() - a.getTime();
+    const diffMinutes = Math.round(diffMs / 60000);
+    const diffHours = Math.floor(diffMinutes / 60);
+    const diffDays = Math.round(diffMs / 86400000);
+    if (diffMinutes < 1) return '';
+    if (diffMinutes < 60) return t('spotCompare.apartMinutes', { count: diffMinutes });
+    if (diffHours < 24) return t('spotCompare.apartHours', { count: diffHours });
     if (diffDays < 30) return t('spotCompare.apartDays', { count: diffDays });
     const diffMonths = (b.getFullYear() - a.getFullYear()) * 12 + b.getMonth() - a.getMonth();
+    if (diffMonths < 1) return t('spotCompare.apartDays', { count: diffDays });
     if (diffMonths < 12) return t('spotCompare.apartMonths', { count: diffMonths });
     const diffYears = Math.floor(diffMonths / 12);
     const remainMonths = diffMonths % 12;

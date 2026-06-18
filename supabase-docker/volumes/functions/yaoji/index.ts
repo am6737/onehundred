@@ -533,11 +533,18 @@ textarea{min-height:110px}
 .sheet-cancel{margin-top:8px;background:var(--paper);border-radius:16px}
 .sheet-cancel .sheet-btn{font-family:var(--head);color:var(--ink)}
 
-/* Progress */
-.progress{width:100%;height:5px;background:var(--sand);border-radius:3px;
-  overflow:hidden;margin:20px 0}
-.progress-bar{height:100%;background:var(--accent);border-radius:3px;
-  transition:width 0.4s ease;width:0%}
+/* Loader */
+.loader-wrap{display:flex;flex-direction:column;align-items:center;
+  justify-content:center;padding-top:38vh}
+.loader-dots{display:flex;gap:8px;margin-bottom:28px}
+.loader-dots span{width:8px;height:8px;border-radius:50%;
+  background:var(--accent);opacity:0.25;animation:dotPulse 1.2s ease-in-out infinite}
+.loader-dots span:nth-child(2){animation-delay:0.2s}
+.loader-dots span:nth-child(3){animation-delay:0.4s}
+@keyframes dotPulse{0%,100%{opacity:0.2;transform:scale(0.85)}
+  50%{opacity:1;transform:scale(1.15)}}
+.loader-file{font-family:var(--body);font-size:14px;color:var(--ink-soft);
+  text-align:center;line-height:1.6}
 
 /* Done — memory detail style */
 #s-done{padding:0;position:relative}
@@ -783,10 +790,9 @@ textarea{min-height:110px}
 
 <!-- ═══════ Screen: Submitting ═══════ -->
 <div id="s-submitting" class="screen inner-screen">
-  <div class="card" style="text-align:center;padding:36px 24px;margin-top:30vh">
-    <h2>正在上传...</h2>
-    <div class="progress"><div class="progress-bar" id="progressBar"></div></div>
-    <div class="sub" id="uploadStatus">准备中</div>
+  <div class="loader-wrap">
+    <div class="loader-dots"><span></span><span></span><span></span></div>
+    <div class="loader-file" id="loaderFile"></div>
   </div>
 </div>
 
@@ -1437,6 +1443,13 @@ function updateSubmitBtn() {
   }
 }
 
+function fileDesc() {
+  if (state.type === 'photo') return state.photos.length + ' 张照片'
+  if (state.type === 'video') return '1 段视频'
+  if (state.type === 'audio') return '1 段录音'
+  return '文字记录'
+}
+
 async function submitRecord() {
   if (state.type === 'text') {
     state.textContent = document.getElementById('textContent').value.trim()
@@ -1448,34 +1461,21 @@ async function submitRecord() {
 
   broadcast('uploading')
   goTo('s-submitting')
-  const bar = document.getElementById('progressBar')
-  const status = document.getElementById('uploadStatus')
+  const desc = document.getElementById('loaderFile')
+  desc.textContent = fileDesc()
 
   try {
     if (state.type === 'photo') {
       for (let i = 0; i < state.photos.length; i++) {
-        const p = state.photos[i]
-        status.textContent = '正在上传照片 ' + (i + 1) + '/' + state.photos.length + '...'
-        bar.style.width = (20 + Math.round(50 * i / state.photos.length)) + '%'
-        await uploadFile(p, p.type || 'image/jpeg')
+        await uploadFile(state.photos[i], state.photos[i].type || 'image/jpeg')
       }
-      bar.style.width = '70%'
     } else if (state.type === 'video') {
-      status.textContent = '正在上传文件...'
-      bar.style.width = '20%'
       await uploadFile(state.file, state.file.type)
-      bar.style.width = '70%'
     } else if (state.type === 'audio') {
-      status.textContent = '正在上传录音...'
-      bar.style.width = '20%'
       const mimeType = state.audioBlob.type || 'audio/webm'
       await uploadFile(state.audioBlob, mimeType)
-      bar.style.width = '70%'
-    } else {
-      bar.style.width = '50%'
     }
 
-    status.textContent = '正在保存记录...'
     const caption = state.type === 'text'
       ? state.textContent
       : (document.getElementById('captionInput').value.trim() || '')
@@ -1500,21 +1500,17 @@ async function submitRecord() {
     if (result.error) throw new Error(result.error)
 
     broadcast('done')
-    bar.style.width = '100%'
-    status.textContent = '完成！'
     populateDoneScreen()
-    setTimeout(() => goTo('s-done'), 500)
+    setTimeout(() => goTo('s-done'), 400)
   } catch (e) {
-    status.textContent = ''
-    const errEl = document.createElement('div')
-    errEl.className = 'error-msg'
-    errEl.textContent = '上传失败：' + (e.message || '请稍后重试')
-    document.querySelector('#s-submitting .card').appendChild(errEl)
-    const retryBtn = document.createElement('button')
-    retryBtn.className = 'card-btn card-btn-primary'
-    retryBtn.textContent = '重试'
-    retryBtn.onclick = () => submitRecord()
-    document.querySelector('#s-submitting .card').appendChild(retryBtn)
+    const wrap = document.querySelector('#s-submitting .loader-wrap')
+    wrap.innerHTML = '<div style="text-align:center">' +
+      '<div style="font-size:44px;margin-bottom:16px">😔</div>' +
+      '<div style="font-family:var(--head);font-size:18px;color:var(--ink);margin-bottom:6px">上传失败</div>' +
+      '<div class="loader-file">' + (e.message || '请稍后重试') + '</div>' +
+      '<button class="btn-primary" style="margin-top:24px;padding:12px 40px;border:none;' +
+      'border-radius:14px;font-family:var(--head);font-size:16px;cursor:pointer" ' +
+      'onclick="submitRecord()">重试</button></div>'
   }
 }
 

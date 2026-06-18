@@ -515,7 +515,12 @@ export function memoriesForKidFrom(memories, id) {
 export function memoriesForLevelFrom(memories, levelNum) {
   return memories
     .filter(m => m.levelNum === levelNum)
-    .sort((a, b) => (b.date > a.date ? 1 : b.date < a.date ? -1 : 0));
+    .sort((a, b) => {
+      if (a.date !== b.date) return b.date > a.date ? 1 : -1;
+      const ca = a.createdAt || '';
+      const cb = b.createdAt || '';
+      return cb > ca ? 1 : cb < ca ? -1 : 0;
+    });
 }
 
 export function yearFromDate(dateStr) {
@@ -531,6 +536,13 @@ export function monthFromDate(dateStr) {
 export function dayFromDate(dateStr) {
   const m = dateStr?.match(/^\d{4}-\d{2}-(\d{2})/);
   return m ? parseInt(m[1], 10) : null;
+}
+
+export function formatTime(isoStr) {
+  if (!isoStr) return '';
+  const d = new Date(isoStr);
+  if (isNaN(d.getTime())) return '';
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
 export const MONTH_EN = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];

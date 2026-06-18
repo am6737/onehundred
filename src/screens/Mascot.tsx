@@ -834,7 +834,7 @@ export default function MascotPage({ route, navigation }) {
                     borderWidth: 1,
                     borderColor: on ? theme.accent : theme.line,
                     ...(on ? {
-                      shadowColor: theme.accent,
+                      shadowColor: theme.accentShadow,
                       shadowOffset: { width: 0, height: 8 },
                       shadowOpacity: 0.35,
                       shadowRadius: 18,
@@ -1102,7 +1102,7 @@ export default function MascotPage({ route, navigation }) {
                     borderColor: on ? theme.accent : theme.line,
                     borderStyle: on ? 'solid' : (w.got ? 'solid' : 'dashed'),
                     ...(on ? {
-                      shadowColor: theme.accent,
+                      shadowColor: theme.accentShadow,
                       shadowOffset: { width: 0, height: 10 },
                       shadowOpacity: 0.35,
                       shadowRadius: 22,

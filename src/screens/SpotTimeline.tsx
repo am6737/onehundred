@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme, TONE } from '../theme/tokens';
 import { useT } from '../i18n';
 import { useData } from '../data/DataProvider';
-import { yearFromDate, monthFromDate, dayFromDate, kidAgeAtYear, MONTH_EN } from '../data';
+import { yearFromDate, monthFromDate, dayFromDate, kidAgeAtYear, MONTH_EN, formatTime } from '../data';
 import { Icon } from '../components/Icons';
 import { MemoryCover } from '../components/MemoryCover';
 import { LayerHeader } from '../components/common';
@@ -114,7 +114,7 @@ export default function LevelTimeline({ route, navigation }) {
             </Text>
           ) : null}
           <Text style={{ fontFamily: theme.fonts.body, fontSize: 13, color: theme.inkSoft }}>
-            第 {seq} 次 · {m.date}
+            第 {seq} 次 · {m.date}{formatTime(m.createdAt) ? ` ${formatTime(m.createdAt)}` : ''}
           </Text>
         </View>
 
@@ -230,9 +230,13 @@ export default function LevelTimeline({ route, navigation }) {
       />
 
       {compareMode && selected.length === 2 && (() => {
-        const d1 = levelMemories.find(m => m.id === selected[0])?.date || '';
-        const d2 = levelMemories.find(m => m.id === selected[1])?.date || '';
-        const [dEarly, dLate] = d1 > d2 ? [d2, d1] : [d1, d2];
+        const sel1 = levelMemories.find(m => m.id === selected[0]);
+        const sel2 = levelMemories.find(m => m.id === selected[1]);
+        const ca1 = sel1?.createdAt || sel1?.date || '';
+        const ca2 = sel2?.createdAt || sel2?.date || '';
+        const [early, late] = ca1 > ca2 ? [sel2, sel1] : [sel1, sel2];
+        const dEarly = early?.date || '';
+        const dLate = late?.date || '';
         const y1 = yearFromDate(dEarly) || 0;
         const y2 = yearFromDate(dLate) || 0;
         const m1 = monthFromDate(dEarly);
@@ -241,24 +245,38 @@ export default function LevelTimeline({ route, navigation }) {
         const dd2 = dayFromDate(dLate);
         const sy = y1 === y2;
         const sm = sy && m1 === m2;
-        const mkLabel = (y, m, d) => {
+        const sd = sm && dd1 === dd2;
+        const mkLabel = (y, m, d, createdAt) => {
+          if (sd && m && d)
+            return t('spotCompare.labelMonthDayTime', { m, d, monthName: MONTH_EN[m], time: formatTime(createdAt) });
           if (sm && m && d)
             return t('spotCompare.labelMonthDay', { m, d, monthName: MONTH_EN[m] });
           if (sy && m)
             return t('spotCompare.labelMonth', { m, monthName: MONTH_EN[m] });
           return String(y || '');
         };
-        const a = new Date(dEarly);
-        const b = new Date(dLate);
+        const a = new Date(early?.createdAt || dEarly);
+        const b = new Date(late?.createdAt || dLate);
         let gap = '';
         if (!isNaN(a.getTime()) && !isNaN(b.getTime())) {
-          const diffDays = Math.round((b.getTime() - a.getTime()) / 86400000);
-          if (diffDays > 0 && diffDays < 30) {
+          const diffMs = b.getTime() - a.getTime();
+          const diffMinutes = Math.round(diffMs / 60000);
+          const diffHours = Math.floor(diffMinutes / 60);
+          const diffDays = Math.round(diffMs / 86400000);
+          if (diffMinutes < 1) {
+            // essentially same moment
+          } else if (diffMinutes < 60) {
+            gap = t('spotCompare.apartMinutes', { count: diffMinutes });
+          } else if (diffHours < 24) {
+            gap = t('spotCompare.apartHours', { count: diffHours });
+          } else if (diffDays < 30) {
             gap = t('spotCompare.apartDays', { count: diffDays });
           } else {
             const diffMonths = (b.getFullYear() - a.getFullYear()) * 12 + b.getMonth() - a.getMonth();
-            if (diffMonths < 12) {
-              gap = t('spotCompare.apartMonths', { count: diffMonths || 1 });
+            if (diffMonths < 1) {
+              gap = t('spotCompare.apartDays', { count: diffDays });
+            } else if (diffMonths < 12) {
+              gap = t('spotCompare.apartMonths', { count: diffMonths });
             } else {
               const diffYears = Math.floor(diffMonths / 12);
               const rem = diffMonths % 12;
@@ -273,7 +291,7 @@ export default function LevelTimeline({ route, navigation }) {
             <TouchableOpacity onPress={goCompare} activeOpacity={0.85}
               style={[styles.compareBtn, { backgroundColor: theme.accent }]}>
               <Text style={{ fontFamily: theme.fonts.head, fontSize: 16, color: '#FFFDF7' }}>
-                {t('spotTimeline.compareCta', { label1: mkLabel(y1, m1, dd1), label2: mkLabel(y2, m2, dd2), gap })}
+                {t('spotTimeline.compareCta', { label1: mkLabel(y1, m1, dd1, early?.createdAt), label2: mkLabel(y2, m2, dd2, late?.createdAt), gap })}
               </Text>
             </TouchableOpacity>
           </View>
@@ -299,7 +317,7 @@ const styles = StyleSheet.create({
   },
   photoCard: {
     borderRadius: 18, overflow: 'hidden',
-    shadowColor: '#3A332B', shadowOffset: { width: 0, height: 8 },
+    shadowColor: '#000', shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.14, shadowRadius: 10, elevation: 3,
   },
   yearOverlay: {

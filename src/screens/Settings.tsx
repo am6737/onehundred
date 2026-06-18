@@ -715,8 +715,6 @@ function InviteSheet({ kids, me, onClose, onJoinFamily }: any) {
       role: m.isMe ? t('settings.you') + (family?.isCreator ? t('settings.admin') : '') : t('settings.parentRole'),
     };
   });
-  const peopleCount = adults.length + kids.length;
-
   const copy = async () => {
     await Clipboard.setStringAsync(code);
     setCopied(true);
@@ -728,13 +726,6 @@ function InviteSheet({ kids, me, onClose, onJoinFamily }: any) {
       <View style={{ flex: 1, backgroundColor: theme.cream }}>
         <LayerHeader title={t('settings.familyMembers')} onBack={onClose} />
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 22, paddingBottom: 48 + insets.bottom }}>
-          <Text style={{
-            marginTop: 2, marginHorizontal: 4,
-            fontFamily: theme.fonts.body, fontSize: 14.5, lineHeight: 25, color: theme.inkSoft,
-          }}>
-            {t('settings.familyCountDesc', { count: peopleCount })}
-          </Text>
-
           {/* Members list */}
           <View style={{
             marginTop: 18, backgroundColor: theme.paper,
@@ -782,12 +773,16 @@ function InviteSheet({ kids, me, onClose, onJoinFamily }: any) {
               onPress={copy}
               activeOpacity={0.7}
               style={{
-                marginTop: 14, width: '100%', paddingVertical: 14, borderRadius: 999,
+                marginTop: 14, width: '100%', minHeight: 52, paddingVertical: 14, borderRadius: 999,
                 backgroundColor: copied ? theme.sand : theme.accent,
                 flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
               }}
             >
-              {copied ? Icon.check(theme.accent, 18) : null}
+              {copied ? (
+                <View style={{ width: 18, height: 18, alignItems: 'center', justifyContent: 'center' }}>
+                  {Icon.check(theme.accent, 18)}
+                </View>
+              ) : null}
               <Text style={{
                 fontFamily: theme.fonts.head, fontSize: 16,
                 color: copied ? theme.accent : '#FFFDF7',
@@ -1014,7 +1009,7 @@ function AboutSheet({ onClose }: any) {
               source={require('../../assets/icon.png')}
               style={{
                 width: 84, height: 84, borderRadius: 24,
-                shadowColor: theme.accent, shadowOffset: { width: 0, height: 16 },
+                shadowColor: theme.accentShadow, shadowOffset: { width: 0, height: 16 },
                 shadowOpacity: 0.4, shadowRadius: 30,
               }}
             />
@@ -1616,13 +1611,6 @@ function AccountSecuritySheet({ anon, onAnonChanged, onClose }: any) {
       <View style={{ flex: 1, backgroundColor: theme.cream }}>
         <LayerHeader title={t('settings.accountSecurity')} onBack={onClose} />
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 22, paddingBottom: 48 + insets.bottom }}>
-          <Text style={{
-            marginTop: 2, marginHorizontal: 4,
-            fontFamily: theme.fonts.body, fontSize: 14.5, lineHeight: 25, color: theme.inkSoft,
-          }}>
-            {anon ? t('settings.accountDescAnon') : t('settings.accountDesc')}
-          </Text>
-
           {uid ? (
             <SettingGroup label={t('settings.userId')}>
               <Row

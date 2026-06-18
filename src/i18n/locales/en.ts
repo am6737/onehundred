@@ -122,9 +122,162 @@ export const en = {
   },
 
   agreement: {
-    user: { title: 'User Agreement', content: 'User agreement content to be added.' },
-    privacy: { title: 'Privacy Policy', content: 'Privacy policy content to be added.' },
-    carrier: { title: 'China Mobile Authentication Service Agreement', content: 'China Mobile authentication service agreement content to be added.' },
+    updatedLabel: 'Last updated: {{date}}',
+    user: {
+      title: 'User Agreement',
+      updated: '[effective date, e.g. June 18, 2026]',
+      sections: [
+        { h: '1. About This Agreement', p: [
+          'This User Agreement (the "Agreement") is entered into between you and [Company Legal Name] ("we" or "us") regarding your use of the "100 Things" app and related services (the "Service").',
+          'Before you register, sign in, or use the Service, please read and fully understand this Agreement. By checking the consent box and completing registration/sign-in, or otherwise using the Service, you confirm that you have read and agree to be bound by this Agreement in full.',
+          'If you do not agree to any part of this Agreement, please do not register or use the Service.',
+        ] },
+        { h: '2. The Service', p: [
+          'The Service is a family-oriented growth-journal app that helps you and your family record a child’s growth in the form of "100 things," including but not limited to: text entries, capturing and uploading photos/videos/Live Photos, audio recording, family sharing, raising a virtual character, and sealing entries as a "time capsule."',
+          'We may continuously enrich and adjust the features of the Service as it evolves. The features actually available in your client app shall prevail.',
+        ] },
+        { h: '3. Registration and Sign-in', p: [
+          'You may register or sign in via mobile number, email, carrier one-tap login, or third-party accounts (such as WeChat or Apple), or use guest mode to try certain features.',
+          'You shall register using your own true, lawful, and valid information, and keep your account and password secure. You are responsible for all activities conducted under your account.',
+          'If you discover any unauthorized use of your account, you shall notify us immediately.',
+        ] },
+        { h: '4. Code of Conduct', p: [
+          'You undertake to comply with applicable laws and regulations when using the Service, and shall not use the Service to:',
+          '• upload or publish content that violates laws and regulations, endangers national security, or harms the public interest;',
+          '• upload or publish content that infringes the portrait rights, privacy, intellectual property, or other lawful rights of others;',
+          '• upload content containing obscene, violent, threatening, abusive, harassing, or otherwise inappropriate material;',
+          '• interfere with or damage the normal operation of the Service by any technical means, or unlawfully obtain other users’ data.',
+          'If you violate the above, we may, depending on the circumstances, remove content, restrict or terminate the Service to you, and reserve the right to pursue legal liability.',
+        ] },
+        { h: '5. User Content and License', p: [
+          'The intellectual property and related rights in the text, photos, videos, audio, and other content you upload or store through the Service ("User Content") belong to you or the relevant rights holder. We do not claim ownership of User Content.',
+          'In order to provide you and the family members you authorize with storage, display, synchronization, and backup, you grant us a non-exclusive license, necessary for providing the Service, to store and technically process User Content within the scope of providing the Service. This license is used solely to provide the Service to you and not for any other commercial purpose.',
+          'You shall ensure you hold lawful rights to the User Content you upload. Where User Content involves others (including children and other family members), you shall have obtained the consent of the relevant rights holders or their guardians.',
+        ] },
+        { h: '6. Family Sharing', p: [
+          'The Service offers a family-sharing feature. You may invite family members to join the same "family" via an invite code, and family members can jointly view and record the content of that family.',
+          'Please share the invite code only with family members you trust. Once someone joins your family via the invite code, they can view the relevant records within that family. You bear the consequences of information becoming known due to your own sharing of the invite code.',
+          'A family administrator may manage family members (such as removing a member) in accordance with the rules of the Service.',
+        ] },
+        { h: '7. Minors and Guardians', p: [
+          'The Service is primarily intended for use by parents (guardians) and will record information about minors (especially children).',
+          'If you are the guardian of a minor, you understand and agree that: it is your decision whether to record that minor’s information in the Service; you shall ensure that doing so is in the minor’s interest and that necessary consent has been obtained; and you shall supervise and guide the minor in proper use of the internet.',
+          'If you are yourself a minor, please use the Service with the consent and accompaniment of your guardian.',
+          'Our handling of children’s personal information is described in the "How We Handle Children’s Personal Information" section of the Privacy Policy.',
+        ] },
+        { h: '8. Third-Party Services', p: [
+          'The Service may integrate services provided by third parties (such as carrier number authentication, third-party login, cloud storage, and push notifications). Such services are provided independently by the respective third parties, and your use of them is also subject to those third parties’ agreements and rules.',
+          'To the extent permitted by law, we are not responsible for the third-party services themselves.',
+        ] },
+        { h: '9. Intellectual Property', p: [
+          'Except for User Content, the intellectual property in the software, interfaces, text, graphics, logos, and trademarks contained in the Service belongs to us or the relevant rights holders. Without permission, you shall not copy, modify, distribute, or use them for commercial purposes.',
+        ] },
+        { h: '10. Disclaimers and Limitation of Liability', p: [
+          'We will make reasonable efforts to maintain the safe and stable operation of the Service, but are not liable for service interruptions or data loss caused by force majeure, network or device failures, third-party causes, and the like. We recommend that you back up important content yourself.',
+          'To the maximum extent permitted by law, our liability to you in connection with the Service is limited to the mandatory provisions of applicable laws and regulations.',
+        ] },
+        { h: '11. Changes, Suspension, Termination, and Account Deletion', p: [
+          'We may change, suspend, or terminate part or all of the Service due to business adjustments or legal requirements, and will give you advance notice by appropriate means within a reasonable scope.',
+          'You may apply to delete your account at any time via [Account Settings / Contact Us]. After account deletion, we will delete or anonymize your personal information in accordance with the Privacy Policy and applicable laws, except as otherwise required by law.',
+        ] },
+        { h: '12. Amendments', p: [
+          'We may revise this Agreement from time to time in light of changes in laws and adjustments to the Service. After a revision, we will announce or notify it by appropriate means. If you continue to use the Service after the revision, you are deemed to accept the revised Agreement.',
+        ] },
+        { h: '13. Governing Law and Dispute Resolution', p: [
+          'The conclusion, effectiveness, interpretation, and dispute resolution of this Agreement are governed by the laws of the mainland of the People’s Republic of China.',
+          'Disputes arising from this Agreement or the Service shall be resolved through friendly consultation; if consultation fails, either party may bring an action before a competent people’s court at the location of [Company Legal Name].',
+        ] },
+        { h: '14. Contact Us', p: [
+          'If you have any questions, comments, or suggestions about this Agreement, you may contact us via:',
+          'Operator: [Company Legal Name]',
+          'Email: [contact email]',
+          'Address: [contact address]',
+        ] },
+      ],
+    },
+    privacy: {
+      title: 'Privacy Policy',
+      updated: '[effective date, e.g. June 18, 2026]',
+      sections: [
+        { h: '1. Introduction', p: [
+          '[Company Legal Name] ("we" or "us") understands the importance of your personal information and will do its best to protect it. We follow the principles of legitimacy, lawfulness, necessity, and good faith, and process your personal information in accordance with this Privacy Policy.',
+          'This Policy applies to the "100 Things" app and related services. Before using the Service, please read and understand this Policy carefully, especially the clauses marked in bold or underline.',
+          'Special note: the Service records information about minors (especially children). Our handling of children’s personal information is described in Section 9. If you do not agree with this Policy, the Service may not function properly, so please decide carefully.',
+        ] },
+        { h: '2. How We Collect and Use Personal Information', p: [
+          'We collect and use personal information that you actively provide, or that is generated through your use of the Service, only for the following purposes:',
+          '(1) Registration and sign-in: when you register or sign in, we collect your mobile number or email address to create an account and for identity verification and account security. When you use carrier one-tap login, the carrier returns, based on your authorization, information used to verify the device’s own number.',
+          '(2) Records and content: when you use the recording features, we collect the content you fill in or upload, including text, photos, videos, Live Photos, audio, as well as the child’s name/nickname, birth year and month, and family role, to provide growth records, display, and synchronization to you and the family members you authorize.',
+          '(3) Family sharing: when you create or join a family, or generate or use an invite code, we collect the relevant family-relationship information to enable content sharing and permission management among family members.',
+          '(4) Device and log information: to ensure secure and stable operation and to troubleshoot, we may collect necessary device information (such as device model, OS version, device identifiers) and log information (such as operation records and crash logs).',
+          '(5) Permissions: to provide the relevant features, after your authorization we access the following device permissions, which you may enable or disable at any time in system settings:',
+          '• Camera: to take photos and videos;',
+          '• Photos/Storage: to select and upload photos and videos, or to save content;',
+          '• Microphone: to record audio and the sound in videos;',
+          '• Clipboard: to copy invite codes/links;',
+          '• Notifications (if applicable): to send you reminders related to the Service.',
+          'None of the above permissions are enabled by default, and we will not access them without your authorization. Declining a permission may make the corresponding feature unavailable but does not affect your use of other features.',
+        ] },
+        { h: '3. Cookies and Similar Technologies', p: [
+          'To keep you signed in and remember preferences, we or our service providers may store a small amount of necessary information locally on your device (such as local cache and sign-in tokens). You may clear local storage by clearing app data, but this may affect your normal use of the Service.',
+        ] },
+        { h: '4. How We Entrust, Share, Transfer, and Disclose', p: [
+          '(1) Entrusted processing: to provide the Service, we may entrust third parties (such as cloud service providers) to process some personal information. We will sign agreements with such parties requiring them to process personal information in accordance with this Policy and our instructions.',
+          '(2) Sharing: in the family-sharing feature, the content you record within a family is shared with members you have actively invited and who have joined the same family. Apart from that, we do not share your personal information with third parties, except: with your separate consent; as necessary to provide a feature you actively choose (such as carrier one-tap login); or in other circumstances provided by law.',
+          '(3) Transfer: we do not transfer your personal information, but in the event of a merger, acquisition, or reorganization, we will require the new holder to continue to be bound by this Policy, failing which we will require it to obtain your authorization again.',
+          '(4) Public disclosure: we do not publicly disclose your personal information unless we obtain your explicit consent or are required to by laws or regulators.',
+        ] },
+        { h: '5. Third-Party SDKs and Services', p: [
+          'To provide specific features, the Service may integrate third-party SDKs or services, which will process the relevant information in accordance with their own privacy policies. The main third parties are listed below (the actual integration shall prevail):',
+          '• Carrier number authentication: [provider, e.g. China Mobile], for device-number verification in one-tap login;',
+          '• Cloud service/data storage: [cloud provider, e.g. Supabase / self-hosted server], for storing and syncing accounts and recorded content;',
+          '• Third-party login: [e.g. WeChat Open Platform, Sign in with Apple], for third-party account sign-in;',
+          '• [other SDKs such as push or analytics — please complete as applicable].',
+          'We manage the third-party SDKs we integrate and endeavor to require them to take necessary security measures to protect personal information.',
+        ] },
+        { h: '6. How We Store Personal Information', p: [
+          'Location: your personal information is stored at [storage location, e.g. a cloud service/server within the People’s Republic of China]. If personal information is to be provided outside the mainland, we will separately obtain your separate consent and fulfill the corresponding obligations in accordance with law.',
+          'Retention: we retain your personal information only for the period necessary to fulfill the purposes described in this Policy, except as otherwise provided by law. After the retention period, we will delete or anonymize your personal information.',
+        ] },
+        { h: '7. How We Protect Personal Information', p: [
+          'We adopt security and management measures consistent with industry standards (such as transmission encryption and access control) to protect your personal information from unauthorized access, disclosure, alteration, or loss.',
+          'Despite the above measures, please understand that the internet is not absolutely secure. In the event of a personal information security incident, we will inform you and report to the competent authorities in accordance with law.',
+        ] },
+        { h: '8. Your Rights', p: [
+          'In accordance with applicable laws and regulations, we safeguard your rights over your own personal information:',
+          '• Access and correction: you may access and correct your account information and recorded content;',
+          '• Deletion: where permitted by law, you may delete your recorded content or request that we delete your personal information;',
+          '• Withdrawal of consent: you may withdraw consent by turning off relevant permissions or deleting your account;',
+          '• Account deletion: you may apply to delete your account, after which we will delete or anonymize your personal information in accordance with law;',
+          '• Obtaining a copy: within the scope provided by law, you have the right to obtain a copy of your personal information.',
+          'You may exercise these rights via the methods set out in "How to Contact Us," and we will respond within the period prescribed by law.',
+        ] },
+        { h: '9. How We Handle Children’s Personal Information', p: [
+          'A core scenario of the Service involves recording information about children (minors under the age of fourteen), and we attach great importance to protecting children’s personal information.',
+          'We collect, use, and store the recorded children’s personal information only with the consent of the child’s parents or other guardians. As a guardian, by entering a child’s name, birth year/month, photos, videos, and the like into the Service, you, as guardian, consent to our handling of such information in accordance with this Policy.',
+          'We apply protection measures to children’s personal information that are no lower than those for adults, and protect it strictly as sensitive personal information.',
+          'If, as a guardian, you wish to access, correct, or delete a child’s personal information, or withdraw the relevant consent, you may contact us via the methods set out in this Policy.',
+          'If we discover that we have collected children’s personal information without first obtaining guardian consent, we will seek to delete it as soon as possible.',
+        ] },
+        { h: '10. How This Policy Is Updated', p: [
+          'We may revise this Policy from time to time. After a revision, we will publish the updated version within the Service by appropriate means and indicate the update date; for major changes, we will provide a more prominent notice.',
+          'If you continue to use the Service after this Policy is updated, you acknowledge and agree to the updated Policy.',
+        ] },
+        { h: '11. How to Contact Us', p: [
+          'If you have any questions, complaints, or suggestions about this Policy or about personal information protection, you may contact us as follows, and we will handle them as soon as possible:',
+          'Personal information handler: [Company Legal Name]',
+          'Email: [contact email]',
+          'Address: [contact address]',
+          'In general, we will respond to your request within fifteen business days.',
+        ] },
+      ],
+    },
+    carrier: {
+      title: 'China Mobile Authentication Service Agreement',
+      note: 'The one-tap login / device-number verification in this Service is supported by China Mobile authentication. The full authentication service agreement is provided officially by China Mobile, and its official page shall prevail. Please tap the button below to view the full agreement.',
+      openLabel: 'View full agreement',
+      url: 'https://wap.cmpassport.com/resources/html/contract.html',
+    },
   },
 
   emailLogin: {
@@ -460,7 +613,6 @@ export const en = {
     admin: ' · admin',
     parentRole: 'Parent',
     childRole: 'Child',
-    familyCountDesc: 'This family has {{count}} people. Only those invited in can see your memories.',
     inviteTitle: 'Invite family to record together',
     inviteDesc: 'Send this code to Grandma, Grandpa or your partner —\nthey can join this family once they enter it.',
     codeCopied: 'Copied',
@@ -534,8 +686,6 @@ export const en = {
     email: 'Email',
     password: 'Password',
     passwordPlaceholderSet: 'Set a password (at least 6 characters)',
-    accountDescAnon: "You're currently a guest. Bind a phone number or email so your memories won't be lost.",
-    accountDesc: 'These are only about how you sign in to this family. Memories and family are in the sections above.',
     userId: 'Account ID',
     copyId: 'Copy',
     userIdCopied: 'Copied',
@@ -624,6 +774,7 @@ export const en = {
     sameLevelSub: 'Line them up side by side and see the change',
     seeChange: 'See the change',
     menuSeeAll: 'All times',
+    menuViewLevel: 'About this',
     recordAgain: 'Do it again',
   },
 
@@ -785,6 +936,8 @@ export const en = {
   spotCompare: {
     title: 'Compare',
     apart: '{{diff}} years apart',
+    apartMinutes: '{{count}} min apart',
+    apartHours: '{{count}} hr apart',
     apartDays: '{{count}} days apart',
     apartMonths: '{{count}} months apart',
     apartYears: '{{count}} years apart',
@@ -794,6 +947,7 @@ export const en = {
     modeSide: 'Top & bottom',
     labelMonth: '{{monthName}}',
     labelMonthDay: '{{monthName}} {{d}}',
+    labelMonthDayTime: '{{monthName}} {{d}} {{time}}',
     dragHint: 'Drag to see {{label1}} become {{label2}}',
     noPhoto: 'No photo',
   },

@@ -776,7 +776,7 @@ const drawerStyles = StyleSheet.create({
     bottom: 0,
     left: 0,
     flexDirection: 'column',
-    shadowColor: '#28221A',
+    shadowColor: '#000',
     shadowOffset: { width: 8, height: 0 },
     shadowOpacity: 0.25,
     shadowRadius: 20,

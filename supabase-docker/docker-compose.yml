@@ -181,6 +181,12 @@ services:
       GOTRUE_EXTERNAL_PHONE_ENABLED: ${ENABLE_PHONE_SIGNUP}
       GOTRUE_SMS_AUTOCONFIRM: ${ENABLE_PHONE_AUTOCONFIRM}
 
+      # Apple Sign In (native ID token flow — no client secret needed)
+      GOTRUE_EXTERNAL_APPLE_ENABLED: "true"
+      GOTRUE_EXTERNAL_APPLE_CLIENT_ID: "com.t1137.yibai"
+      GOTRUE_EXTERNAL_APPLE_SECRET: "unused-for-id-token-flow"
+      GOTRUE_EXTERNAL_APPLE_REDIRECT_URI: ${API_EXTERNAL_URL}/auth/v1/callback
+
       # Uncomment to enable OAuth / social login providers.
       # GOTRUE_EXTERNAL_GOOGLE_ENABLED: ${GOOGLE_ENABLED}
       # GOTRUE_EXTERNAL_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}

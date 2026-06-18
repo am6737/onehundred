@@ -13,10 +13,11 @@ import { useData } from '../data/DataProvider';
 import { LayerHeader, PrimaryButton, SecondaryButton } from '../components/common';
 import { Icon } from '../components/Icons';
 import {
-  createInviteToken, fetchInviteTokens, deactivateInviteToken,
-  fetchInviteRecordCounts, inviteUrl, getInviteExpiryHours, type InviteToken,
+  createInviteToken, fetchInviteTokens,
+  inviteUrl, getInviteExpiryHours, type InviteToken,
 } from '../lib/yaoji';
 import { supabase } from '../lib/supabase';
+import { CommonActions } from '@react-navigation/native';
 
 type InviteStatus = 'waiting' | 'viewed' | 'recording' | 'uploading' | 'done';
 
@@ -28,7 +29,6 @@ export default function InviteRecord({ route, navigation }: any) {
   const { level, kidId, me } = route.params;
 
   const [tokens, setTokens] = useState<InviteToken[]>([]);
-  const [counts, setCounts] = useState<Record<string, number>>({});
   const [creating, setCreating] = useState(false);
   const [generated, setGenerated] = useState<{ token: string; url: string } | null>(null);
   const [loading, setLoading] = useState(true);
@@ -41,10 +41,6 @@ export default function InviteRecord({ route, navigation }: any) {
       const list = await fetchInviteTokens(level.num);
       const active = list.filter(t => new Date(t.expiresAt) > new Date());
       setTokens(active);
-      if (active.length) {
-        const c = await fetchInviteRecordCounts(active.map(t => t.id));
-        setCounts(c);
-      }
       return active;
     } catch {
       return [];
@@ -77,11 +73,15 @@ export default function InviteRecord({ route, navigation }: any) {
               refreshedRef.current = true;
               refresh().then(() => {
                 const memId = payload.memoryId;
-                if (memId) {
-                  navigation.replace('Memory', { memoryId: memId });
-                } else {
-                  navigation.goBack();
-                }
+                navigation.dispatch(
+                  CommonActions.reset({
+                    index: memId ? 1 : 0,
+                    routes: [
+                      { name: 'Home' },
+                      ...(memId ? [{ name: 'Memory', params: { memoryId: memId } }] : []),
+                    ],
+                  })
+                );
               });
             }
           }
@@ -144,31 +144,6 @@ export default function InviteRecord({ route, navigation }: any) {
     } catch {}
   };
 
-  const handleDeactivate = (tokenId: string) => {
-    Alert.alert(t('yaoji.deactivateTitle'), t('yaoji.deactivateConfirm'), [
-      { text: t('common.cancel'), style: 'cancel' },
-      {
-        text: t('yaoji.deactivate'),
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await deactivateInviteToken(tokenId);
-            const remaining = tokens.filter(t => t.id !== tokenId);
-            setTokens(remaining);
-            if (generated?.token === tokenId) {
-              if (remaining.length) {
-                setGenerated({ token: remaining[0].id, url: inviteUrl(remaining[0].id) });
-              } else {
-                setGenerated(null);
-                handleCreate();
-              }
-            }
-          } catch {}
-        },
-      },
-    ]);
-  };
-
   return (
     <View style={[styles.container, { backgroundColor: theme.cream }]}>
       <LayerHeader
@@ -194,7 +169,7 @@ export default function InviteRecord({ route, navigation }: any) {
         {/* Generated result */}
         {generated && (
           <View style={[styles.resultCard, { backgroundColor: theme.paper, borderColor: theme.line }]}>
-            <View style={styles.qrWrap}>
+            <View style={[styles.qrWrap, { backgroundColor: theme.paper }]}>
               <QRCode
                 value={generated.url}
                 size={180}
@@ -236,59 +211,7 @@ export default function InviteRecord({ route, navigation }: any) {
           </View>
         )}
 
-        {/* Existing tokens */}
         {loading && <ActivityIndicator color={theme.accent} style={{ marginTop: 32 }} />}
-
-        {!loading && tokens.length > 0 && (
-          <View style={styles.tokenList}>
-            <View style={styles.tokenListHeader}>
-              <Text style={[styles.tokenListTitle, { color: theme.inkSoft, fontFamily: theme.fonts.head }]}>
-                {t('yaoji.existingTokens')}
-              </Text>
-              <TouchableOpacity onPress={refreshTokenList} style={styles.refreshBtn}>
-                {Icon.redo(theme.accent, 16)}
-              </TouchableOpacity>
-            </View>
-            {tokens.map(tk => {
-              const count = counts[tk.id] || 0;
-              const isCurrent = generated?.token === tk.id;
-              const st = tokenStatus[tk.id];
-              return (
-                <View key={tk.id} style={[styles.tokenItem, { backgroundColor: theme.paper, borderColor: isCurrent ? theme.accent : theme.line }]}>
-                  <View style={styles.tokenInfo}>
-                    <View style={styles.tokenIdRow}>
-                      <Text style={[styles.tokenId, { color: theme.ink, fontFamily: theme.fonts.body }]} numberOfLines={1}>
-                        {inviteUrl(tk.id)}
-                      </Text>
-                      {isCurrent && (
-                        <View style={[styles.currentBadge, { backgroundColor: theme.accent }]}>
-                          <Text style={[styles.currentBadgeText, { fontFamily: theme.fonts.head }]}>
-                            {t('yaoji.current')}
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-                    <View style={styles.tokenMetaRow}>
-                      <Text style={[styles.tokenMeta, { color: theme.inkSoft, fontFamily: theme.fonts.body }]}>
-                        {t('yaoji.expiresAt', { date: new Date(tk.expiresAt).toLocaleString(undefined, { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) })}
-                        {count > 0 ? `  ·  ${t('yaoji.receivedCount', { count })}` : ''}
-                      </Text>
-                      {st && <StatusBadge status={st} theme={theme} t={t} />}
-                    </View>
-                  </View>
-                  <View style={styles.tokenActions}>
-                    <TouchableOpacity onPress={() => handleCopy(inviteUrl(tk.id))} style={styles.tokenBtn}>
-                      {Icon.copy(theme.inkSoft, 18)}
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={() => handleDeactivate(tk.id)} style={styles.tokenBtn}>
-                      {Icon.trash(theme.inkSoft, 18)}
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              );
-            })}
-          </View>
-        )}
       </ScrollView>
     </View>
   );
@@ -353,27 +276,4 @@ const styles = StyleSheet.create({
   },
   actionLabel: { fontSize: 15 },
 
-  tokenList: { marginTop: 32 },
-  tokenListHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
-  tokenListTitle: { fontSize: 14 },
-  refreshBtn: { padding: 6 },
-  tokenItem: {
-    flexDirection: 'row', alignItems: 'center',
-    padding: 14, borderRadius: 16, borderWidth: 1,
-    marginBottom: 10,
-  },
-  tokenInfo: { flex: 1, marginRight: 8 },
-  tokenIdRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 },
-  tokenId: { fontSize: 12, flexShrink: 1 },
-  tokenMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
-  currentBadge: {
-    paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6,
-  },
-  currentBadgeText: { fontSize: 10, color: '#fff' },
-  tokenMeta: { fontSize: 12 },
-  tokenActions: { flexDirection: 'row', gap: 8 },
-  tokenBtn: {
-    width: 36, height: 36, borderRadius: 18,
-    justifyContent: 'center', alignItems: 'center',
-  },
 });
