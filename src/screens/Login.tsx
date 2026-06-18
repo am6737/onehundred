@@ -271,7 +271,8 @@ export function LoginWelcome({ navigation }) {
           accessibilityRole="button"
           style={{
             marginTop: 12,
-            paddingVertical: 17,
+            minHeight: 54,
+            justifyContent: 'center',
             borderRadius: 999,
             backgroundColor: 'transparent',
             borderWidth: 1.5,

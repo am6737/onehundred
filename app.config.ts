@@ -3,7 +3,7 @@ import { ExpoConfig, ConfigContext } from "expo/config";
 const IS_DEV = process.env.APP_VARIANT === "development";
 
 const config: ExpoConfig = {
-  name: IS_DEV ? "一百件事(Dev)" : "yibai",
+  name: IS_DEV ? "一百件事(Dev)" : "一百件事",
   slug: "100moments",
   version: "1.0.0",
   orientation: "portrait",
@@ -74,6 +74,10 @@ const config: ExpoConfig = {
     ],
     "expo-system-ui",
   ],
+  locales: {
+    zh: "./lang/zh.json",
+    en: "./lang/en.json",
+  },
   extra: {
     eas: {
       projectId: "068f5c93-dfff-445c-ba00-cb1fed6c4598",

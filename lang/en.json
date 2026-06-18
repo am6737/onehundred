@@ -1,0 +1,7 @@
+{
+  "CFBundleDisplayName": "100 Moments",
+  "NSPhotoLibraryUsageDescription": "Allow \"100 Moments\" to access your photos to save these precious moments.",
+  "NSCameraUsageDescription": "Allow \"100 Moments\" to use the camera to capture this memorable moment.",
+  "NSMicrophoneUsageDescription": "Allow \"100 Moments\" to use the microphone to record what you want to say to your child.",
+  "NSPhotoLibraryAddUsageDescription": "Allow \"100 Moments\" to save this page as an image to your photo library."
+}
