@@ -5,9 +5,11 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   View, Text, TouchableOpacity, ScrollView, Switch,
   Modal, Pressable, TextInput, StyleSheet, Dimensions,
-  Alert, ActivityIndicator, Image,
+  Alert, ActivityIndicator, Image, Platform, ToastAndroid,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { DooPush } from 'doopush-react-native-sdk';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme, COLORS } from '../theme/tokens';
 import { useI18n, useT } from '../i18n';
@@ -1641,6 +1643,171 @@ function AccountSecuritySheet({ anon, onAnonChanged, onClose }: any) {
 }
 
 /* ══════════════════════════════════════════════════════════
+   Developer Tools Sheet
+   ══════════════════════════════════════════════════════════ */
+
+const DEV_UNLOCK_KEY = '100m.dev_unlocked';
+
+function flashToast(msg: string) {
+  if (Platform.OS === 'android') ToastAndroid.show(msg, ToastAndroid.SHORT);
+}
+
+function DevToolsSheet({ onClose, onLock }: any) {
+  const { theme } = useTheme();
+  const t = useT();
+  const insets = useSafeAreaInsets();
+  const [token, setToken] = useState<string | null>(null);
+  const [deviceId, setDeviceId] = useState<string | null>(null);
+  const [registering, setRegistering] = useState(false);
+  const [copied, setCopied] = useState<'token' | 'device' | null>(null);
+
+  const refresh = useCallback(async () => {
+    try {
+      const [tk, did] = await Promise.all([
+        DooPush.getDeviceToken(),
+        DooPush.getDeviceId(),
+      ]);
+      setToken(tk);
+      setDeviceId(did);
+    } catch (e: any) {
+      console.warn('[DevTools] refresh failed', e?.message || e);
+    }
+  }, []);
+
+  useEffect(() => { refresh(); }, [refresh]);
+
+  const register = async () => {
+    if (registering) return;
+    setRegistering(true);
+    try {
+      const r = await DooPush.register();
+      setToken(r.token);
+      setDeviceId(r.deviceId);
+    } catch (e: any) {
+      Alert.alert(t('settings.devRegister'), String(e?.message || e));
+    } finally {
+      setRegistering(false);
+    }
+  };
+
+  const copy = async (kind: 'token' | 'device', value: string | null) => {
+    if (!value) return;
+    await Clipboard.setStringAsync(value);
+    setCopied(kind);
+    flashToast(t('settings.copied'));
+    setTimeout(() => setCopied(null), 1800);
+  };
+
+  const lock = () => {
+    Alert.alert(t('settings.devLock'), '', [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('settings.devLock'),
+        style: 'destructive',
+        onPress: async () => {
+          await AsyncStorage.removeItem(DEV_UNLOCK_KEY);
+          onLock && onLock();
+          onClose && onClose();
+        },
+      },
+    ]);
+  };
+
+  const env = `${Platform.OS} ${Platform.Version} · ${APP_VERSION} (${APP_BUILD})`;
+
+  return (
+    <Modal visible animationType="slide" onRequestClose={onClose}>
+      <View style={{ flex: 1, backgroundColor: theme.cream }}>
+        <LayerHeader title={t('settings.devTitle')} onBack={onClose} />
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ paddingHorizontal: 22, paddingBottom: 48 + insets.bottom }}
+        >
+          <View style={{
+            marginTop: 14, backgroundColor: theme.paper,
+            borderWidth: 1, borderColor: theme.line, borderRadius: 22, overflow: 'hidden',
+          }}>
+            <TouchableOpacity
+              activeOpacity={token ? 0.7 : 1}
+              onPress={() => copy('token', token)}
+              onLongPress={() => copy('token', token)}
+            >
+              <View style={{
+                paddingVertical: 14, paddingHorizontal: 16,
+                borderBottomWidth: 1, borderBottomColor: theme.line,
+              }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Text style={{ flex: 1, fontFamily: theme.fonts.body, fontSize: 15.5, color: theme.ink }}>
+                    {t('settings.devPushToken')}
+                  </Text>
+                  <Text style={{ fontFamily: theme.fonts.body, fontSize: 13, color: theme.inkSoft }}>
+                    {copied === 'token' ? t('settings.copied') : (token ? t('settings.copy') : '')}
+                  </Text>
+                </View>
+                <Text selectable style={{
+                  marginTop: 8, fontFamily: theme.fonts.body, fontSize: 12.5,
+                  color: token ? theme.inkSoft : theme.inkSoft,
+                  opacity: token ? 1 : 0.6, lineHeight: 18,
+                }}>
+                  {token || t('settings.devNotRegistered')}
+                </Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              activeOpacity={deviceId ? 0.7 : 1}
+              onPress={() => copy('device', deviceId)}
+              onLongPress={() => copy('device', deviceId)}
+            >
+              <View style={{
+                paddingVertical: 14, paddingHorizontal: 16,
+                borderBottomWidth: 1, borderBottomColor: theme.line,
+              }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Text style={{ flex: 1, fontFamily: theme.fonts.body, fontSize: 15.5, color: theme.ink }}>
+                    {t('settings.devDeviceId')}
+                  </Text>
+                  <Text style={{ fontFamily: theme.fonts.body, fontSize: 13, color: theme.inkSoft }}>
+                    {copied === 'device' ? t('settings.copied') : (deviceId ? t('settings.copy') : '')}
+                  </Text>
+                </View>
+                <Text selectable style={{
+                  marginTop: 8, fontFamily: theme.fonts.body, fontSize: 12.5,
+                  color: theme.inkSoft, opacity: deviceId ? 1 : 0.6, lineHeight: 18,
+                }}>
+                  {deviceId || t('settings.devNotRegistered')}
+                </Text>
+              </View>
+            </TouchableOpacity>
+
+            <View style={{ paddingVertical: 14, paddingHorizontal: 16 }}>
+              <Text style={{ fontFamily: theme.fonts.body, fontSize: 15.5, color: theme.ink }}>
+                {t('settings.devEnv')}
+              </Text>
+              <Text selectable style={{
+                marginTop: 8, fontFamily: theme.fonts.body, fontSize: 12.5,
+                color: theme.inkSoft, lineHeight: 18,
+              }}>
+                {env}
+              </Text>
+            </View>
+          </View>
+
+          <View style={{ marginTop: 20, gap: 12 }}>
+            <PrimaryButton
+              label={registering ? t('settings.devRegistering') : t('settings.devRegister')}
+              onPress={register}
+            />
+            <SecondaryButton label={t('settings.devRefresh')} onPress={refresh} />
+            <SecondaryButton label={t('settings.devLock')} onPress={lock} />
+          </View>
+        </ScrollView>
+      </View>
+    </Modal>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════
    Main Settings Screen
    ══════════════════════════════════════════════════════════ */
 
@@ -1661,13 +1828,40 @@ export default function Settings({ navigation, route }: any) {
   // Local state
   const [kids, setKids] = useState(() => dataKids.map(k => ({ ...k })));
   const [editId, setEditId] = useState<string | null>(null);
-  const [sheet, setSheet] = useState<string | null>(null); // 'add'|'invite'|'about'|'account'
+  const [sheet, setSheet] = useState<string | null>(null); // 'add'|'invite'|'about'|'account'|'dev'
   const [defView, setDefView] = useState('together');
   const [anon, setAnon] = useState(false);
   const [inviteExpiry, setInviteExpiry] = useState(DEFAULT_INVITE_EXPIRY);
+  const [devUnlocked, setDevUnlocked] = useState(false);
+  const versionTapsRef = useRef(0);
+  const versionTapTimerRef = useRef<any>(null);
 
   useEffect(() => { isAnonymous().then(setAnon); }, []);
   useEffect(() => { getInviteExpiryHours().then(setInviteExpiry); }, []);
+  useEffect(() => {
+    AsyncStorage.getItem(DEV_UNLOCK_KEY).then(v => setDevUnlocked(v === '1')).catch(() => {});
+  }, []);
+
+  const onVersionTap = useCallback(() => {
+    if (devUnlocked) { setSheet('dev'); return; }
+    if (versionTapTimerRef.current) clearTimeout(versionTapTimerRef.current);
+    versionTapsRef.current += 1;
+    const taps = versionTapsRef.current;
+    const need = 7;
+    if (taps >= need) {
+      versionTapsRef.current = 0;
+      AsyncStorage.setItem(DEV_UNLOCK_KEY, '1').catch(() => {});
+      setDevUnlocked(true);
+      Alert.alert(t('settings.devUnlocked'));
+      return;
+    }
+    if (taps >= 3) {
+      flashToast(t('settings.devTapsLeft', { n: need - taps }));
+    }
+    versionTapTimerRef.current = setTimeout(() => {
+      versionTapsRef.current = 0;
+    }, 2500);
+  }, [devUnlocked, t]);
 
   const editingKid = kids.find(k => k.id === editId);
   const saveKid = (patch) => {
@@ -1810,16 +2004,26 @@ export default function Settings({ navigation, route }: any) {
             title={t('settings.aboutApp')}
             value={`v${APP_VERSION}`}
             onPress={() => setSheet('about')}
-            last
+            last={!devUnlocked}
           />
+          {devUnlocked ? (
+            <Row
+              icon={Icon.gear(theme.accent, 20)}
+              title={t('settings.developerTools')}
+              onPress={() => setSheet('dev')}
+              last
+            />
+          ) : null}
         </SettingGroup>
 
         {/* ── Footer ── */}
         <View style={{ alignItems: 'center', marginTop: 34 }}>
-          <Text style={{
-            fontFamily: theme.fonts.body, fontSize: 12,
-            color: theme.inkSoft, opacity: 0.7,
-          }}>{t('settings.footerVersion', { name: t('settings.appName'), version: APP_VERSION })}</Text>
+          <TouchableOpacity activeOpacity={0.6} onPress={onVersionTap} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+            <Text style={{
+              fontFamily: theme.fonts.body, fontSize: 12,
+              color: theme.inkSoft, opacity: 0.7,
+            }}>{t('settings.footerVersion', { name: t('settings.appName'), version: APP_VERSION })}</Text>
+          </TouchableOpacity>
         </View>
 
       </ScrollView>
@@ -1843,6 +2047,12 @@ export default function Settings({ navigation, route }: any) {
       ) : null}
       {sheet === 'account' ? (
         <AccountSecuritySheet anon={anon} onAnonChanged={() => isAnonymous().then(setAnon)} onClose={() => setSheet(null)} />
+      ) : null}
+      {sheet === 'dev' ? (
+        <DevToolsSheet
+          onClose={() => setSheet(null)}
+          onLock={() => setDevUnlocked(false)}
+        />
       ) : null}
     </View>
   );
