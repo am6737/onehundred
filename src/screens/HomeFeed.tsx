@@ -222,10 +222,9 @@ function TopBar({ perspective, setPerspective, onMore, kidId, onSelectKid }: any
 
 function SuggestChip({ suggest, theme }: any) {
   const t = useT();
+  if (suggest === 'photo' || suggest === 'video') return null;
   const map = {
     voice: { ic: Icon.mic, txt: t('home.suggestVoice') },
-    photo: { ic: Icon.camera, txt: t('home.suggestPhoto') },
-    video: { ic: Icon.video, txt: t('home.suggestVideo') },
     text:  { ic: Icon.pen, txt: t('home.suggestText') },
   };
   const s = map[suggest] || map.voice;

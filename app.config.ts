@@ -73,6 +73,17 @@ const config: ExpoConfig = {
       },
     ],
     "expo-system-ui",
+    [
+      "doopush-react-native-sdk",
+      {
+        appId: process.env.EXPO_PUBLIC_DOOPUSH_APP_ID,
+        apiKey: process.env.EXPO_PUBLIC_DOOPUSH_API_KEY,
+        baseURL: "https://doopush.com/api/v1",
+        ios: {
+          mode: process.env.EXPO_PUBLIC_DOOPUSH_IOS_MODE || "production",
+        },
+      },
+    ],
   ],
   locales: {
     zh: "./lang/zh.json",

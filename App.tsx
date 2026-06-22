@@ -7,6 +7,7 @@ import { NavigationContainer, createNavigationContainerRef } from '@react-naviga
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { getLocales } from 'expo-localization';
+import { DooPush } from 'doopush-react-native-sdk';
 
 import { ThemeProvider, useTheme } from './src/theme/tokens';
 import { I18nProvider, loadSavedLang, type Lang } from './src/i18n';
@@ -296,8 +297,37 @@ function AuthGate() {
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
-    // 用 getValidSession：本地库重置后设备里的旧 JWT 仍“有效”，必须向服务端确认
-    // 用户是否还存在，否则会带着幽灵 uid 进 onboarding 触发 create_family 外键报错。
+    DooPush.configure({
+      appId: process.env.EXPO_PUBLIC_DOOPUSH_APP_ID!,
+      apiKey: process.env.EXPO_PUBLIC_DOOPUSH_API_KEY!,
+    });
+
+    const msgSub = DooPush.addMessageListener((m) => {
+      console.log('[DooPush] 收到推送', m);
+    });
+    const clickSub = DooPush.addNotificationClickListener((m) => {
+      console.log('[DooPush] 点击推送', m);
+    });
+
+    return () => {
+      msgSub.remove();
+      clickSub.remove();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (userId) {
+      DooPush.register()
+        .then(({ token, deviceId }) => {
+          console.log('[DooPush] 注册成功', token, deviceId);
+        })
+        .catch((e) => {
+          console.warn('[DooPush] 注册失败', e);
+        });
+    }
+  }, [userId]);
+
+  useEffect(() => {
     getValidSession().then(session => {
       setUserId(session?.user?.id || null);
       setChecking(false);
@@ -305,8 +335,6 @@ function AuthGate() {
 
     const { data: { subscription } } = onAuthStateChange((_event, session) => {
       setUserId(session?.user?.id || null);
-      // 退出登录 / 注销账户后，把整个导航栈重置回登录页。
-      // 只在 SIGNED_OUT 时做，避免影响游客登录等其它会话变化。
       if (_event === 'SIGNED_OUT' && navigationRef.isReady()) {
         navigationRef.reset({ index: 0, routes: [{ name: 'LoginWelcome' }] });
       }
