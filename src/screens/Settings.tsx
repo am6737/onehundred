@@ -1807,11 +1807,12 @@ function DevToolsSheet({ onClose, onLock }: any) {
   );
 }
 
-/* 宠物提醒偏好（频率 + 免打扰），读写 notification_preferences。 */
+/* 通知偏好（频率 + 家人动态 + 免打扰），读写 notification_preferences。 */
 function PetNotifyGroup() {
   const t = useT();
   const [prefs, setPrefs] = useState({
-    enabled: true, frequency: 'normal', quiet_start: '22:00:00', quiet_end: '08:00:00',
+    enabled: true, frequency: 'normal', notify_family: true,
+    quiet_start: '22:00:00', quiet_end: '08:00:00',
   });
 
   useEffect(() => {
@@ -1851,6 +1852,12 @@ function PetNotifyGroup() {
             ]}
             value={prefs.frequency}
             onSelect={(v: string) => save({ frequency: v })}
+          />
+          <ToggleRow
+            title={t('settings.notifyFamily')}
+            sub={t('settings.notifyFamilySub')}
+            value={prefs.notify_family}
+            onValueChange={(v: boolean) => save({ notify_family: v })}
           />
           <SelectRow
             title={t('settings.quietStart')}

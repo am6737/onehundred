@@ -264,12 +264,13 @@ CREATE POLICY "notif_log_family" ON public.notification_log
   WITH CHECK (family_id = public.my_family_id());
 
 CREATE TABLE IF NOT EXISTS public.notification_preferences (
-  family_id    UUID PRIMARY KEY REFERENCES public.families(id) ON DELETE CASCADE,
-  enabled      BOOLEAN NOT NULL DEFAULT true,
-  frequency    TEXT NOT NULL DEFAULT 'normal' CHECK (frequency IN ('gentle', 'normal', 'frequent')),
-  quiet_start  TIME NOT NULL DEFAULT '22:00',
-  quiet_end    TIME NOT NULL DEFAULT '08:00',
-  updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+  family_id     UUID PRIMARY KEY REFERENCES public.families(id) ON DELETE CASCADE,
+  enabled       BOOLEAN NOT NULL DEFAULT true,
+  frequency     TEXT NOT NULL DEFAULT 'normal' CHECK (frequency IN ('gentle', 'normal', 'frequent')),
+  notify_family BOOLEAN NOT NULL DEFAULT true,   -- 家人记录了新内容时是否推送（其余报喜类通知跟随 enabled）
+  quiet_start   TIME NOT NULL DEFAULT '22:00',
+  quiet_end     TIME NOT NULL DEFAULT '08:00',
+  updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 ALTER TABLE public.notification_preferences ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "notif_prefs_family" ON public.notification_preferences
