@@ -637,7 +637,7 @@ export default function Drawer({ visible, onClose, onNavigate, kidId = 'all', me
           )}
 
           {/* ── Mascot / pet entry ── */}
-          {SHOW_MASCOT && !empty && mascot && (
+          {SHOW_MASCOT && mascot && (
             <TouchableOpacity
               activeOpacity={0.7}
               onPress={() => go('mascot')}

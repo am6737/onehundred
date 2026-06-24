@@ -13,7 +13,7 @@ import { DooPush } from 'doopush-react-native-sdk';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme, COLORS } from '../theme/tokens';
 import { useI18n, useT } from '../i18n';
-import { ROLES, DEFAULT_ME, meName, meChar, roleLabel, NOW_YM } from '../data';
+import { ROLES, DEFAULT_ME, meName, meChar, roleLabel, NOW_YM, SHOW_MASCOT, fetchNotificationPrefs, updateNotificationPrefs } from '../data';
 import { useData } from '../data/DataProvider';
 import { signOut, isAnonymous, bindEmail, deleteAccount, getCurrentUserPhone, maskPhone, updatePhone, verifyPhoneChange, signInWithApple, bindApple, isAppleSignInAvailable, getLinkedProviders, unbindProvider } from '../lib/auth';
 import { getInviteExpiryHours, setInviteExpiryHours, INVITE_EXPIRY_OPTIONS, DEFAULT_INVITE_EXPIRY } from '../lib/yaoji';
@@ -1807,6 +1807,70 @@ function DevToolsSheet({ onClose, onLock }: any) {
   );
 }
 
+/* 宠物提醒偏好（频率 + 免打扰），读写 notification_preferences。 */
+function PetNotifyGroup() {
+  const t = useT();
+  const [prefs, setPrefs] = useState({
+    enabled: true, frequency: 'normal', quiet_start: '22:00:00', quiet_end: '08:00:00',
+  });
+
+  useEffect(() => {
+    let alive = true;
+    fetchNotificationPrefs()
+      .then(p => { if (alive && p) setPrefs(prev => ({ ...prev, ...p })); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, []);
+
+  const save = (patch: Record<string, any>) => {
+    setPrefs(prev => ({ ...prev, ...patch }));
+    updateNotificationPrefs(patch).catch(e => console.warn('notif prefs:', e?.message || e));
+  };
+
+  const hourOf = (s: string) => parseInt((s || '0').split(':')[0], 10) || 0;
+  const hourOpts = (hours: number[]) =>
+    hours.map(h => ({ key: String(h), label: `${String(h).padStart(2, '0')}:00` }));
+  const toTime = (v: string) => `${String(Number(v)).padStart(2, '0')}:00:00`;
+
+  return (
+    <SettingGroup label={t('settings.groupPetNotify')} note={t('settings.petNotifyNote')}>
+      <ToggleRow
+        title={t('settings.petNotifyEnabled')}
+        value={prefs.enabled}
+        onValueChange={(v: boolean) => save({ enabled: v })}
+        last={!prefs.enabled}
+      />
+      {prefs.enabled && (
+        <>
+          <SelectRow
+            title={t('settings.petFrequency')}
+            options={[
+              { key: 'gentle', label: t('settings.freqGentle') },
+              { key: 'normal', label: t('settings.freqNormal') },
+              { key: 'frequent', label: t('settings.freqFrequent') },
+            ]}
+            value={prefs.frequency}
+            onSelect={(v: string) => save({ frequency: v })}
+          />
+          <SelectRow
+            title={t('settings.quietStart')}
+            options={hourOpts([20, 21, 22, 23, 0])}
+            value={String(hourOf(prefs.quiet_start))}
+            onSelect={(v: string) => save({ quiet_start: toTime(v) })}
+          />
+          <SelectRow
+            title={t('settings.quietEnd')}
+            options={hourOpts([6, 7, 8, 9, 10])}
+            value={String(hourOf(prefs.quiet_end))}
+            onSelect={(v: string) => save({ quiet_end: toTime(v) })}
+            last
+          />
+        </>
+      )}
+    </SettingGroup>
+  );
+}
+
 /* ══════════════════════════════════════════════════════════
    Main Settings Screen
    ══════════════════════════════════════════════════════════ */
@@ -1815,15 +1879,22 @@ export default function Settings({ navigation, route }: any) {
   const { theme, mode: themeMode, setTheme } = useTheme();
   const { lang, setLang, t } = useI18n();
   const insets = useSafeAreaInsets();
-  const { kids: dataKids, editKid, FAMILY, getKid, kidLabel } = useData();
+  const { kids: dataKids, editKid, FAMILY, getKid, kidLabel, getMascot, profile, updateMe } = useData();
 
-  // Route params: me and setMe — use local state so UI updates immediately
-  const parentSetMe = route?.params?.setMe || (() => {});
-  const [me, setMeLocal] = useState(route?.params?.me || DEFAULT_ME);
+  // 身份（我是谁）直接走 DataProvider：profile 是唯一真源，避免把回调函数塞进导航参数
+  // （会触发 React Navigation 的 non-serializable 警告）。本地 state 让选择即时反映。
+  const [me, setMeLocal] = useState(() => ({
+    role: profile?.role ?? DEFAULT_ME.role,
+    custom: profile?.custom_role ?? DEFAULT_ME.custom,
+  }));
+  useEffect(() => {
+    if (profile) setMeLocal({ role: profile.role, custom: profile.custom_role || '' });
+  }, [profile]);
   const setMe = useCallback((m: any) => {
     setMeLocal(m);
-    parentSetMe(m);
-  }, [parentSetMe]);
+    updateMe({ role: m.role, custom_role: m.custom || '' })
+      .catch((e: any) => console.warn('updateMe:', e?.message || e));
+  }, [updateMe]);
 
   // Local state
   const [kids, setKids] = useState(() => dataKids.map(k => ({ ...k })));
@@ -1929,6 +2000,29 @@ export default function Settings({ navigation, route }: any) {
             last
           />
         </SettingGroup>
+
+        {/* ── Pet reminders ── */}
+        {SHOW_MASCOT && <PetNotifyGroup />}
+
+        {/* ── Pet section ── */}
+        {SHOW_MASCOT && kids.length > 0 && (
+          <SettingGroup label={t('settings.groupPet')} note={t('settings.petNote')}>
+            {kids.map((k, i) => {
+              const mas = getMascot(k.id);
+              return (
+                <Row
+                  key={k.id}
+                  icon={<KidAvatar name={k.name} tone={k.tone} size={32} />}
+                  title={t('settings.changePet')}
+                  sub={k.name}
+                  value={mas?.name || ''}
+                  onPress={() => navigation.navigate('PetPicker', { kidId: k.id })}
+                  last={i === kids.length - 1}
+                />
+              );
+            })}
+          </SettingGroup>
+        )}
 
         {/* ── Family section ── */}
         <SettingGroup label={t('settings.groupFamily')}>

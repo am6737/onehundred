@@ -5,6 +5,7 @@
 import { supabase } from '../lib/supabase';
 import { File as FSFile } from 'expo-file-system';
 import { t, getLang } from '../i18n';
+import type { PetRenderer } from '../components/pet-renderers/types';
 
 // ── Pure constants (no DB dependency) ──
 
@@ -38,8 +39,13 @@ export const NOW_YM = {
 
 export const PET_BODY = 3;
 
-// 宠物/小熊衣橱系统总开关。先整体隐藏，需要时改回 true 即可恢复全部入口。
-export const SHOW_MASCOT = false;
+// 宠物/小熊衣橱系统总开关。改回 false 即可整体隐藏全部入口。
+export const SHOW_MASCOT = true;
+
+// 宠物渲染引擎：icon（静态图，所有宠物统一用 bear/icon.png）| video（MP4 循环）
+// | spritesheet（精灵图逐帧）| rive（状态机，待补全）。
+// 切换此值即可在各引擎间对比效果，<PetView /> 对外接口不变。
+export const PET_RENDERER: PetRenderer = 'icon';
 
 // 可重复做的内置事——这些事做完后仍然可以"再做一次"。
 // 自定义事（custom）默认也可以重复。以后可由算法动态决定。
@@ -147,6 +153,7 @@ function mapMascot(row) {
   return {
     kid: row.kid_id, name: row.name, tone: row.tone, since: row.since,
     stage: row.stage, grown: row.grown, items: row.items, log: row.log,
+    species: row.species ?? 'bear',
   };
 }
 
@@ -391,6 +398,46 @@ export async function updateProfile(fields) {
   if (error) throw error;
 }
 
+// 把 DooPush 设备登记到 push_devices，供后端按家庭定向发送宠物通知。
+// device_id = DooPush.getDeviceId()（即 /push/single 的 device_id）。lang 落到设备上。
+// 走 register_push_device（SECURITY DEFINER）而非直连 upsert：device_id 跨账号复用，
+// 换账号后认领同一台设备的 ON CONFLICT→UPDATE 会因旧归属行不可见而被 RLS 冲突检查拒绝。
+export async function upsertPushDevice(deviceId: string, token: string | null, platform: string) {
+  if (!deviceId) return;
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) return;
+  const { error } = await supabase.rpc('register_push_device', {
+    p_device_id: deviceId,
+    p_token: token,
+    p_platform: platform,
+    p_lang: getLang(),
+    p_tz_offset: new Date().getTimezoneOffset(),
+  });
+  if (error) throw error;
+}
+
+// 当前家庭的通知偏好（可能没有行 → 返回 null，调用方用默认值）。
+export async function fetchNotificationPrefs() {
+  const familyId = await getMyFamilyId();
+  if (!familyId) return null;
+  const { data, error } = await supabase
+    .from('notification_preferences').select('*').eq('family_id', familyId).maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+// 局部更新通知偏好（无行则按 DB 默认建行）。
+export async function updateNotificationPrefs(fields: Record<string, any>) {
+  const familyId = await getMyFamilyId();
+  if (!familyId) throw new Error('no_family');
+  const { data, error } = await supabase
+    .from('notification_preferences')
+    .upsert({ family_id: familyId, ...fields, updated_at: new Date().toISOString() }, { onConflict: 'family_id' })
+    .select().single();
+  if (error) throw error;
+  return data;
+}
+
 // ── Family（家庭共享）──
 
 // 当前用户的 family_id 缓存：避免每次写入都查一次。切账号/退出时调 clearFamilyCache()。
@@ -600,7 +647,30 @@ export function allLevelsFrom(customLevels, levels) {
 }
 
 export function getMascotFrom(mascots, id) {
-  return mascots[id] || mascots[Object.keys(mascots)[0]] || { kid: id, name: '', tone: 'orange', since: '', stage: 1, grown: 0, items: [], log: [] };
+  return mascots[id] || mascots[Object.keys(mascots)[0]] || { kid: id, name: '', tone: 'orange', since: '', stage: 1, grown: 0, items: [], log: [], species: 'bear' };
+}
+
+// 宠物种类默认名（新建 mascot 行时用）。
+const PET_DEFAULT_NAME: Record<string, { zh: string; en: string }> = {
+  bear: { zh: '团团', en: 'Dango' },
+  dog:  { zh: '旺旺', en: 'Woof' },
+  cat:  { zh: '咪咪', en: 'Mimi' },
+};
+
+// 写入孩子选的宠物种类：有 mascot 行就更新，没有就新建（建娃时不会自动建行）。
+export async function setMascotSpecies(kidId: string, species: string) {
+  const { data: updated, error: upErr } = await supabase
+    .from('mascots').update({ species }).eq('kid_id', kidId).select();
+  if (upErr) throw upErr;
+  if (updated && updated.length) return mapMascot(updated[0]);
+
+  const familyId = await getMyFamilyId();
+  if (!familyId) throw new Error('no_family');
+  const name = (PET_DEFAULT_NAME[species] ?? PET_DEFAULT_NAME.bear)[getLang() === 'en' ? 'en' : 'zh'];
+  const { data: inserted, error: insErr } = await supabase
+    .from('mascots').insert({ kid_id: kidId, family_id: familyId, name, species }).select().single();
+  if (insErr) throw insErr;
+  return mapMascot(inserted);
 }
 
 export function wardrobeStateFrom(wardrobe, done) {

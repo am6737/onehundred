@@ -7,7 +7,7 @@ import Animated, { FadeIn } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme, COLORS } from '../theme/tokens';
 import { useT } from '../i18n';
-import { ROLES, NOW_YM, roleLabel } from '../data';
+import { ROLES, NOW_YM, roleLabel, SHOW_MASCOT } from '../data';
 import { useData } from '../data/DataProvider';
 import { Icon, KidAvatar } from '../components/Icons';
 
@@ -466,8 +466,10 @@ export default function OnboardingScreen({ navigation }) {
     try {
       await createFamily(me, '');
       await updateMe({ role: me, custom_role: '' });
-      await addKid({ name: child.name.trim(), y: child.y, m: child.m, tone: 'orange' });
-      navigation.replace('Home');
+      const kid = await addKid({ name: child.name.trim(), y: child.y, m: child.m, tone: 'orange' });
+      // 宠物系统开启时，建娃后先选宠物再进首页；关闭时维持原流程。
+      if (SHOW_MASCOT) navigation.replace('PetPicker', { kidId: kid.id, onboarding: true });
+      else navigation.replace('Home');
     } catch (e: any) {
       console.error('Onboarding create error:', e);
       const msg = e?.message || '';

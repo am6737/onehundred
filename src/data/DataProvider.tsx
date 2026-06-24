@@ -4,7 +4,7 @@ import {
   fetchLevels, fetchKids, fetchMemories, fetchMascots,
   fetchWardrobe, fetchCustomLevels, fetchProfile, insertCustomLevel,
   updateCustomLevel, deleteCustomLevel,
-  insertMemory, insertKid, updateKid, updateProfile, deleteMemory,
+  insertMemory, insertKid, updateKid, updateProfile, deleteMemory, setMascotSpecies,
   getKidFrom, kidLabelFrom, kidDoneFrom, memoriesForKidFrom, memoriesForLevelFrom,
   allLevelsFrom, getMascotFrom, wardrobeStateFrom, nextUnlockFrom,
   throwbackFrom, yearReviewFrom, levelWeightFrom, weightedShuffleFrom,
@@ -140,6 +140,12 @@ export function DataProvider({ children, userId }) {
     setKids(prev => prev.map(k => k.id === id ? { ...k, ...fields } : k));
   }, []);
 
+  const setSpecies = useCallback(async (kidId, species) => {
+    const m = await setMascotSpecies(kidId, species);
+    setMascots(prev => ({ ...prev, [kidId]: m }));
+    return m;
+  }, []);
+
   const updateMe = useCallback(async (fields) => {
     await updateProfile(fields);
     setProfile(prev => prev ? { ...prev, ...fields } : prev);
@@ -174,7 +180,7 @@ export function DataProvider({ children, userId }) {
     getKid, kidLabel, kidDone, memoriesForKid, memoriesForLevel, allLevels,
     getMascot, wardrobeState, nextUnlock, throwback, yearReview,
     frameLabel, levelWeight, weightedShuffle,
-    addMemory, removeMemory, addKid, editKid, addCustomLevel, editCustomLevel, removeCustomLevel, updateMe,
+    addMemory, removeMemory, addKid, editKid, setSpecies, addCustomLevel, editCustomLevel, removeCustomLevel, updateMe,
     createFamily, joinFamily, leaveFamily, removeMember,
     FAMILY,
   };

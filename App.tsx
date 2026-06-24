@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { View, Text, ActivityIndicator, Linking, Pressable } from 'react-native';
+import { View, Text, ActivityIndicator, Linking, Pressable, Platform } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -12,8 +12,7 @@ import { DooPush } from 'doopush-react-native-sdk';
 import { ThemeProvider, useTheme } from './src/theme/tokens';
 import { I18nProvider, loadSavedLang, type Lang } from './src/i18n';
 import { DataProvider, useData } from './src/data/DataProvider';
-import { DEFAULT_ME, meName } from './src/data';
-import { getMe, setMe as persistMe } from './src/utils/storage';
+import { DEFAULT_ME, meName, upsertPushDevice } from './src/data';
 import { getSession, getValidSession, onAuthStateChange } from './src/lib/auth';
 
 import HomeFeed from './src/screens/HomeFeed';
@@ -38,6 +37,7 @@ import SettingsScreen from './src/screens/Settings';
 import Agreement from './src/screens/Agreement';
 import OnboardingScreen from './src/screens/Onboarding';
 import InviteRecord from './src/screens/InviteRecord';
+import PetPicker from './src/screens/PetPicker';
 
 const Stack = createNativeStackNavigator();
 export const navigationRef = createNavigationContainerRef();
@@ -113,11 +113,6 @@ function HomeWithDrawer({ navigation }) {
     }
   }, [profile]);
 
-  const updateMe = useCallback(async (m) => {
-    setMeState(m);
-    await persistMe(m);
-  }, []);
-
   const handleDrawerNavigate = useCallback((route) => {
     setDrawerVisible(false);
     const params = { kidId, me };
@@ -141,7 +136,7 @@ function HomeWithDrawer({ navigation }) {
         navigation.navigate('YearReview', params);
         break;
       case 'settings':
-        navigation.navigate('Settings', { me, setMe: updateMe });
+        navigation.navigate('Settings');
         break;
       case 'invite':
         navigation.navigate('Invite', params);
@@ -149,7 +144,7 @@ function HomeWithDrawer({ navigation }) {
       default:
         break;
     }
-  }, [navigation, kidId, me, updateMe]);
+  }, [navigation, kidId, me]);
 
   const selectKid = useCallback((id) => {
     setKidId(id);
@@ -184,6 +179,55 @@ function parseJoinUrl(url: string): string | null {
   if (!url) return null;
   const m = url.match(/(?:moments100:\/\/|https:\/\/yibaijianshi\.app\/)join\/([A-Za-z0-9]+)/);
   return m ? m[1] : null;
+}
+
+/* 宠物通知点击 → 深度链接跳转。
+   后端在 DooPush payload.data 里带 { scene, kidId }；不同平台可能把它放在
+   data.scene（已展平）或 data.data（JSON 字符串），两种都兼容。
+   导航容器可能还没就绪（冷启动从通知点开），故带短重试。 */
+function extractPayload(data?: Record<string, string>): { scene?: string; kidId?: string } {
+  if (!data) return {};
+  let scene = data.scene;
+  let kidId = data.kidId;
+  if (!scene && typeof data.data === 'string') {
+    try {
+      const p = JSON.parse(data.data);
+      scene = p.scene;
+      kidId = p.kidId;
+    } catch {}
+  }
+  return { scene, kidId };
+}
+
+function targetFromScene(scene: string | undefined, kidId: string | undefined): { name: string; params?: any } {
+  switch (scene) {
+    case 'milestone':
+    case 'streak':
+      return { name: 'Mascot', params: { kidId } };
+    case 'capsule':
+      return { name: 'Sealed', params: { kidId } };
+    case 'gentle_remind':
+    case 'growth_nudge':
+    case 'loss_hint':
+    case 'family_activity':
+    default:
+      return { name: 'Home' };
+  }
+}
+
+function routeFromNotification(data?: Record<string, string>) {
+  const { scene, kidId } = extractPayload(data);
+  if (!scene) return;
+  const target = targetFromScene(scene, kidId);
+  let tries = 0;
+  const go = () => {
+    if (navigationRef.isReady()) {
+      try { (navigationRef as any).navigate(target.name, target.params); } catch {}
+    } else if (tries++ < 20) {
+      setTimeout(go, 250);
+    }
+  };
+  go();
 }
 
 function AppNavigator() {
@@ -244,6 +288,7 @@ function AppNavigator() {
         <Stack.Screen name="EmailLogin" component={EmailLogin} />
         <Stack.Screen name="Agreement" component={Agreement} />
         <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+        <Stack.Screen name="PetPicker" component={PetPicker} />
         <Stack.Screen name="Home" component={HomeWithDrawer} />
         <Stack.Screen name="LevelDetail" component={LevelDetail} />
         <Stack.Screen
@@ -307,11 +352,17 @@ function AuthGate() {
     });
     const clickSub = DooPush.addNotificationClickListener((m) => {
       console.log('[DooPush] 点击推送', m);
+      routeFromNotification(m?.data);
+    });
+    // 冷启动：从通知点开 App
+    const openSub = DooPush.addNotificationOpenListener((m) => {
+      routeFromNotification(m?.data);
     });
 
     return () => {
       msgSub.remove();
       clickSub.remove();
+      openSub.remove();
     };
   }, []);
 
@@ -320,6 +371,10 @@ function AuthGate() {
       DooPush.register()
         .then(({ token, deviceId }) => {
           console.log('[DooPush] 注册成功', token, deviceId);
+          // 登记设备，供后端按家庭定向发送宠物通知
+          upsertPushDevice(deviceId, token, Platform.OS).catch((e) =>
+            console.warn('[push_devices] 登记失败', e),
+          );
         })
         .catch((e) => {
           console.warn('[DooPush] 注册失败', e);

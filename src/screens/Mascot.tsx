@@ -11,6 +11,7 @@ import { PET_BODY } from '../data';
 import { useData } from '../data/DataProvider';
 import { Icon } from '../components/Icons';
 import { Bear } from '../components/Bear';
+import { PetView, EMOTIONS, type Emotion, type Species } from '../components/PetView';
 import { LayerHeader, Section, PrimaryButton, Card } from '../components/common';
 
 const { width: SCREEN_W } = Dimensions.get('window');
@@ -651,6 +652,9 @@ export default function MascotPage({ route, navigation }) {
   const tone = kid ? kid.tone : 'orange';
   const since = kid && 'since' in kid ? (kid as any).since : '';
 
+  // 当前孩子选的宠物种类——直接读已加载的 mascot 行（默认 bear）。
+  const species: Species = ((MAS as any)?.species as Species) || 'bear';
+
   // Demo boost — allows simulating "do one more thing"
   const [boost, setBoost] = useState({});
   const done = kidDone(who) + (boost[who] || 0);
@@ -682,11 +686,9 @@ export default function MascotPage({ route, navigation }) {
   // Unlock overlay state
   const [unlock, setUnlock] = useState<any>(null);
 
-  // Squish animation on pat
-  const squishAnim = useRef(new Animated.Value(1)).current;
-  const squishScaleX = useRef(new Animated.Value(1)).current;
-  const squishScaleY = useRef(new Animated.Value(1)).current;
   const [mood, setMood] = useState('happy');
+  // mood 直接映射为 PetView 情绪（happy/celebrate 均为合法 Emotion）。
+  const emotion: Emotion = (EMOTIONS as readonly string[]).includes(mood) ? (mood as Emotion) : 'happy';
 
   // Heart particles
   const [hearts, setHearts] = useState<any[]>([]);
@@ -715,30 +717,15 @@ export default function MascotPage({ route, navigation }) {
     outputRange: [0, -10],
   });
 
-  // Pat handler
+  // Pat handler——拍拍：切到 celebrate 情绪（video 引擎会切到 celebrate 片段）+ 爱心粒子。
+  // PetView 自带点击弹跳，不再需要 squish。
   const pat = useCallback(() => {
-    // Squish
     setMood('celebrate');
-    Animated.sequence([
-      Animated.parallel([
-        Animated.timing(squishScaleX, { toValue: 1.08, duration: 150, useNativeDriver: true }),
-        Animated.timing(squishScaleY, { toValue: 0.9, duration: 150, useNativeDriver: true }),
-      ]),
-      Animated.parallel([
-        Animated.timing(squishScaleX, { toValue: 0.96, duration: 150, useNativeDriver: true }),
-        Animated.timing(squishScaleY, { toValue: 1.05, duration: 150, useNativeDriver: true }),
-      ]),
-      Animated.parallel([
-        Animated.timing(squishScaleX, { toValue: 1, duration: 180, useNativeDriver: true }),
-        Animated.timing(squishScaleY, { toValue: 1, duration: 180, useNativeDriver: true }),
-      ]),
-    ]).start(() => setMood('happy'));
-
-    // Heart particle
     const id = Date.now() + Math.random();
     const left = 38 + Math.random() * 24;
     setHearts(h => [...h, { id, left }]);
     setTimeout(() => setHearts(h => h.filter(x => x.id !== id)), 1100);
+    setTimeout(() => setMood('happy'), 900);
   }, []);
 
   // Demo: add one more activity done
@@ -907,27 +894,17 @@ export default function MascotPage({ route, navigation }) {
               />
             ))}
 
-            {/* Tappable bear with squish + bob */}
-            <TouchableOpacity onPress={pat} activeOpacity={1}>
-              <Animated.View style={{
-                transform: [
-                  { scaleX: squishScaleX },
-                  { scaleY: squishScaleY },
-                ],
-              }}>
-                <Animated.View style={{
-                  transform: [{ translateY: bobTranslateY }],
-                }}>
-                  <Bear
-                    size={196}
-                    stage={PET_BODY}
-                    accessories={wearing}
-                    tone={tone}
-                    mood={mood}
-                  />
-                </Animated.View>
-              </Animated.View>
-            </TouchableOpacity>
+            {/* Tappable pet with bob float（PetView 自带点击弹跳）*/}
+            <Animated.View style={{
+              transform: [{ translateY: bobTranslateY }],
+            }}>
+              <PetView
+                species={species}
+                emotion={emotion}
+                size={196}
+                onTap={pat}
+              />
+            </Animated.View>
           </View>
 
           <View style={{ alignItems: 'center', marginTop: 4, paddingHorizontal: 26 }}>

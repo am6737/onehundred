@@ -220,12 +220,110 @@ CREATE TABLE IF NOT EXISTS public.mascots (
   stage     INT NOT NULL DEFAULT 1,
   grown     INT NOT NULL DEFAULT 0,
   items     JSONB NOT NULL DEFAULT '[]',
-  log       JSONB NOT NULL DEFAULT '[]'
+  log       JSONB NOT NULL DEFAULT '[]',
+  species   TEXT NOT NULL DEFAULT 'bear' CHECK (species IN ('bear', 'dog', 'cat'))
 );
 ALTER TABLE public.mascots ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "mascots_family" ON public.mascots
   FOR ALL USING (family_id = public.my_family_id())
   WITH CHECK (family_id = public.my_family_id());
+
+-- 6b. 宠物通知系统（模板 / 日志 / 偏好）。详见 migrations/20260623_pet_notifications.sql
+CREATE TABLE IF NOT EXISTS public.notification_templates (
+  id          SERIAL PRIMARY KEY,
+  scene       TEXT NOT NULL,
+  species     TEXT NOT NULL,
+  lang        TEXT NOT NULL,
+  title       TEXT NOT NULL,
+  body        TEXT NOT NULL,
+  sort_order  INT NOT NULL DEFAULT 0,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (scene, species, lang, sort_order)
+);
+CREATE INDEX IF NOT EXISTS idx_templates_lookup
+  ON public.notification_templates (scene, species, lang);
+ALTER TABLE public.notification_templates ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "templates_read" ON public.notification_templates
+  FOR SELECT USING (true);
+
+CREATE TABLE IF NOT EXISTS public.notification_log (
+  id           BIGSERIAL PRIMARY KEY,
+  kid_id       TEXT NOT NULL REFERENCES public.kids(id) ON DELETE CASCADE,
+  family_id    UUID NOT NULL REFERENCES public.families(id) ON DELETE CASCADE,
+  scene        TEXT NOT NULL,
+  template_id  INT REFERENCES public.notification_templates(id),
+  sent_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  clicked      BOOLEAN NOT NULL DEFAULT false,
+  clicked_at   TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS idx_notif_log_kid
+  ON public.notification_log (kid_id, sent_at DESC);
+ALTER TABLE public.notification_log ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "notif_log_family" ON public.notification_log
+  FOR ALL USING (family_id = public.my_family_id())
+  WITH CHECK (family_id = public.my_family_id());
+
+CREATE TABLE IF NOT EXISTS public.notification_preferences (
+  family_id    UUID PRIMARY KEY REFERENCES public.families(id) ON DELETE CASCADE,
+  enabled      BOOLEAN NOT NULL DEFAULT true,
+  frequency    TEXT NOT NULL DEFAULT 'normal' CHECK (frequency IN ('gentle', 'normal', 'frequent')),
+  quiet_start  TIME NOT NULL DEFAULT '22:00',
+  quiet_end    TIME NOT NULL DEFAULT '08:00',
+  updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+ALTER TABLE public.notification_preferences ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "notif_prefs_family" ON public.notification_preferences
+  FOR ALL USING (family_id = public.my_family_id())
+  WITH CHECK (family_id = public.my_family_id());
+
+-- 6c. push_devices：设备 token ↔ 用户 映射（发送宠物通知用）。详见 migrations/20260623_push_devices.sql
+CREATE TABLE IF NOT EXISTS public.push_devices (
+  device_id   TEXT PRIMARY KEY,
+  user_id     UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  token       TEXT,
+  platform    TEXT,
+  lang        TEXT NOT NULL DEFAULT 'zh',
+  tz_offset   INT NOT NULL DEFAULT 0,
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_push_devices_user ON public.push_devices (user_id);
+ALTER TABLE public.push_devices ENABLE ROW LEVEL SECURITY;
+-- 直连 RLS：每人只能看/改/删自己名下的设备行（登记走下面的 definer 函数）。
+CREATE POLICY "push_devices_select" ON public.push_devices
+  FOR SELECT USING (user_id = auth.uid());
+CREATE POLICY "push_devices_insert" ON public.push_devices
+  FOR INSERT WITH CHECK (user_id = auth.uid());
+CREATE POLICY "push_devices_update" ON public.push_devices
+  FOR UPDATE USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+CREATE POLICY "push_devices_delete" ON public.push_devices
+  FOR DELETE USING (user_id = auth.uid());
+
+-- 登记设备走 SECURITY DEFINER 函数：device_id 由 DooPush 按物理设备分配、跨账号复用，
+-- 换账号后认领同一台设备会命中 ON CONFLICT→UPDATE，旧归属行对当前用户不可见而被 RLS 冲突检查
+-- 拒绝（42501 …USING expression）。函数以属主绕过可见性，但强制 user_id = auth.uid()。
+CREATE OR REPLACE FUNCTION public.register_push_device(
+  p_device_id text,
+  p_token     text,
+  p_platform  text,
+  p_lang      text DEFAULT 'zh',
+  p_tz_offset int  DEFAULT 0
+) RETURNS void
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  INSERT INTO public.push_devices (device_id, user_id, token, platform, lang, tz_offset, updated_at)
+  VALUES (p_device_id, auth.uid(), p_token, p_platform, COALESCE(p_lang, 'zh'), COALESCE(p_tz_offset, 0), now())
+  ON CONFLICT (device_id) DO UPDATE
+    SET user_id    = auth.uid(),
+        token      = EXCLUDED.token,
+        platform   = EXCLUDED.platform,
+        lang       = EXCLUDED.lang,
+        tz_offset  = EXCLUDED.tz_offset,
+        updated_at = now();
+$$;
+REVOKE ALL     ON FUNCTION public.register_push_device(text, text, text, text, int) FROM public;
+GRANT  EXECUTE ON FUNCTION public.register_push_device(text, text, text, text, int) TO authenticated;
 
 -- 7. custom_levels（family 共享）
 CREATE TABLE IF NOT EXISTS public.custom_levels (
