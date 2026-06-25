@@ -1647,6 +1647,140 @@ function AccountSecuritySheet({ anon, onAnonChanged, onClose }: any) {
    ══════════════════════════════════════════════════════════ */
 
 const DEV_UNLOCK_KEY = '100m.dev_unlocked';
+const DND_KEY = '100m.dnd';
+
+const DND_ITEM_H = 44;
+const DND_VISIBLE = 5;
+const DND_PAD = DND_ITEM_H * Math.floor(DND_VISIBLE / 2);
+const DND_WHEEL_H = DND_ITEM_H * DND_VISIBLE;
+const HOURS = Array.from({ length: 24 }, (_, i) => i);
+
+function HourWheel({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  const { theme } = useTheme();
+  const ref = useRef<ScrollView>(null);
+  const mounted = useRef(false);
+  const idx = Math.max(0, HOURS.indexOf(value));
+
+  useEffect(() => {
+    if (!mounted.current) { mounted.current = true; return; }
+    ref.current?.scrollTo({ y: idx * DND_ITEM_H, animated: true });
+  }, [value]);
+
+  const settle = (e: any) => {
+    const i = Math.round(e.nativeEvent.contentOffset.y / DND_ITEM_H);
+    const c = Math.min(HOURS.length - 1, Math.max(0, i));
+    if (HOURS[c] !== value) onChange(HOURS[c]);
+  };
+
+  return (
+    <ScrollView
+      ref={ref}
+      style={{ flex: 1 }}
+      showsVerticalScrollIndicator={false}
+      snapToInterval={DND_ITEM_H}
+      decelerationRate="fast"
+      nestedScrollEnabled
+      bounces={false}
+      contentContainerStyle={{ paddingVertical: DND_PAD }}
+      onLayout={() => ref.current?.scrollTo({ y: idx * DND_ITEM_H, animated: false })}
+      onMomentumScrollEnd={settle}
+      onScrollEndDrag={settle}
+    >
+      {HOURS.map(h => {
+        const on = h === value;
+        return (
+          <View key={h} style={{ height: DND_ITEM_H, alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={{
+              fontFamily: theme.fonts.head,
+              fontSize: on ? 21 : 17,
+              color: on ? theme.ink : theme.inkSoft,
+              opacity: on ? 1 : 0.45,
+            }}>{String(h).padStart(2, '0')}:00</Text>
+          </View>
+        );
+      })}
+    </ScrollView>
+  );
+}
+
+function DndSheet({ visible, onClose, startH, endH, onConfirm }: any) {
+  const { theme } = useTheme();
+  const t = useT();
+  const [s, setS] = useState(startH);
+  const [e, setE] = useState(endH);
+
+  useEffect(() => { if (visible) { setS(startH); setE(endH); } }, [visible]);
+
+  const duration = (e - s + 24) % 24;
+
+  return (
+    <Sheet visible={visible} onClose={onClose} title={t('settings.dndTitle')}>
+      <View style={{ paddingHorizontal: 20, paddingTop: 4, paddingBottom: 12 }}>
+        <Text style={{
+          fontFamily: theme.fonts.body, fontSize: 13.5, color: theme.inkSoft,
+          textAlign: 'center', lineHeight: 20,
+        }}>{t('settings.dndDesc')}</Text>
+
+        <View style={{ flexDirection: 'row', marginTop: 16 }}>
+          <Text style={{ flex: 1, textAlign: 'center', fontFamily: theme.fonts.head, fontSize: 14, color: theme.inkSoft }}>
+            {t('settings.dndFrom')}
+          </Text>
+          <Text style={{ flex: 1, textAlign: 'center', fontFamily: theme.fonts.head, fontSize: 14, color: theme.inkSoft }}>
+            {t('settings.dndTo')}
+          </Text>
+        </View>
+
+        <View style={{ height: DND_WHEEL_H, marginTop: 4 }}>
+          <View pointerEvents="none" style={{
+            position: 'absolute', left: 0, right: 0, top: DND_PAD, height: DND_ITEM_H,
+            borderTopWidth: 1.5, borderBottomWidth: 1.5, borderColor: theme.accent,
+            backgroundColor: theme.paper, borderRadius: 2,
+          }} />
+          <View style={{ flexDirection: 'row', flex: 1 }}>
+            <HourWheel value={s} onChange={setS} />
+            <HourWheel value={e} onChange={setE} />
+          </View>
+        </View>
+
+        <Text style={{
+          textAlign: 'center', fontFamily: theme.fonts.body,
+          fontSize: 13, color: theme.inkSoft, marginTop: 4,
+        }}>
+          {duration > 0
+            ? t('settings.dndDuration', { n: duration })
+            : t('settings.dndAllDay')}
+        </Text>
+
+        <View style={{ flexDirection: 'row', gap: 12, marginTop: 20 }}>
+          <TouchableOpacity
+            onPress={() => onConfirm(null)}
+            activeOpacity={0.7}
+            style={{
+              flex: 1, paddingVertical: 13, borderRadius: 999,
+              backgroundColor: theme.sand, alignItems: 'center',
+            }}
+          >
+            <Text style={{ fontFamily: theme.fonts.head, fontSize: 15, color: theme.ink }}>
+              {t('settings.dndOff')}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => onConfirm({ start: s, end: e })}
+            activeOpacity={0.7}
+            style={{
+              flex: 1, paddingVertical: 13, borderRadius: 999,
+              backgroundColor: theme.accent, alignItems: 'center',
+            }}
+          >
+            <Text style={{ fontFamily: theme.fonts.head, fontSize: 15, color: '#FFFDF7' }}>
+              {t('settings.dndConfirm')}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Sheet>
+  );
+}
 
 function flashToast(msg: string) {
   if (Platform.OS === 'android') ToastAndroid.show(msg, ToastAndroid.SHORT);
@@ -1911,11 +2045,16 @@ export default function Settings({ navigation, route }: any) {
   const [anon, setAnon] = useState(false);
   const [inviteExpiry, setInviteExpiry] = useState(DEFAULT_INVITE_EXPIRY);
   const [devUnlocked, setDevUnlocked] = useState(false);
+  const [dnd, setDnd] = useState<{ start: number; end: number } | null>(null);
+  const [dndSheet, setDndSheet] = useState(false);
   const versionTapsRef = useRef(0);
   const versionTapTimerRef = useRef<any>(null);
 
   useEffect(() => { isAnonymous().then(setAnon); }, []);
   useEffect(() => { getInviteExpiryHours().then(setInviteExpiry); }, []);
+  useEffect(() => {
+    AsyncStorage.getItem(DND_KEY).then(v => { if (v) setDnd(JSON.parse(v)); }).catch(() => {});
+  }, []);
   useEffect(() => {
     AsyncStorage.getItem(DEV_UNLOCK_KEY).then(v => setDevUnlocked(v === '1')).catch(() => {});
   }, []);
@@ -2073,6 +2212,17 @@ export default function Settings({ navigation, route }: any) {
           />
         </SettingGroup>
 
+        {/* ── Notification section ── */}
+        <SettingGroup label={t('settings.groupNotif')}>
+          <Row
+            icon={Icon.moon(theme.accent, 20)}
+            title={t('settings.dnd')}
+            value={dnd ? `${String(dnd.start).padStart(2, '0')}:00 – ${String(dnd.end).padStart(2, '0')}:00` : t('settings.dndClosed')}
+            onPress={() => setDndSheet(true)}
+            last
+          />
+        </SettingGroup>
+
         {/* ── Preservation section ── */}
         <SettingGroup label={t('settings.groupKeep')} note={t('settings.keepNote')}>
           <Row
@@ -2165,6 +2315,18 @@ export default function Settings({ navigation, route }: any) {
           onLock={() => setDevUnlocked(false)}
         />
       ) : null}
+      <DndSheet
+        visible={dndSheet}
+        onClose={() => setDndSheet(false)}
+        startH={dnd?.start ?? 22}
+        endH={dnd?.end ?? 8}
+        onConfirm={(val: any) => {
+          setDnd(val);
+          if (val) AsyncStorage.setItem(DND_KEY, JSON.stringify(val)).catch(() => {});
+          else AsyncStorage.removeItem(DND_KEY).catch(() => {});
+          setDndSheet(false);
+        }}
+      />
     </View>
   );
 }
