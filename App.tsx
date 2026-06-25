@@ -340,6 +340,7 @@ function AppNavigator() {
 function AuthGate() {
   const [userId, setUserId] = useState<string | null>(null);
   const [checking, setChecking] = useState(true);
+  const [pushInfo, setPushInfo] = useState<{ token: string | null; deviceId: string } | null>(null);
 
   useEffect(() => {
     DooPush.configure({
@@ -359,6 +360,16 @@ function AuthGate() {
       routeFromNotification(m?.data);
     });
 
+    // 启动即请求推送权限并拿到 token，不依赖登录，避免后续功能拿不到权限
+    DooPush.register()
+      .then(({ token, deviceId }) => {
+        console.log('[DooPush] 注册成功', token, deviceId);
+        setPushInfo({ token, deviceId });
+      })
+      .catch((e) => {
+        console.warn('[DooPush] 注册失败', e);
+      });
+
     return () => {
       msgSub.remove();
       clickSub.remove();
@@ -367,20 +378,13 @@ function AuthGate() {
   }, []);
 
   useEffect(() => {
-    if (userId) {
-      DooPush.register()
-        .then(({ token, deviceId }) => {
-          console.log('[DooPush] 注册成功', token, deviceId);
-          // 登记设备，供后端按家庭定向发送宠物通知
-          upsertPushDevice(deviceId, token, Platform.OS).catch((e) =>
-            console.warn('[push_devices] 登记失败', e),
-          );
-        })
-        .catch((e) => {
-          console.warn('[DooPush] 注册失败', e);
-        });
+    // 登录后再把设备登记到后端，供后端按家庭定向发送宠物通知
+    if (userId && pushInfo) {
+      upsertPushDevice(pushInfo.deviceId, pushInfo.token, Platform.OS).catch((e) =>
+        console.warn('[push_devices] 登记失败', e),
+      );
     }
-  }, [userId]);
+  }, [userId, pushInfo]);
 
   useEffect(() => {
     getValidSession().then(session => {

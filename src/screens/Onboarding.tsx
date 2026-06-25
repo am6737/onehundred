@@ -10,11 +10,17 @@ import { useT } from '../i18n';
 import { ROLES, NOW_YM, roleLabel, SHOW_MASCOT } from '../data';
 import { useData } from '../data/DataProvider';
 import { Icon, KidAvatar } from '../components/Icons';
+import { PetCarousel } from '../components/PetCarousel';
+import type { Species } from '../components/pet-renderers/types';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
-const FLOW = ['welcome', 'me', 'child', 'done'] as const;
-const STEP_PAGES = ['me', 'child'];
+// 宠物系统开启时，把"选小伙伴"作为创建流程的一步（带进度点）；关闭时维持原四步。
+type Page = 'welcome' | 'me' | 'child' | 'pet' | 'done';
+const FLOW: readonly Page[] = SHOW_MASCOT
+  ? ['welcome', 'me', 'child', 'pet', 'done']
+  : ['welcome', 'me', 'child', 'done'];
+const STEP_PAGES: readonly string[] = SHOW_MASCOT ? ['me', 'child', 'pet'] : ['me', 'child'];
 const ageFrom = (y: number, m: number) => Math.max(0, NOW_YM.y - y - (NOW_YM.m < m ? 1 : 0));
 
 /* ── TopBar with progress dots ── */
@@ -364,6 +370,35 @@ function DoneStep({ me, child, onEnter, loading }) {
   );
 }
 
+/* ── Step: Pet（选小伙伴，创建与加入两条路径共用）── */
+
+function PetStep({ value, onChange, onNext, loading = false }) {
+  const { theme } = useTheme();
+  const t = useT();
+  const name = t(`petPicker.${value}.name`);
+
+  return (
+    <>
+      <View style={{ paddingHorizontal: 22, paddingTop: 6 }}>
+        <Text style={{ fontFamily: theme.fonts.head, fontSize: 27, lineHeight: 38, color: theme.ink, textAlign: 'center' }}>
+          {t('petPicker.title')}
+        </Text>
+        <Text style={{ marginTop: 8, fontFamily: theme.fonts.hand, fontSize: 16, color: theme.inkSoft, textAlign: 'center' }}>
+          {t('petPicker.subtitle')}
+        </Text>
+      </View>
+
+      <PetCarousel value={value} onChange={onChange} />
+
+      <CTA
+        label={loading ? t('petPicker.saving') : t('petPicker.confirm', { name })}
+        onPress={onNext}
+        disabled={loading}
+      />
+    </>
+  );
+}
+
 /* ── Join step A: 邀请码 ── */
 function JoinCodeStep({ code, onChange, onNext }) {
   const { theme } = useTheme();
@@ -444,22 +479,23 @@ function JoinRoleStep({ value, onChange, onEnter, loading }) {
 /* ── Main Onboarding Screen ── */
 
 export default function OnboardingScreen({ navigation }) {
-  const { addKid, createFamily, joinFamily, updateMe } = useData();
+  const { addKid, createFamily, joinFamily, updateMe, setSpecies } = useData();
   const { theme } = useTheme();
   const t = useT();
 
   const [mode, setMode] = useState<'create' | 'join'>('create');
-  const [page, setPage] = useState<typeof FLOW[number]>('welcome');
+  const [page, setPage] = useState<Page>('welcome');
   const [joinStep, setJoinStep] = useState<'code' | 'role'>('code');
   const [me, setMe] = useState('');
   const [code, setCode] = useState('');
   const [child, setChild] = useState({ name: '', y: 2021, m: 3 });
+  const [pet, setPet] = useState<Species>('bear');
   const [saving, setSaving] = useState(false);
 
   const idx = FLOW.indexOf(page);
   const next = () => setPage(FLOW[Math.min(FLOW.length - 1, idx + 1)]);
 
-  // 创建路径：建家 → 镜像角色 → 加孩子 → 进首页
+  // 创建路径：建家 → 镜像角色 → 加孩子 → 写入所选宠物 → 进首页
   const enter = async () => {
     if (saving) return;
     setSaving(true);
@@ -467,9 +503,8 @@ export default function OnboardingScreen({ navigation }) {
       await createFamily(me, '');
       await updateMe({ role: me, custom_role: '' });
       const kid = await addKid({ name: child.name.trim(), y: child.y, m: child.m, tone: 'orange' });
-      // 宠物系统开启时，建娃后先选宠物再进首页；关闭时维持原流程。
-      if (SHOW_MASCOT) navigation.replace('PetPicker', { kidId: kid.id, onboarding: true });
-      else navigation.replace('Home');
+      if (SHOW_MASCOT) await setSpecies(kid.id, pet);
+      navigation.replace('Home');
     } catch (e: any) {
       console.error('Onboarding create error:', e);
       const msg = e?.message || '';
@@ -482,7 +517,7 @@ export default function OnboardingScreen({ navigation }) {
     }
   };
 
-  // 加入路径：redeem → 镜像角色 → 进首页
+  // 加入路径：redeem → 镜像角色 → 进首页（孩子和宠物已属于这个家，加入者不选宠物）
   const doJoin = async () => {
     if (saving) return;
     setSaving(true);
@@ -522,6 +557,7 @@ export default function OnboardingScreen({ navigation }) {
       case 'welcome': return <WelcomeStep onNext={next} onJoin={startJoin} />;
       case 'me': return <MeStep value={me} onChange={setMe} onNext={next} />;
       case 'child': return <ChildStep child={child} onChange={setChild} onNext={next} />;
+      case 'pet': return <PetStep value={pet} onChange={setPet} onNext={next} />;
       case 'done': return <DoneStep me={me} child={child} onEnter={enter} loading={saving} />;
       default: return null;
     }

@@ -29,9 +29,6 @@ const config: ExpoConfig = {
     ],
     package: IS_DEV ? "com.hitosea.moments100.dev" : "com.hitosea.moments100",
   },
-  web: {
-    favicon: "./assets/favicon.png",
-  },
   plugins: [
     "expo-font",
     [
@@ -73,17 +70,6 @@ const config: ExpoConfig = {
       },
     ],
     "expo-system-ui",
-    [
-      "doopush-react-native-sdk",
-      {
-        appId: process.env.EXPO_PUBLIC_DOOPUSH_APP_ID,
-        apiKey: process.env.EXPO_PUBLIC_DOOPUSH_API_KEY,
-        baseURL: "https://doopush.com/api/v1",
-        ios: {
-          mode: process.env.EXPO_PUBLIC_DOOPUSH_IOS_MODE || "production",
-        },
-      },
-    ],
   ],
   locales: {
     zh: "./lang/zh.json",
@@ -95,5 +81,24 @@ const config: ExpoConfig = {
     },
   },
 };
+
+// DooPush 插件要求 appId/apiKey 必填。构建时这些值由 EAS 环境变量注入，
+// 但在 eas env:push 等引导阶段尚未就绪——缺失时跳过插件以免 config 解析失败。
+if (
+  process.env.EXPO_PUBLIC_DOOPUSH_APP_ID &&
+  process.env.EXPO_PUBLIC_DOOPUSH_API_KEY
+) {
+  config.plugins!.push([
+    "doopush-react-native-sdk",
+    {
+      appId: process.env.EXPO_PUBLIC_DOOPUSH_APP_ID,
+      apiKey: process.env.EXPO_PUBLIC_DOOPUSH_API_KEY,
+      baseURL: "https://doopush.com/api/v1",
+      ios: {
+        mode: IS_DEV ? "development" : "production",
+      },
+    },
+  ]);
+}
 
 export default config;

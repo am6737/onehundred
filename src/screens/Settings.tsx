@@ -1886,7 +1886,7 @@ export default function Settings({ navigation, route }: any) {
   const { theme, mode: themeMode, setTheme } = useTheme();
   const { lang, setLang, t } = useI18n();
   const insets = useSafeAreaInsets();
-  const { kids: dataKids, editKid, FAMILY, getKid, kidLabel, getMascot, profile, updateMe } = useData();
+  const { kids: dataKids, editKid, addKid: dbAddKid, setSpecies, FAMILY, getKid, kidLabel, getMascot, profile, updateMe } = useData();
 
   // 身份（我是谁）直接走 DataProvider：profile 是唯一真源，避免把回调函数塞进导航参数
   // （会触发 React Navigation 的 non-serializable 警告）。本地 state 让选择即时反映。
@@ -1946,7 +1946,17 @@ export default function Settings({ navigation, route }: any) {
     setKids(ks => ks.map(k => k.id === editId ? { ...k, ...patch } : k));
     editKid(editId, patch).catch(e => console.warn('updateKid:', e?.message || e));
   };
-  const addKid = (k) => setKids(ks => [...ks, { id: 'k' + Date.now(), acc: ['scarf'], ...k }]);
+  // 添加小朋友：真正落库拿到 id，再为 TA 选一只小伙伴（宠物绑在孩子身上）。
+  const addKid = async (k) => {
+    try {
+      const kid = await dbAddKid({ name: k.name, y: k.y, m: k.m, tone: k.tone });
+      setKids(ks => [...ks, kid]);
+      if (SHOW_MASCOT) navigation.navigate('PetPicker', { kidId: kid.id });
+    } catch (e: any) {
+      console.warn('addKid:', e?.message || e);
+      Alert.alert(t('onboarding.saveFailTitle'), t('onboarding.networkRetry'));
+    }
+  };
 
   const onBack = () => {
     if (navigation && navigation.goBack) navigation.goBack();
