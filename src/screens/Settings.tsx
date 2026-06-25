@@ -1647,8 +1647,6 @@ function AccountSecuritySheet({ anon, onAnonChanged, onClose }: any) {
    ══════════════════════════════════════════════════════════ */
 
 const DEV_UNLOCK_KEY = '100m.dev_unlocked';
-const DND_KEY = '100m.dnd';
-
 const DND_ITEM_H = 44;
 const DND_VISIBLE = 5;
 const DND_PAD = DND_ITEM_H * Math.floor(DND_VISIBLE / 2);
@@ -1943,11 +1941,13 @@ function DevToolsSheet({ onClose, onLock }: any) {
 
 /* 通知偏好（频率 + 家人动态 + 免打扰），读写 notification_preferences。 */
 function PetNotifyGroup() {
+  const { theme } = useTheme();
   const t = useT();
   const [prefs, setPrefs] = useState({
     enabled: true, frequency: 'normal', notify_family: true,
     quiet_start: '22:00:00', quiet_end: '08:00:00',
   });
+  const [dndSheet, setDndSheet] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -1963,11 +1963,13 @@ function PetNotifyGroup() {
   };
 
   const hourOf = (s: string) => parseInt((s || '0').split(':')[0], 10) || 0;
-  const hourOpts = (hours: number[]) =>
-    hours.map(h => ({ key: String(h), label: `${String(h).padStart(2, '0')}:00` }));
-  const toTime = (v: string) => `${String(Number(v)).padStart(2, '0')}:00:00`;
+  const toTime = (h: number) => `${String(h).padStart(2, '0')}:00:00`;
+
+  const qStart = hourOf(prefs.quiet_start);
+  const qEnd = hourOf(prefs.quiet_end);
 
   return (
+    <>
     <SettingGroup label={t('settings.groupPetNotify')} note={t('settings.petNotifyNote')}>
       <ToggleRow
         title={t('settings.petNotifyEnabled')}
@@ -1993,22 +1995,27 @@ function PetNotifyGroup() {
             value={prefs.notify_family}
             onValueChange={(v: boolean) => save({ notify_family: v })}
           />
-          <SelectRow
-            title={t('settings.quietStart')}
-            options={hourOpts([20, 21, 22, 23, 0])}
-            value={String(hourOf(prefs.quiet_start))}
-            onSelect={(v: string) => save({ quiet_start: toTime(v) })}
-          />
-          <SelectRow
-            title={t('settings.quietEnd')}
-            options={hourOpts([6, 7, 8, 9, 10])}
-            value={String(hourOf(prefs.quiet_end))}
-            onSelect={(v: string) => save({ quiet_end: toTime(v) })}
+          <Row
+            icon={Icon.moon(theme.accent, 20)}
+            title={t('settings.dnd')}
+            value={`${String(qStart).padStart(2, '0')}:00 – ${String(qEnd).padStart(2, '0')}:00`}
+            onPress={() => setDndSheet(true)}
             last
           />
         </>
       )}
     </SettingGroup>
+    <DndSheet
+      visible={dndSheet}
+      onClose={() => setDndSheet(false)}
+      startH={qStart}
+      endH={qEnd}
+      onConfirm={(val: any) => {
+        if (val) save({ quiet_start: toTime(val.start), quiet_end: toTime(val.end) });
+        setDndSheet(false);
+      }}
+    />
+    </>
   );
 }
 
@@ -2045,16 +2052,11 @@ export default function Settings({ navigation, route }: any) {
   const [anon, setAnon] = useState(false);
   const [inviteExpiry, setInviteExpiry] = useState(DEFAULT_INVITE_EXPIRY);
   const [devUnlocked, setDevUnlocked] = useState(false);
-  const [dnd, setDnd] = useState<{ start: number; end: number } | null>(null);
-  const [dndSheet, setDndSheet] = useState(false);
   const versionTapsRef = useRef(0);
   const versionTapTimerRef = useRef<any>(null);
 
   useEffect(() => { isAnonymous().then(setAnon); }, []);
   useEffect(() => { getInviteExpiryHours().then(setInviteExpiry); }, []);
-  useEffect(() => {
-    AsyncStorage.getItem(DND_KEY).then(v => { if (v) setDnd(JSON.parse(v)); }).catch(() => {});
-  }, []);
   useEffect(() => {
     AsyncStorage.getItem(DEV_UNLOCK_KEY).then(v => setDevUnlocked(v === '1')).catch(() => {});
   }, []);
@@ -2212,17 +2214,6 @@ export default function Settings({ navigation, route }: any) {
           />
         </SettingGroup>
 
-        {/* ── Notification section ── */}
-        <SettingGroup label={t('settings.groupNotif')}>
-          <Row
-            icon={Icon.moon(theme.accent, 20)}
-            title={t('settings.dnd')}
-            value={dnd ? `${String(dnd.start).padStart(2, '0')}:00 – ${String(dnd.end).padStart(2, '0')}:00` : t('settings.dndClosed')}
-            onPress={() => setDndSheet(true)}
-            last
-          />
-        </SettingGroup>
-
         {/* ── Preservation section ── */}
         <SettingGroup label={t('settings.groupKeep')} note={t('settings.keepNote')}>
           <Row
@@ -2315,18 +2306,6 @@ export default function Settings({ navigation, route }: any) {
           onLock={() => setDevUnlocked(false)}
         />
       ) : null}
-      <DndSheet
-        visible={dndSheet}
-        onClose={() => setDndSheet(false)}
-        startH={dnd?.start ?? 22}
-        endH={dnd?.end ?? 8}
-        onConfirm={(val: any) => {
-          setDnd(val);
-          if (val) AsyncStorage.setItem(DND_KEY, JSON.stringify(val)).catch(() => {});
-          else AsyncStorage.removeItem(DND_KEY).catch(() => {});
-          setDndSheet(false);
-        }}
-      />
     </View>
   );
 }
