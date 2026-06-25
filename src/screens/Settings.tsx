@@ -1,12 +1,15 @@
 // screens/Settings.js — React Native implementation of the Settings screen.
 // Faithfully converted from the web prototype at screens_settings.jsx.
 
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useMemo, useImperativeHandle } from 'react';
 import {
   View, Text, TouchableOpacity, ScrollView, Switch,
   Modal, Pressable, TextInput, StyleSheet, Dimensions,
-  Alert, ActivityIndicator, Image, Platform, ToastAndroid,
+  Alert, ActivityIndicator, Image, Platform, ToastAndroid, Animated,
 } from 'react-native';
+import { GestureDetector, Gesture } from 'react-native-gesture-handler';
+import WheelPicker from '@quidone/react-native-wheel-picker';
+import * as Haptics from 'expo-haptics';
 import * as Clipboard from 'expo-clipboard';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DooPush } from 'doopush-react-native-sdk';
@@ -1653,51 +1656,99 @@ const DND_PAD = DND_ITEM_H * Math.floor(DND_VISIBLE / 2);
 const DND_WHEEL_H = DND_ITEM_H * DND_VISIBLE;
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
-function HourWheel({ value, onChange }: { value: number; onChange: (v: number) => void }) {
-  const { theme } = useTheme();
-  const ref = useRef<ScrollView>(null);
-  const mounted = useRef(false);
-  const idx = Math.max(0, HOURS.indexOf(value));
+function tickHaptic() {
+  // 滚轮每跨过一格触发一次「选择」轻震；原生模块缺失时静默降级。
+  try { Haptics.selectionAsync().catch(() => {}); } catch {}
+}
 
-  useEffect(() => {
-    if (!mounted.current) { mounted.current = true; return; }
-    ref.current?.scrollTo({ y: idx * DND_ITEM_H, animated: true });
-  }, [value]);
+const HOUR_DATA = HOURS.map(h => ({ value: h, label: `${String(h).padStart(2, '0')}:00` }));
 
-  const settle = (e: any) => {
-    const i = Math.round(e.nativeEvent.contentOffset.y / DND_ITEM_H);
-    const c = Math.min(HOURS.length - 1, Math.max(0, i));
-    if (HOURS[c] !== value) onChange(HOURS[c]);
+// 自定义 renderList：完全复刻 quidone 内部的 Animated.ScrollView（snapToOffsets + 原生驱动
+// 的 scrollOffset + scrollToIndex），唯一区别是外面套了 RNGH 的 Gesture.Native()。
+// 因为本弹窗是 Modal+GestureHandlerRootView，新架构下没登记进 RNGH 的普通 ScrollView 收不到
+// 触摸（这也是 Sheet 必须走原生手势的原因），套上 Native 手势后滚轮才滚得动。
+function WheelScrollList({
+  listMethodsRef, data, keyExtractor, renderItem, itemHeight, pickerHeight,
+  readOnly, scrollOffset, initialIndex, contentContainerStyle,
+  onTouchStart, onTouchEnd, onTouchCancel, onScrollStart, onScrollEnd,
+}: any) {
+  const scrollRef = useRef<any>(null);
+  const activeRef = useRef(false);
+  const endTimer = useRef<any>(null);
+  const native = useMemo(() => Gesture.Native(), []);
+
+  useImperativeHandle(listMethodsRef, () => ({
+    scrollToIndex: ({ index, animated }: any) =>
+      scrollRef.current?.scrollTo({ x: 0, y: index * itemHeight, animated }),
+  }), [itemHeight]);
+
+  const snapToOffsets = useMemo(() => data.map((_: any, i: number) => i * itemHeight), [data, itemHeight]);
+  const onScroll = useMemo(() => Animated.event(
+    [{ nativeEvent: { contentOffset: { y: scrollOffset } } }],
+    { useNativeDriver: true },
+  ), [scrollOffset]);
+  const ccStyle = useMemo(
+    () => [{ paddingVertical: (pickerHeight - itemHeight) / 2 }, contentContainerStyle],
+    [pickerHeight, itemHeight, contentContainerStyle],
+  );
+
+  // quidone 用 onValueChanged 依赖 onScrollEnd 收尾：滚动开始触发一次 start，
+  // 停下（含甩动惯性结束、慢放无惯性）后触发 end。
+  const start = () => {
+    if (endTimer.current) { clearTimeout(endTimer.current); endTimer.current = null; }
+    if (!activeRef.current) { activeRef.current = true; onScrollStart?.(); }
+  };
+  const end = () => {
+    if (activeRef.current) { activeRef.current = false; onScrollEnd?.(); }
   };
 
   return (
-    <ScrollView
-      ref={ref}
+    <GestureDetector gesture={native}>
+      <Animated.ScrollView
+        ref={scrollRef}
+        showsHorizontalScrollIndicator={false}
+        showsVerticalScrollIndicator={false}
+        scrollEventThrottle={16}
+        scrollEnabled={!readOnly}
+        contentOffset={{ x: 0, y: initialIndex * itemHeight }}
+        onScroll={onScroll}
+        snapToOffsets={snapToOffsets}
+        nestedScrollEnabled
+        removeClippedSubviews={false}
+        style={{ width: '100%', overflow: 'visible' }}
+        contentContainerStyle={ccStyle}
+        onTouchStart={onTouchStart}
+        onTouchEnd={onTouchEnd}
+        onTouchCancel={onTouchCancel}
+        onScrollBeginDrag={start}
+        onMomentumScrollBegin={start}
+        onScrollEndDrag={() => {
+          if (endTimer.current) clearTimeout(endTimer.current);
+          endTimer.current = setTimeout(end, 60); // 无惯性时的收尾兜底
+        }}
+        onMomentumScrollEnd={end}
+      >
+        {data.map((item: any, index: number) => renderItem({ key: keyExtractor(item, index), item, index }))}
+      </Animated.ScrollView>
+    </GestureDetector>
+  );
+}
+
+function HourWheel({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  const { theme } = useTheme();
+  return (
+    <WheelPicker
+      data={HOUR_DATA}
+      value={value}
+      onValueChanged={({ item }) => onChange(item.value)}
+      onValueChanging={tickHaptic}
+      itemHeight={DND_ITEM_H}
+      visibleItemCount={DND_VISIBLE}
       style={{ flex: 1 }}
-      showsVerticalScrollIndicator={false}
-      snapToInterval={DND_ITEM_H}
-      decelerationRate="fast"
-      nestedScrollEnabled
-      bounces={false}
-      contentContainerStyle={{ paddingVertical: DND_PAD }}
-      onLayout={() => ref.current?.scrollTo({ y: idx * DND_ITEM_H, animated: false })}
-      onMomentumScrollEnd={settle}
-      onScrollEndDrag={settle}
-    >
-      {HOURS.map(h => {
-        const on = h === value;
-        return (
-          <View key={h} style={{ height: DND_ITEM_H, alignItems: 'center', justifyContent: 'center' }}>
-            <Text style={{
-              fontFamily: theme.fonts.head,
-              fontSize: on ? 21 : 17,
-              color: on ? theme.ink : theme.inkSoft,
-              opacity: on ? 1 : 0.45,
-            }}>{String(h).padStart(2, '0')}:00</Text>
-          </View>
-        );
-      })}
-    </ScrollView>
+      itemTextStyle={{ fontFamily: theme.fonts.head, fontSize: 22, color: theme.ink }}
+      renderOverlay={null}
+      renderList={({ ref, ...listProps }: any) => <WheelScrollList listMethodsRef={ref} {...listProps} />}
+    />
   );
 }
 
@@ -1712,7 +1763,7 @@ function DndSheet({ visible, onClose, startH, endH, onConfirm }: any) {
   const duration = (e - s + 24) % 24;
 
   return (
-    <Sheet visible={visible} onClose={onClose} title={t('settings.dndTitle')}>
+    <Sheet visible={visible} onClose={onClose} title={t('settings.dndTitle')} swipeFromHandleOnly>
       <View style={{ paddingHorizontal: 20, paddingTop: 4, paddingBottom: 12 }}>
         <Text style={{
           fontFamily: theme.fonts.body, fontSize: 13.5, color: theme.inkSoft,
@@ -1749,32 +1800,18 @@ function DndSheet({ visible, onClose, startH, endH, onConfirm }: any) {
             : t('settings.dndAllDay')}
         </Text>
 
-        <View style={{ flexDirection: 'row', gap: 12, marginTop: 20 }}>
-          <TouchableOpacity
-            onPress={() => onConfirm(null)}
-            activeOpacity={0.7}
-            style={{
-              flex: 1, paddingVertical: 13, borderRadius: 999,
-              backgroundColor: theme.sand, alignItems: 'center',
-            }}
-          >
-            <Text style={{ fontFamily: theme.fonts.head, fontSize: 15, color: theme.ink }}>
-              {t('settings.dndOff')}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => onConfirm({ start: s, end: e })}
-            activeOpacity={0.7}
-            style={{
-              flex: 1, paddingVertical: 13, borderRadius: 999,
-              backgroundColor: theme.accent, alignItems: 'center',
-            }}
-          >
-            <Text style={{ fontFamily: theme.fonts.head, fontSize: 15, color: '#FFFDF7' }}>
-              {t('settings.dndConfirm')}
-            </Text>
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity
+          onPress={() => onConfirm({ start: s, end: e })}
+          activeOpacity={0.7}
+          style={{
+            marginTop: 20, paddingVertical: 13, borderRadius: 999,
+            backgroundColor: theme.accent, alignItems: 'center',
+          }}
+        >
+          <Text style={{ fontFamily: theme.fonts.head, fontSize: 15, color: '#FFFDF7' }}>
+            {t('settings.dndConfirm')}
+          </Text>
+        </TouchableOpacity>
       </View>
     </Sheet>
   );
@@ -1968,6 +2005,21 @@ function PetNotifyGroup() {
   const qStart = hourOf(prefs.quiet_start);
   const qEnd = hourOf(prefs.quiet_end);
 
+  // 后端约定：quiet_start == quiet_end → 永不免打扰（关）。开关用此判断开/关，
+  // 关闭时记住上次的时段，下次打开直接复原。
+  const dndOn = qStart !== qEnd;
+  const lastWindow = useRef({ start: 22, end: 8 });
+  useEffect(() => { if (dndOn) lastWindow.current = { start: qStart, end: qEnd }; }, [dndOn, qStart, qEnd]);
+
+  const toggleDnd = (on: boolean) => {
+    if (on) {
+      const w = lastWindow.current;
+      save({ quiet_start: toTime(w.start), quiet_end: toTime(w.end) });
+    } else {
+      save({ quiet_start: '00:00:00', quiet_end: '00:00:00' });
+    }
+  };
+
   return (
     <>
     <SettingGroup label={t('settings.groupPetNotify')} note={t('settings.petNotifyNote')}>
@@ -1995,13 +2047,21 @@ function PetNotifyGroup() {
             value={prefs.notify_family}
             onValueChange={(v: boolean) => save({ notify_family: v })}
           />
-          <Row
-            icon={Icon.moon(theme.accent, 20)}
+          <ToggleRow
             title={t('settings.dnd')}
-            value={`${String(qStart).padStart(2, '0')}:00 – ${String(qEnd).padStart(2, '0')}:00`}
-            onPress={() => setDndSheet(true)}
-            last
+            value={dndOn}
+            onValueChange={toggleDnd}
+            last={!dndOn}
           />
+          {dndOn && (
+            <Row
+              icon={Icon.moon(theme.accent, 20)}
+              title={t('settings.dndTitle')}
+              value={`${String(qStart).padStart(2, '0')}:00 – ${String(qEnd).padStart(2, '0')}:00`}
+              onPress={() => setDndSheet(true)}
+              last
+            />
+          )}
         </>
       )}
     </SettingGroup>
@@ -2011,7 +2071,7 @@ function PetNotifyGroup() {
       startH={qStart}
       endH={qEnd}
       onConfirm={(val: any) => {
-        if (val) save({ quiet_start: toTime(val.start), quiet_end: toTime(val.end) });
+        save({ quiet_start: toTime(val.start), quiet_end: toTime(val.end) });
         setDndSheet(false);
       }}
     />

@@ -11,6 +11,7 @@ import { Icon } from './Icons';
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 
+
 export function LayerHeader({ title, onBack, right = null }: any) {
   const { theme } = useTheme();
   const t = useT();
@@ -50,7 +51,7 @@ export function LayerHeader({ title, onBack, right = null }: any) {
   );
 }
 
-export function Sheet({ visible, onClose, children, title }: any) {
+export function Sheet({ visible, onClose, children, title, swipeFromHandleOnly = false }: any) {
   const { theme } = useTheme();
   const t = useT();
   const insets = useSafeAreaInsets();
@@ -85,6 +86,8 @@ export function Sheet({ visible, onClose, children, title }: any) {
   const scrollYRef = useRef(0);
   const [contentH, setContentH] = useState(0);
   const needScroll = contentH > SCREEN_H * 0.7;
+  // swipeFromHandleOnly=true 时，下滑关闭只挂在抓手/标题区，卡片主体（如时间滚轮）的纵向
+  // 手势完全让给内部滚动，互不相抢。
   const panGesture = useMemo(() => Gesture.Pan()
     .runOnJS(true)
     .activeOffsetY(12)   // 明确的下拉才激活
@@ -115,42 +118,66 @@ export function Sheet({ visible, onClose, children, title }: any) {
       <GestureHandlerRootView style={{ flex: 1 }}>
       <Pressable style={styles.overlay} onPress={handleClose} accessibilityLabel={t('common.a11y.close')} accessibilityRole="button">
         <Pressable onPress={e => e.stopPropagation()}>
-          <GestureDetector gesture={panGesture}>
-          <Animated.View
-            style={[styles.sheetContainer, {
-              backgroundColor: theme.paper,
-              // 安全区已经留白了，再加一点点呼吸感即可；无安全区机型保底 16
-              paddingBottom: Math.max(insets.bottom + 6, 16),
-              transform: [{ translateY: slideAnim }],
-            }]}
-          >
-            <View style={styles.sheetHandle}>
-              <View style={[styles.handle, { backgroundColor: theme.line }]} />
-            </View>
-            {title && (
-              <View style={styles.sheetHeader}>
-                <Text style={{
-                  fontFamily: theme.fonts.head,
-                  fontSize: 20,
-                  color: theme.ink,
-                  textAlign: 'center',
-                }}>{title}</Text>
-              </View>
-            )}
-            <ScrollView
-              style={{ maxHeight: SCREEN_H * 0.7 }}
-              showsVerticalScrollIndicator={false}
-              bounces={false}
-              // 内容不超高就关掉滚动，避免原生滚动手势和下滑关闭抢触摸
-              scrollEnabled={needScroll}
-              onContentSizeChange={(_, h) => setContentH(h)}
-              scrollEventThrottle={16}
-              onScroll={e => { scrollYRef.current = e.nativeEvent.contentOffset.y; }}
-            >
-              {children}
-            </ScrollView>
-          </Animated.View>
-          </GestureDetector>
+          {(() => {
+            const dragZone = (
+              <>
+                <View style={styles.sheetHandle}>
+                  <View style={[styles.handle, { backgroundColor: theme.line }]} />
+                </View>
+                {title && (
+                  <View style={styles.sheetHeader}>
+                    <Text style={{
+                      fontFamily: theme.fonts.head,
+                      fontSize: 20,
+                      color: theme.ink,
+                      textAlign: 'center',
+                    }}>{title}</Text>
+                  </View>
+                )}
+              </>
+            );
+            const body = (
+              <ScrollView
+                style={{ maxHeight: SCREEN_H * 0.7 }}
+                showsVerticalScrollIndicator={false}
+                bounces={false}
+                // 内容不超高就关掉滚动，避免原生滚动手势和下滑关闭抢触摸
+                scrollEnabled={needScroll}
+                onContentSizeChange={(_, h) => setContentH(h)}
+                scrollEventThrottle={16}
+                onScroll={e => { scrollYRef.current = e.nativeEvent.contentOffset.y; }}
+              >
+                {children}
+              </ScrollView>
+            );
+            const card = (
+              <Animated.View
+                style={[styles.sheetContainer, {
+                  backgroundColor: theme.paper,
+                  // 安全区已经留白了，再加一点点呼吸感即可；无安全区机型保底 16
+                  paddingBottom: Math.max(insets.bottom + 6, 16),
+                  transform: [{ translateY: slideAnim }],
+                }]}
+              >
+                {swipeFromHandleOnly ? (
+                  <>
+                    <GestureDetector gesture={panGesture}>
+                      <View>{dragZone}</View>
+                    </GestureDetector>
+                    {body}
+                  </>
+                ) : (
+                  <>
+                    {dragZone}
+                    {body}
+                  </>
+                )}
+              </Animated.View>
+            );
+            return swipeFromHandleOnly
+              ? card
+              : <GestureDetector gesture={panGesture}>{card}</GestureDetector>;
+          })()}
         </Pressable>
       </Pressable>
       </GestureHandlerRootView>
