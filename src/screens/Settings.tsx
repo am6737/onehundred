@@ -2022,7 +2022,7 @@ function PetNotifyGroup() {
 
   return (
     <>
-    <SettingGroup label={t('settings.groupPetNotify')} note={t('settings.petNotifyNote')}>
+    <SettingGroup label={t('settings.groupPetNotify')}>
       <ToggleRow
         title={t('settings.petNotifyEnabled')}
         value={prefs.enabled}
@@ -2275,7 +2275,7 @@ export default function Settings({ navigation, route }: any) {
         </SettingGroup>
 
         {/* ── Preservation section ── */}
-        <SettingGroup label={t('settings.groupKeep')} note={t('settings.keepNote')}>
+        <SettingGroup label={t('settings.groupKeep')}>
           <Row
             icon={Icon.book(theme.accent, 20)}
             title={t('settings.exportBook')}
