@@ -217,33 +217,6 @@ function TopBar({ perspective, setPerspective, onMore, kidId, onSelectKid }: any
 }
 
 /* ════════════════════════════════════════════════════════════
-   SuggestChip — small hint about best recording method
-   ════════════════════════════════════════════════════════════ */
-
-function SuggestChip({ suggest, theme }: any) {
-  const t = useT();
-  if (suggest === 'photo' || suggest === 'video') return null;
-  const map = {
-    voice: { ic: Icon.mic, txt: t('home.suggestVoice') },
-    text:  { ic: Icon.pen, txt: t('home.suggestText') },
-  };
-  const s = map[suggest] || map.voice;
-  return (
-    <View style={{
-      flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start',
-      gap: 7, paddingVertical: 7, paddingHorizontal: 13, borderRadius: 999,
-      backgroundColor: 'rgba(255,253,247,0.7)',
-      borderWidth: 1, borderColor: theme.line,
-    }}>
-      {s.ic(theme.accent, 16)}
-      <Text style={{
-        fontFamily: theme.fonts.body, fontSize: 13, color: theme.inkSoft,
-      }}>{s.txt}</Text>
-    </View>
-  );
-}
-
-/* ════════════════════════════════════════════════════════════
    LevelCard — full-screen card for a single activity
    ════════════════════════════════════════════════════════════ */
 
@@ -421,13 +394,6 @@ function LevelCard({ level, onOpen, onSkip, kidId, meLabel, cardHeight }: any) {
         }}>
           {level.why}
         </Text>
-
-        {/* Suggest chip */}
-        {!theme.isDark && (
-        <View style={{ marginTop: 16 }}>
-          <SuggestChip suggest={level.suggest} theme={theme} />
-        </View>
-        )}
 
         {/* Action buttons */}
         <View style={{
