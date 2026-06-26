@@ -11,6 +11,11 @@ import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import WheelPicker from '@quidone/react-native-wheel-picker';
 import * as Haptics from 'expo-haptics';
 import * as Clipboard from 'expo-clipboard';
+import * as Device from 'expo-device';
+import * as Application from 'expo-application';
+import * as Network from 'expo-network';
+import * as Updates from 'expo-updates';
+import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DooPush } from 'doopush-react-native-sdk';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -1822,22 +1827,47 @@ function flashToast(msg: string) {
 }
 
 function DevToolsSheet({ onClose, onLock }: any) {
-  const { theme } = useTheme();
+  const { theme, mode } = useTheme();
+  const { lang } = useI18n();
   const t = useT();
+  const data = useData();
   const insets = useSafeAreaInsets();
   const [token, setToken] = useState<string | null>(null);
   const [deviceId, setDeviceId] = useState<string | null>(null);
+  const [auth, setAuth] = useState<any>(null);
+  const [sys, setSys] = useState<any>(null);
   const [registering, setRegistering] = useState(false);
-  const [copied, setCopied] = useState<'token' | 'device' | null>(null);
+  const [copied, setCopied] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     try {
-      const [tk, did] = await Promise.all([
+      const [tk, did, userRes, sessRes, net, ip, installTime, vendorId, deviceType] = await Promise.all([
         DooPush.getDeviceToken(),
         DooPush.getDeviceId(),
+        supabase.auth.getUser().catch(() => null),
+        supabase.auth.getSession().catch(() => null),
+        Network.getNetworkStateAsync().catch(() => null),
+        Network.getIpAddressAsync().catch(() => ''),
+        Application.getInstallationTimeAsync().catch(() => null),
+        Platform.OS === 'ios' ? Application.getIosIdForVendorAsync().catch(() => '') : Promise.resolve(''),
+        Device.getDeviceTypeAsync().catch(() => null),
       ]);
       setToken(tk);
       setDeviceId(did);
+      const u = (userRes as any)?.data?.user;
+      const s = (sessRes as any)?.data?.session;
+      setAuth(u ? {
+        userId: u.id,
+        phone: u.phone || '',
+        email: u.email || '',
+        anonymous: u.is_anonymous === true,
+        provider: u.app_metadata?.provider || '',
+        expiresAt: s?.expires_at || 0,
+      } : null);
+      setSys({
+        net, ip, installTime, deviceType,
+        installId: Platform.OS === 'android' ? (Application.getAndroidId?.() || '') : vendorId,
+      });
     } catch (e: any) {
       console.warn('[DevTools] refresh failed', e?.message || e);
     }
@@ -1859,12 +1889,13 @@ function DevToolsSheet({ onClose, onLock }: any) {
     }
   };
 
-  const copy = async (kind: 'token' | 'device', value: string | null) => {
-    if (!value) return;
-    await Clipboard.setStringAsync(value);
-    setCopied(kind);
+  const copy = async (id: string, value: any) => {
+    const str = value == null ? '' : String(value);
+    if (!str) return;
+    await Clipboard.setStringAsync(str);
+    setCopied(id);
     flashToast(t('settings.copied'));
-    setTimeout(() => setCopied(null), 1800);
+    setTimeout(() => setCopied(null), 1500);
   };
 
   const lock = () => {
@@ -1882,7 +1913,213 @@ function DevToolsSheet({ onClose, onLock }: any) {
     ]);
   };
 
-  const env = `${Platform.OS} ${Platform.Version} · ${APP_VERSION} (${APP_BUILD})`;
+  // ── 派生信息 ──
+  const fam = data.family;
+  const myMember = fam?.members?.find((m: any) => m.isMe);
+  const myRole = myMember ? (myMember.customRole || myMember.role) : (data.profile?.role || '');
+  const supaHost = (process.env.EXPO_PUBLIC_SUPABASE_URL || '').replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+  const buildMode = __DEV__ ? 'development' : 'production';
+  const tzOffset = -new Date().getTimezoneOffset() / 60;
+  const tz = `UTC${tzOffset >= 0 ? '+' : ''}${tzOffset}`;
+  const dataState = data.loading ? 'loading' : data.loaded ? 'loaded' : 'idle';
+  const sessionExpiry = auth?.expiresAt
+    ? `${new Date(auth.expiresAt * 1000).toLocaleString()} · ${Math.round((auth.expiresAt * 1000 - Date.now()) / 60000)}m`
+    : '';
+
+  // 原生模块的同步常量：旧 dev build 若未编入这些原生模块，读取可能抛错，统一兜底，避免崩页。
+  const native = useMemo(() => {
+    const g = (fn: () => any) => { try { return fn(); } catch { return null; } };
+    return {
+      model: g(() => Device.modelName),
+      manufacturer: g(() => Device.manufacturer),
+      osName: g(() => Device.osName),
+      osVersion: g(() => Device.osVersion),
+      deviceName: g(() => Device.deviceName),
+      isDevice: g(() => Device.isDevice),
+      totalMemory: g(() => Device.totalMemory),
+      cpu: g(() => Device.supportedCpuArchitectures),
+      appId: g(() => Application.applicationId),
+      nativeAppVer: g(() => Application.nativeApplicationVersion),
+      nativeBuildVer: g(() => Application.nativeBuildVersion),
+      execEnv: g(() => Constants.executionEnvironment),
+      sessionId: g(() => Constants.sessionId),
+      easProjectId: g(() => (Constants.expoConfig as any)?.extra?.eas?.projectId || (Constants as any)?.easConfig?.projectId),
+      otaId: g(() => Updates.updateId),
+      otaChannel: g(() => Updates.channel),
+      otaRuntime: g(() => Updates.runtimeVersion),
+      otaCreatedAt: g(() => Updates.createdAt),
+      otaEmbedded: g(() => Updates.isEmbeddedLaunch),
+      otaEnabled: g(() => Updates.isEnabled),
+    };
+  }, []);
+
+  // 设备
+  const DEVICE_TYPES = ['unknown', 'phone', 'tablet', 'desktop', 'tv'];
+  const deviceType = sys?.deviceType != null ? (DEVICE_TYPES[sys.deviceType] || 'unknown') : '';
+  const osStr = native.osName ? `${native.osName} ${native.osVersion || ''}`.trim() : `${Platform.OS} ${Platform.Version}`;
+  const memGB = native.totalMemory ? `${(native.totalMemory / 1073741824).toFixed(1)} GB` : '';
+  const cpuArch = native.cpu?.join(', ') || '';
+  const installTime = sys?.installTime ? new Date(sys.installTime).toLocaleString() : '';
+
+  // 网络
+  const netType = sys?.net?.type || '';
+  const netConnected = sys?.net ? sys.net.isConnected : null;
+  const netInternet = sys?.net ? sys.net.isInternetReachable : null;
+
+  // 应用 / 原生 / OTA
+  const nativeVer = native.nativeAppVer
+    ? `${native.nativeAppVer} (${native.nativeBuildVer || '?'})`
+    : '';
+  const execEnv = native.execEnv || '';
+  const easProjectId = native.easProjectId || '';
+  const otaCreated = native.otaCreatedAt ? new Date(native.otaCreatedAt).toLocaleString() : '';
+
+  // ── 一键导出整份调试报告 ──
+  const report = [
+    '# 一百件事 · 调试信息',
+    '',
+    '[账号]',
+    `userId: ${auth?.userId || '-'}`,
+    `phone: ${auth?.phone || '-'}`,
+    `email: ${auth?.email || '-'}`,
+    `anonymous: ${auth ? auth.anonymous : '-'}`,
+    `provider: ${auth?.provider || '-'}`,
+    `sessionExpiry: ${sessionExpiry || '-'}`,
+    '',
+    '[家庭]',
+    `familyId: ${fam?.id || '-'}`,
+    `inviteCode: ${fam?.inviteCode || '-'}`,
+    `myRole: ${myRole || '-'}`,
+    `isCreator: ${fam ? fam.isCreator : '-'}`,
+    `members: ${fam?.members?.length ?? '-'}`,
+    '',
+    '[数据]',
+    `kids: ${data.kids?.length ?? 0}`,
+    `memories: ${data.memories?.length ?? 0}`,
+    `customLevels: ${data.customLevels?.length ?? 0}`,
+    `levels: ${data.levels?.length ?? 0}`,
+    `state: ${dataState}`,
+    `lastError: ${data.error || '-'}`,
+    '',
+    '[推送]',
+    `token: ${token || '-'}`,
+    `deviceId: ${deviceId || '-'}`,
+    '',
+    '[设备]',
+    `model: ${native.model || '-'}`,
+    `manufacturer: ${native.manufacturer || '-'}`,
+    `os: ${osStr}`,
+    `deviceName: ${native.deviceName || '-'}`,
+    `deviceType: ${deviceType || '-'}`,
+    `physical: ${native.isDevice}`,
+    `memory: ${memGB || '-'}`,
+    `cpu: ${cpuArch || '-'}`,
+    `installId: ${sys?.installId || '-'}`,
+    '',
+    '[网络]',
+    `type: ${netType || '-'}`,
+    `connected: ${netConnected == null ? '-' : netConnected}`,
+    `internet: ${netInternet == null ? '-' : netInternet}`,
+    `ip: ${sys?.ip || '-'}`,
+    '',
+    '[更新]',
+    `updateId: ${native.otaId || '-'}`,
+    `channel: ${native.otaChannel || '-'}`,
+    `runtimeVersion: ${native.otaRuntime || '-'}`,
+    `createdAt: ${otaCreated || '-'}`,
+    `embedded: ${native.otaEmbedded}`,
+    `enabled: ${native.otaEnabled}`,
+    '',
+    '[应用]',
+    `version: ${APP_VERSION} (${APP_BUILD})`,
+    `nativeVersion: ${nativeVer || '-'}`,
+    `bundleId: ${native.appId || '-'}`,
+    `execEnv: ${execEnv || '-'}`,
+    `easProject: ${easProjectId || '-'}`,
+    `sessionId: ${native.sessionId || '-'}`,
+    `installTime: ${installTime || '-'}`,
+    `platform: ${Platform.OS} ${Platform.Version}`,
+    `build: ${buildMode}`,
+    `lang: ${lang}`,
+    `theme: ${mode} · ${theme.isDark ? 'dark' : 'light'}`,
+    `timezone: ${tz}`,
+    `supabase: ${supaHost || '-'}`,
+  ].join('\n');
+
+  const copyAll = async () => {
+    await Clipboard.setStringAsync(report);
+    flashToast(t('settings.copied'));
+  };
+
+  // 单行：左标签 + 右值（点按复制）。block=值另起一行换行展示（适合长 ID）。
+  const row = ({ id, label, value, block, empty, last }: any) => {
+    const has = value !== null && value !== undefined && value !== '';
+    const str = has ? String(value) : (empty || '—');
+    return (
+      <TouchableOpacity
+        key={id}
+        activeOpacity={has ? 0.6 : 1}
+        onPress={() => copy(id, str)}
+      >
+        <View style={{
+          paddingVertical: 11, paddingHorizontal: 16,
+          borderBottomWidth: last ? 0 : 1, borderBottomColor: theme.line,
+        }}>
+          {block ? (
+            <>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Text style={{ flex: 1, fontFamily: theme.fonts.body, fontSize: 14.5, color: theme.ink }}>
+                  {label}
+                </Text>
+                {has ? (
+                  <Text style={{ fontFamily: theme.fonts.body, fontSize: 12.5, color: copied === id ? theme.accent : theme.inkSoft }}>
+                    {copied === id ? t('settings.copied') : t('settings.copy')}
+                  </Text>
+                ) : null}
+              </View>
+              <Text selectable style={{
+                marginTop: 6, fontFamily: theme.fonts.body, fontSize: 12,
+                color: theme.inkSoft, opacity: has ? 1 : 0.6, lineHeight: 17,
+              }}>
+                {str}
+              </Text>
+            </>
+          ) : (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <Text style={{ fontFamily: theme.fonts.body, fontSize: 14.5, color: theme.ink }}>
+                {label}
+              </Text>
+              <Text selectable numberOfLines={1} style={{
+                flex: 1, textAlign: 'right', fontFamily: theme.fonts.body, fontSize: 13,
+                color: copied === id ? theme.accent : theme.inkSoft, opacity: has ? 1 : 0.6,
+              }}>
+                {copied === id ? t('settings.copied') : str}
+              </Text>
+            </View>
+          )}
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
+  const card = (title: string, children: any) => (
+    <View style={{ marginTop: 16 }}>
+      <Text style={{
+        marginLeft: 6, marginBottom: 7, fontFamily: theme.fonts.body,
+        fontSize: 12.5, color: theme.inkSoft, letterSpacing: 0.3,
+      }}>
+        {title}
+      </Text>
+      <View style={{
+        backgroundColor: theme.paper, borderWidth: 1, borderColor: theme.line,
+        borderRadius: 18, overflow: 'hidden',
+      }}>
+        {children}
+      </View>
+    </View>
+  );
+
+  const yn = (b: any) => (b === true ? '✓' : b === false ? '✗' : '—');
 
   return (
     <Modal visible animationType="slide" onRequestClose={onClose}>
@@ -1892,81 +2129,87 @@ function DevToolsSheet({ onClose, onLock }: any) {
           style={{ flex: 1 }}
           contentContainerStyle={{ paddingHorizontal: 22, paddingBottom: 48 + insets.bottom }}
         >
-          <View style={{
-            marginTop: 14, backgroundColor: theme.paper,
-            borderWidth: 1, borderColor: theme.line, borderRadius: 22, overflow: 'hidden',
-          }}>
-            <TouchableOpacity
-              activeOpacity={token ? 0.7 : 1}
-              onPress={() => copy('token', token)}
-              onLongPress={() => copy('token', token)}
-            >
-              <View style={{
-                paddingVertical: 14, paddingHorizontal: 16,
-                borderBottomWidth: 1, borderBottomColor: theme.line,
-              }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <Text style={{ flex: 1, fontFamily: theme.fonts.body, fontSize: 15.5, color: theme.ink }}>
-                    {t('settings.devPushToken')}
-                  </Text>
-                  <Text style={{ fontFamily: theme.fonts.body, fontSize: 13, color: theme.inkSoft }}>
-                    {copied === 'token' ? t('settings.copied') : (token ? t('settings.copy') : '')}
-                  </Text>
-                </View>
-                <Text selectable style={{
-                  marginTop: 8, fontFamily: theme.fonts.body, fontSize: 12.5,
-                  color: token ? theme.inkSoft : theme.inkSoft,
-                  opacity: token ? 1 : 0.6, lineHeight: 18,
-                }}>
-                  {token || t('settings.devNotRegistered')}
-                </Text>
-              </View>
-            </TouchableOpacity>
+          {card(t('settings.devSecAccount'), [
+            row({ id: 'uid', label: t('settings.devUserId'), value: auth?.userId, block: true }),
+            row({ id: 'phone', label: t('settings.devPhone'), value: auth?.phone }),
+            row({ id: 'email', label: t('settings.devEmail'), value: auth?.email }),
+            row({ id: 'anon', label: t('settings.devAnonymous'), value: auth ? yn(auth.anonymous) : null }),
+            row({ id: 'provider', label: t('settings.devProvider'), value: auth?.provider }),
+            row({ id: 'expiry', label: t('settings.devSessionExpiry'), value: sessionExpiry, last: true }),
+          ])}
 
-            <TouchableOpacity
-              activeOpacity={deviceId ? 0.7 : 1}
-              onPress={() => copy('device', deviceId)}
-              onLongPress={() => copy('device', deviceId)}
-            >
-              <View style={{
-                paddingVertical: 14, paddingHorizontal: 16,
-                borderBottomWidth: 1, borderBottomColor: theme.line,
-              }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <Text style={{ flex: 1, fontFamily: theme.fonts.body, fontSize: 15.5, color: theme.ink }}>
-                    {t('settings.devDeviceId')}
-                  </Text>
-                  <Text style={{ fontFamily: theme.fonts.body, fontSize: 13, color: theme.inkSoft }}>
-                    {copied === 'device' ? t('settings.copied') : (deviceId ? t('settings.copy') : '')}
-                  </Text>
-                </View>
-                <Text selectable style={{
-                  marginTop: 8, fontFamily: theme.fonts.body, fontSize: 12.5,
-                  color: theme.inkSoft, opacity: deviceId ? 1 : 0.6, lineHeight: 18,
-                }}>
-                  {deviceId || t('settings.devNotRegistered')}
-                </Text>
-              </View>
-            </TouchableOpacity>
+          {card(t('settings.devSecFamily'), [
+            row({ id: 'fid', label: t('settings.devFamilyId'), value: fam?.id, block: true }),
+            row({ id: 'invite', label: t('settings.devInviteCode'), value: fam?.inviteCode }),
+            row({ id: 'role', label: t('settings.devMyRole'), value: myRole }),
+            row({ id: 'creator', label: t('settings.devIsCreator'), value: fam ? yn(fam.isCreator) : null }),
+            row({ id: 'members', label: t('settings.devMemberCount'), value: fam?.members?.length, last: true }),
+          ])}
 
-            <View style={{ paddingVertical: 14, paddingHorizontal: 16 }}>
-              <Text style={{ fontFamily: theme.fonts.body, fontSize: 15.5, color: theme.ink }}>
-                {t('settings.devEnv')}
-              </Text>
-              <Text selectable style={{
-                marginTop: 8, fontFamily: theme.fonts.body, fontSize: 12.5,
-                color: theme.inkSoft, lineHeight: 18,
-              }}>
-                {env}
-              </Text>
-            </View>
-          </View>
+          {card(t('settings.devSecData'), [
+            row({ id: 'kids', label: t('settings.devKids'), value: data.kids?.length ?? 0 }),
+            row({ id: 'mem', label: t('settings.devMemories'), value: data.memories?.length ?? 0 }),
+            row({ id: 'clv', label: t('settings.devCustomLevels'), value: data.customLevels?.length ?? 0 }),
+            row({ id: 'lv', label: t('settings.devLevels'), value: data.levels?.length ?? 0 }),
+            row({ id: 'state', label: t('settings.devDataState'), value: dataState }),
+            row({ id: 'err', label: t('settings.devLastError'), value: data.error, block: true, last: true }),
+          ])}
 
-          <View style={{ marginTop: 20, gap: 12 }}>
+          {card(t('settings.devSecPush'), [
+            row({ id: 'token', label: t('settings.devPushToken'), value: token, block: true, empty: t('settings.devNotRegistered') }),
+            row({ id: 'device', label: t('settings.devDeviceId'), value: deviceId, block: true, empty: t('settings.devNotRegistered'), last: true }),
+          ])}
+
+          {card(t('settings.devSecDevice'), [
+            row({ id: 'model', label: t('settings.devModel'), value: native.model }),
+            row({ id: 'mfr', label: t('settings.devManufacturer'), value: native.manufacturer }),
+            row({ id: 'os', label: t('settings.devOS'), value: osStr }),
+            row({ id: 'dname', label: t('settings.devDeviceName'), value: native.deviceName }),
+            row({ id: 'dtype', label: t('settings.devDeviceType'), value: deviceType }),
+            row({ id: 'physical', label: t('settings.devPhysical'), value: native.isDevice == null ? null : yn(native.isDevice) }),
+            row({ id: 'mem', label: t('settings.devMemory'), value: memGB }),
+            row({ id: 'cpu', label: t('settings.devCpuArch'), value: cpuArch }),
+            row({ id: 'iid', label: t('settings.devInstallId'), value: sys?.installId, block: true, last: true }),
+          ])}
+
+          {card(t('settings.devSecNetwork'), [
+            row({ id: 'ntype', label: t('settings.devNetType'), value: netType }),
+            row({ id: 'nconn', label: t('settings.devConnected'), value: netConnected == null ? null : yn(netConnected) }),
+            row({ id: 'ninet', label: t('settings.devInternet'), value: netInternet == null ? null : yn(netInternet) }),
+            row({ id: 'ip', label: t('settings.devIp'), value: sys?.ip, last: true }),
+          ])}
+
+          {card(t('settings.devSecUpdate'), [
+            row({ id: 'otaid', label: t('settings.devOtaId'), value: native.otaId, block: true, empty: t('settings.devOtaNone') }),
+            row({ id: 'otach', label: t('settings.devOtaChannel'), value: native.otaChannel }),
+            row({ id: 'otart', label: t('settings.devOtaRuntime'), value: native.otaRuntime }),
+            row({ id: 'otacr', label: t('settings.devOtaCreated'), value: otaCreated }),
+            row({ id: 'otaem', label: t('settings.devOtaEmbedded'), value: native.otaEmbedded == null ? null : yn(native.otaEmbedded) }),
+            row({ id: 'otaen', label: t('settings.devOtaEnabled'), value: native.otaEnabled == null ? null : yn(native.otaEnabled), last: true }),
+          ])}
+
+          {card(t('settings.devSecApp'), [
+            row({ id: 'ver', label: t('settings.devVersion'), value: `${APP_VERSION} (${APP_BUILD})` }),
+            row({ id: 'nver', label: t('settings.devNativeVersion'), value: nativeVer }),
+            row({ id: 'bundle', label: t('settings.devBundleId'), value: native.appId, block: true }),
+            row({ id: 'exec', label: t('settings.devExecEnv'), value: execEnv }),
+            row({ id: 'eas', label: t('settings.devEasProject'), value: easProjectId, block: true }),
+            row({ id: 'sid', label: t('settings.devSessionId'), value: native.sessionId, block: true }),
+            row({ id: 'itime', label: t('settings.devInstallTime'), value: installTime }),
+            row({ id: 'plat', label: t('settings.devPlatform'), value: `${Platform.OS} ${Platform.Version}` }),
+            row({ id: 'build', label: t('settings.devBuildMode'), value: buildMode }),
+            row({ id: 'lang', label: t('settings.devLang'), value: lang }),
+            row({ id: 'theme', label: t('settings.devTheme'), value: `${mode} · ${theme.isDark ? 'dark' : 'light'}` }),
+            row({ id: 'tz', label: t('settings.devTimezone'), value: tz }),
+            row({ id: 'supa', label: t('settings.devSupabase'), value: supaHost, block: true, last: true }),
+          ])}
+
+          <View style={{ marginTop: 22, gap: 12 }}>
             <PrimaryButton
               label={registering ? t('settings.devRegistering') : t('settings.devRegister')}
               onPress={register}
             />
+            <SecondaryButton label={t('settings.devCopyAll')} onPress={copyAll} />
             <SecondaryButton label={t('settings.devRefresh')} onPress={refresh} />
             <SecondaryButton label={t('settings.devLock')} onPress={lock} />
           </View>

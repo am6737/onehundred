@@ -240,24 +240,27 @@ async function handleSubmit(req: Request, tokenId: string): Promise<Response> {
   await admin.from('invite_tokens').update({ is_active: false }).eq('id', tokenId)
 
   // 邀记提交成功 → 通知家人「刚刚记了一件新的事」。被邀请人无账号，{{who}} 用其角色，
-  // 且不排除任何人（创建邀请的家人也该收到）。best-effort，不阻塞响应。
-  const notify = fetch(`${SUPABASE_URL}/functions/v1/send-pet-notifications`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
-      apikey: SERVICE_ROLE_KEY,
-    },
-    body: JSON.stringify({
-      event: 'memory_created',
-      family_id: token.family_id,
-      kid_id: token.kid_id || 'all',
-      who: role,
-    }),
-  }).catch(() => {})
-  const edge = (globalThis as any).EdgeRuntime
-  if (edge?.waitUntil) edge.waitUntil(notify)
-  else await notify
+  // 且不排除任何人（创建邀请的家人也该收到）。best-effort：同步 await 跑完整条链再返回，
+  // 失败只记日志、不影响提交成功（用 waitUntil 后台发会被 worker 回收掐断，故改同步）。
+  try {
+    const r = await fetch(`${SUPABASE_URL}/functions/v1/send-pet-notifications`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
+        apikey: SERVICE_ROLE_KEY,
+      },
+      body: JSON.stringify({
+        event: 'memory_created',
+        family_id: token.family_id,
+        kid_id: token.kid_id || 'all',
+        who: role,
+      }),
+    })
+    console.log('[yaoji] notify family_activity:', r.status, await r.text())
+  } catch (e) {
+    console.warn('[yaoji] notify failed:', e)
+  }
 
   return json({ success: true, memoryId })
 }

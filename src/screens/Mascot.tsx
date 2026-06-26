@@ -717,7 +717,7 @@ export default function MascotPage({ route, navigation }) {
     outputRange: [0, -10],
   });
 
-  // Pat handler——拍拍：切到 celebrate 情绪（video 引擎会切到 celebrate 片段）+ 爱心粒子。
+  // Pat handler——拍拍：切到 celebrate 情绪 + 爱心粒子。
   // PetView 自带点击弹跳，不再需要 squish。
   const pat = useCallback(() => {
     setMood('celebrate');

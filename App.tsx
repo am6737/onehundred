@@ -7,6 +7,7 @@ import { NavigationContainer, createNavigationContainerRef } from '@react-naviga
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { getLocales } from 'expo-localization';
+import Constants from 'expo-constants';
 import { DooPush } from 'doopush-react-native-sdk';
 
 import { ThemeProvider, useTheme } from './src/theme/tokens';
@@ -343,9 +344,13 @@ function AuthGate() {
   const [pushInfo, setPushInfo] = useState<{ token: string | null; deviceId: string } | null>(null);
 
   useEffect(() => {
+    const doopush = (Constants.expoConfig?.extra?.doopush ?? {}) as {
+      appId?: string;
+      apiKey?: string;
+    };
     DooPush.configure({
-      appId: process.env.EXPO_PUBLIC_DOOPUSH_APP_ID!,
-      apiKey: process.env.EXPO_PUBLIC_DOOPUSH_API_KEY!,
+      appId: doopush.appId!,
+      apiKey: doopush.apiKey!,
     });
 
     const msgSub = DooPush.addMessageListener((m) => {
