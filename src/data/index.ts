@@ -323,6 +323,20 @@ export async function insertMemory({ id: givenId, kid, levelNum, perspective, ty
     seal_label: sealLabel || null,
   }).select().single();
   if (error) throw error;
+  // 记完即时触发：通知其他家人「刚刚记了一件新的事」。best-effort，不阻塞、不抛错。
+  void fetch(`${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/send-pet-notifications`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${session.access_token}`,
+    },
+    body: JSON.stringify({
+      event: 'memory_created',
+      family_id: familyId,
+      kid_id: kid,
+      actor_user_id: session.user.id,
+    }),
+  }).catch(() => {});
   return mapMemory(data);
 }
 

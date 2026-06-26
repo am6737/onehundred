@@ -294,6 +294,95 @@ async function previewTemplates(body: any, templates: Template[]): Promise<Respo
   })
 }
 
+// ── 事件驱动：有人刚记了一件事 → 立即给其他家人发 family_activity ──
+// 由 client(insertMemory) / yaoji(邀记提交) 在记录落库后即时调用，绕过场景优先级与每日限流，
+// 只保留必要护栏：enabled & notify_family 偏好、family_activity 冷却、免打扰、排除记录者本人。
+// body: { event:'memory_created', family_id, kid_id?, who?, actor_user_id?, exclude_user_id? }
+//   - who 缺省时按 actor_user_id 的 profile 角色推导（普通记录路径）
+//   - 邀记路径显式传 who=被邀请角色，且不排除任何人（被邀请人无账号，inviter 也该收到）
+const FAMILY_ACTIVITY_COOLDOWN_MS = 60 * 60 * 1000
+
+function jsonResp(data: unknown, status = 200): Response {
+  return new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json' } })
+}
+
+async function notifyMemoryCreated(body: any, templates: Template[]): Promise<Response> {
+  const familyId: string | undefined = body.family_id
+  if (!familyId) return jsonResp({ ok: false, error: 'family_id required' }, 400)
+
+  const { data: prefRow } = await admin
+    .from('notification_preferences').select('*').eq('family_id', familyId).maybeSingle()
+  const pref = prefRow ?? { enabled: true, notify_family: true, quiet_start: '22:00:00', quiet_end: '08:00:00' }
+  if (!pref.enabled || pref.notify_family === false) return jsonResp({ ok: true, skipped: 'disabled' })
+
+  const now = new Date()
+
+  // 冷却：1h 内已发过 family_activity 则跳过（折叠短时间连发，避免刷屏）
+  const { data: recentLog } = await admin
+    .from('notification_log').select('id')
+    .eq('family_id', familyId).eq('scene', 'family_activity')
+    .gte('sent_at', new Date(now.getTime() - FAMILY_ACTIVITY_COOLDOWN_MS).toISOString()).limit(1)
+  if (recentLog && recentLog.length > 0) return jsonResp({ ok: true, skipped: 'cooldown' })
+
+  // 解析真实 kid（notification_log.kid_id 有 NOT NULL+FK，不能写 'all'）并据此取 species
+  const { data: kids } = await admin.from('kids').select('id').eq('family_id', familyId)
+  if (!kids || kids.length === 0) return jsonResp({ ok: true, skipped: 'no_kids' })
+  const rawKidId: string = body.kid_id || 'all'
+  const kidId = rawKidId !== 'all' && kids.some((k) => k.id === rawKidId) ? rawKidId : kids[0].id
+  const { data: mascot } = await admin.from('mascots').select('species').eq('kid_id', kidId).maybeSingle()
+  const species = mascot?.species ?? 'bear'
+
+  // who：优先入参，否则按记录者 profile 角色推导
+  let who: string = typeof body.who === 'string' ? body.who.trim() : ''
+  if (!who && body.actor_user_id) {
+    const { data: prof } = await admin
+      .from('profiles').select('role, custom_role').eq('id', body.actor_user_id).maybeSingle()
+    who = prof?.custom_role || prof?.role || ''
+  }
+  if (!who) return jsonResp({ ok: true, skipped: 'no_who' })
+
+  const excludeUserId: string | null = body.exclude_user_id ?? body.actor_user_id ?? null
+
+  // 收件设备：family_members → push_devices
+  const { data: members } = await admin
+    .from('family_members').select('user_id').eq('family_id', familyId)
+  const userIds = (members ?? []).map((m) => m.user_id)
+  if (userIds.length === 0) return jsonResp({ ok: true, skipped: 'no_members' })
+  const { data: devicesRaw } = await admin
+    .from('push_devices').select('device_id, token, lang, user_id, tz_offset').in('user_id', userIds)
+  const devices = (devicesRaw ?? []) as Device[]
+
+  const tplFor = (lang: Lang): Template | null =>
+    templates.find((t) => t.scene === 'family_activity' && t.species === species && t.lang === lang) ??
+    templates.find((t) => t.scene === 'family_activity' && t.species === species && t.lang === 'zh') ?? null
+
+  const vars = { who }
+  let sent = 0
+  let usedTemplateId: number | null = null
+  for (const dev of devices) {
+    if (!dev.token) continue
+    if (excludeUserId && dev.user_id === excludeUserId) continue
+    const localMin = deviceLocalMinutes(now.getTime(), dev.tz_offset ?? 0)
+    if (inQuietHours(localMin, pref.quiet_start, pref.quiet_end)) continue
+    const lang: Lang = dev.lang === 'en' ? 'en' : 'zh'
+    const tpl = tplFor(lang)
+    if (!tpl) continue
+    usedTemplateId = tpl.id
+    const ok = await sendDooPush(
+      dev.token, interpolate(tpl.title, vars), interpolate(tpl.body, vars),
+      { scene: 'family_activity', kidId },
+    )
+    if (ok) sent++
+  }
+
+  if (sent > 0) {
+    await admin.from('notification_log').insert({
+      kid_id: kidId, family_id: familyId, scene: 'family_activity', template_id: usedTemplateId,
+    })
+  }
+  return jsonResp({ ok: true, sent })
+}
+
 Deno.serve(async (req: Request) => {
   try {
     const body = await req.json().catch(() => ({} as any))
@@ -301,6 +390,10 @@ Deno.serve(async (req: Request) => {
 
     if (body?.preview) {
       return await previewTemplates(body, (templates ?? []) as Template[])
+    }
+
+    if (body?.event === 'memory_created') {
+      return await notifyMemoryCreated(body, (templates ?? []) as Template[])
     }
 
     const { data: wardrobe } = await admin.from('wardrobe').select('at').order('at')

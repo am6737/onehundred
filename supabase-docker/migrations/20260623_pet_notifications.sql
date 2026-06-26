@@ -134,15 +134,6 @@ INSERT INTO public.notification_templates (scene, species, lang, title, body) VA
 ON CONFLICT (scene, species, lang, sort_order)
   DO UPDATE SET title = EXCLUDED.title, body = EXCLUDED.body;
 
--- ── 6. 定时调度（部署 Edge Function 后再执行）──
--- 需 pg_cron + pg_net 扩展，且把 <project> 换成实际网关地址。
---   CREATE EXTENSION IF NOT EXISTS pg_cron;
---   CREATE EXTENSION IF NOT EXISTS pg_net;
---   SELECT cron.schedule(
---     'check-notification-triggers', '0 * * * *',
---     $$ SELECT net.http_post(
---          'https://<project>/functions/v1/send-pet-notifications',
---          '{}'::jsonb,
---          '{}'::jsonb
---        ) $$
---   );
+-- ── 6. 定时调度 ──
+-- 已拆到独立迁移 migrations/20260626_schedule_pet_notifications.sql
+-- （pg_cron + pg_net，每小时调 send-pet-notifications）。部署好 Edge Function 后执行它。
