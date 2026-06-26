@@ -4,34 +4,6 @@
 
 import type { Species } from './types';
 
-export interface PetMeta {
-  species: string;
-  displayName: string;
-  icon: string;
-  sprite: {
-    file: string;
-    frameWidth: number;
-    frameHeight: number;
-    columns: number;
-    rows: number;
-    fps: number;
-    frameCount: number;
-  };
-  states: { name: string; row: number; frames: number }[];
-}
-
-export const PET_SHEETS: Record<Species, number | null> = {
-  bear: require('../../../assets/pets/bear/spritesheet.webp'),
-  dog: null,
-  cat: null,
-};
-
-export const PET_META: Record<Species, PetMeta | null> = {
-  bear: require('../../../assets/pets/bear/pet.json'),
-  dog: null,
-  cat: null,
-};
-
 export const PET_ICONS: Record<Species, number | null> = {
   bear: require('../../../assets/pets/bear/icon.png'),
   dog: null,

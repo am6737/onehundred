@@ -6,7 +6,6 @@
 import { PET_RENDERER } from '../data';
 import { IconPetRenderer } from './pet-renderers/IconPetRenderer';
 import { RivePetRenderer } from './pet-renderers/RivePetRenderer';
-import { SpriteSheetPetRenderer } from './pet-renderers/SpriteSheetPetRenderer';
 import type { PetRenderer, PetViewProps } from './pet-renderers/types';
 
 export type {
@@ -26,8 +25,6 @@ export function PetView({
   switch (engine) {
     case 'icon':
       return <IconPetRenderer {...props} />;
-    case 'spritesheet':
-      return <SpriteSheetPetRenderer {...props} />;
     case 'rive':
       return <RivePetRenderer {...props} />;
     default:

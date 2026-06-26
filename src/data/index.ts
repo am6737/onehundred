@@ -42,8 +42,7 @@ export const PET_BODY = 3;
 // 宠物/小熊衣橱系统总开关。改回 false 即可整体隐藏全部入口。
 export const SHOW_MASCOT = true;
 
-// 宠物渲染引擎：icon（静态图，所有宠物统一用 bear/icon.png）
-// | spritesheet（精灵图逐帧）| rive（状态机，待补全）。
+// 宠物渲染引擎：icon（静态图，所有宠物统一用 bear/icon.png）| rive（状态机，待补全）。
 // 切换此值即可在各引擎间对比效果，<PetView /> 对外接口不变。
 export const PET_RENDERER: PetRenderer = 'icon';
 
