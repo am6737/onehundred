@@ -32,6 +32,7 @@ export interface InviteToken {
   kidName: string | null;
   inviterRole: string;
   expiresAt: string;
+  openedAt: string | null;
   isActive: boolean;
   createdAt: string;
 }
@@ -79,6 +80,7 @@ export async function fetchInviteTokens(levelNum: string): Promise<InviteToken[]
     kidName: row.kid_name,
     inviterRole: row.inviter_role,
     expiresAt: row.expires_at,
+    openedAt: row.opened_at ?? null,
     isActive: row.is_active,
     createdAt: row.created_at,
   }));
@@ -109,6 +111,20 @@ export async function fetchInviteRecordCounts(tokenIds: string[]): Promise<Recor
     if (tid) counts[tid] = (counts[tid] || 0) + 1;
   }
   return counts;
+}
+
+
+export async function fetchInviteMemoryId(tokenId: string): Promise<string | null> {
+  const { data, error } = await supabase
+    .from('memories')
+    .select('id')
+    .eq('invite_token_id', tokenId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw error;
+  return data?.id ?? null;
 }
 
 export async function hasActiveInvites(levelNum: string): Promise<boolean> {

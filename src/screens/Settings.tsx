@@ -21,7 +21,7 @@ import { DooPush } from 'doopush-react-native-sdk';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme, COLORS } from '../theme/tokens';
 import { useI18n, useT } from '../i18n';
-import { ROLES, DEFAULT_ME, meName, meChar, roleLabel, NOW_YM, SHOW_MASCOT, fetchNotificationPrefs, updateNotificationPrefs } from '../data';
+import { ROLES, DEFAULT_ME, meName, meChar, roleLabel, NOW_YM, SHOW_MASCOT, fetchNotificationPrefs, updateNotificationPrefs, fetchNotificationTemplates, sendTestNotification } from '../data';
 import { useData } from '../data/DataProvider';
 import { signOut, isAnonymous, bindEmail, deleteAccount, getCurrentUserPhone, maskPhone, updatePhone, verifyPhoneChange, signInWithApple, bindApple, isAppleSignInAvailable, getLinkedProviders, unbindProvider } from '../lib/auth';
 import { getInviteExpiryHours, setInviteExpiryHours, INVITE_EXPIRY_OPTIONS, DEFAULT_INVITE_EXPIRY } from '../lib/yaoji';
@@ -1838,6 +1838,9 @@ function DevToolsSheet({ onClose, onLock }: any) {
   const [sys, setSys] = useState<any>(null);
   const [registering, setRegistering] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
+  const [tplMap, setTplMap] = useState<Record<string, { title: string; body: string }>>({});
+  const [testing, setTesting] = useState<string | null>(null);
+  const [tested, setTested] = useState<{ scene: string; ok: boolean; sent?: number; targets?: number } | null>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -1874,6 +1877,55 @@ function DevToolsSheet({ onClose, onLock }: any) {
   }, []);
 
   useEffect(() => { refresh(); }, [refresh]);
+
+  // 当前孩子的宠物 species（决定测试推送/预览用哪套文案），缺省 bear
+  const primaryKidId = data.kids?.[0]?.id;
+  const species = (primaryKidId ? data.getMascot?.(primaryKidId)?.species : null) || 'bear';
+
+  // 拉取通知模板（按当前语言 + species），供「推送测试」分组内联预览
+  useEffect(() => {
+    let alive = true;
+    fetchNotificationTemplates(lang, species)
+      .then((rows: any[]) => {
+        if (!alive) return;
+        const m: Record<string, { title: string; body: string }> = {};
+        for (const r of rows) m[r.scene] = { title: r.title, body: r.body };
+        setTplMap(m);
+      })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [lang, species]);
+
+  // 把某个 scene 的真实模板作为测试推送发到本机
+  const sendTest = async (scene: string) => {
+    if (testing) return;
+    // 实时重取最新 token：iOS token 会轮换，缓存的旧 token 在 DooPush 那边会「找不到设备」。
+    let tk = token;
+    try { tk = (await DooPush.getDeviceToken()) || token; } catch {}
+    if (tk !== token) setToken(tk);
+    if (!tk) { Alert.alert(t('settings.devSecPushTest'), t('settings.devPushTestNoToken')); return; }
+    setTesting(scene);
+    setTested(null);
+    // 先断开网关：让 DooPush server 把本机标记为离线，否则前台在线设备会被 /push/single 跳过。
+    // 短等让服务端 MarkOffline 落库后再发，避免竞态（App 保持前台，前台收到走 addMessageListener，无横幅）。
+    try { await DooPush.disconnectGateway(); } catch {}
+    await new Promise((r) => setTimeout(r, 1200));
+    try {
+      const r = await sendTestNotification({ scene, deviceToken: tk, lang, species });
+      const ok = r.sent > 0;
+      setTested({ scene, ok, sent: r.sent, targets: r.targets });
+      flashToast(ok ? t('settings.devPushTestSent') : t('settings.devPushTestFail'));
+      setTimeout(() => setTested((prev) => (prev?.scene === scene ? null : prev)), 2600);
+    } catch (e: any) {
+      setTested({ scene, ok: false });
+      Alert.alert(t('settings.devSecPushTest'), String(e?.message || e));
+      setTimeout(() => setTested((prev) => (prev?.scene === scene ? null : prev)), 2200);
+    } finally {
+      setTesting(null);
+      // 推送已发出，恢复网关连接（App 在后台时此调用会在回到前台后生效）
+      DooPush.connectGateway().catch(() => {});
+    }
+  };
 
   const register = async () => {
     if (registering) return;
@@ -2121,6 +2173,70 @@ function DevToolsSheet({ onClose, onLock }: any) {
 
   const yn = (b: any) => (b === true ? '✓' : b === false ? '✗' : '—');
 
+  // ── 推送测试：7 种消息类型，按优先级展示 ──
+  const PUSH_SCENES: { scene: string; label: string }[] = [
+    { scene: 'gentle_remind', label: t('settings.devSceneGentleRemind') },
+    { scene: 'growth_nudge', label: t('settings.devSceneGrowthNudge') },
+    { scene: 'loss_hint', label: t('settings.devSceneLossHint') },
+    { scene: 'milestone', label: t('settings.devSceneMilestone') },
+    { scene: 'capsule', label: t('settings.devSceneCapsule') },
+    { scene: 'family_activity', label: t('settings.devSceneFamilyActivity') },
+    { scene: 'streak', label: t('settings.devSceneStreak') },
+  ];
+  const sampleVars: Record<string, string | number> = {
+    done: 5, remain: 2, days: 3, who: lang === 'en' ? 'Dad' : '爸爸',
+  };
+  const interpTpl = (s: string) =>
+    s.replace(/\{\{(\w+)\}\}/g, (_m, k) => (sampleVars[k] != null ? String(sampleVars[k]) : ''));
+
+  const testRow = ({ scene, label }: { scene: string; label: string }, last?: boolean) => {
+    const tpl = tplMap[scene];
+    const preview = tpl ? `${tpl.title} · ${interpTpl(tpl.body)}` : '—';
+    const busy = testing === scene;
+    const done = tested?.scene === scene ? tested : null;
+    const rightText = busy
+      ? t('settings.devPushTestSending')
+      : done
+        ? (done.ok
+            ? `${t('settings.devPushTestSent')} ${done.sent}/${done.targets}`
+            : t('settings.devPushTestFail'))
+        : t('settings.devPushTestSend');
+    const rightColor = done
+      ? (done.ok ? theme.accent : theme.danger)
+      : (token ? theme.accent : theme.inkSoft);
+    return (
+      <TouchableOpacity
+        key={scene}
+        activeOpacity={token ? 0.6 : 1}
+        disabled={busy}
+        onPress={() => sendTest(scene)}
+      >
+        <View style={{
+          paddingVertical: 11, paddingHorizontal: 16,
+          borderBottomWidth: last ? 0 : 1, borderBottomColor: theme.line,
+        }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <Text style={{ flex: 1, fontFamily: theme.fonts.body, fontSize: 14.5, color: theme.ink }}>
+              {label}
+            </Text>
+            <Text style={{
+              fontFamily: theme.fonts.body, fontSize: 12.5,
+              color: rightColor, opacity: token || done ? 1 : 0.5,
+            }}>
+              {rightText}
+            </Text>
+          </View>
+          <Text numberOfLines={3} style={{
+            marginTop: 5, fontFamily: theme.fonts.body, fontSize: 12,
+            color: theme.inkSoft, lineHeight: 17,
+          }}>
+            {preview}
+          </Text>
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
   return (
     <Modal visible animationType="slide" onRequestClose={onClose}>
       <View style={{ flex: 1, backgroundColor: theme.cream }}>
@@ -2159,6 +2275,17 @@ function DevToolsSheet({ onClose, onLock }: any) {
             row({ id: 'token', label: t('settings.devPushToken'), value: token, block: true, empty: t('settings.devNotRegistered') }),
             row({ id: 'device', label: t('settings.devDeviceId'), value: deviceId, block: true, empty: t('settings.devNotRegistered'), last: true }),
           ])}
+
+          {card(t('settings.devSecPushTest'),
+            PUSH_SCENES.map((s, i) => testRow(s, i === PUSH_SCENES.length - 1)),
+          )}
+          <Text style={{
+            marginTop: 7, marginLeft: 6, fontFamily: theme.fonts.body,
+            fontSize: 11.5, color: theme.inkSoft, lineHeight: 16,
+          }}>
+            {t('settings.devPushTestHint')}
+          </Text>
+
 
           {card(t('settings.devSecDevice'), [
             row({ id: 'model', label: t('settings.devModel'), value: native.model }),

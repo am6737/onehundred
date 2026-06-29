@@ -1,14 +1,16 @@
-/* 宠物形象统一改用静态图 assets/pets/bear/icon.png。
-   保留原有 props 签名（size/accessories/mood/tone/stage），以便所有调用方
-   无需改动；这些参数当前不再影响渲染。 */
+/* 遗留入口：进度条小图标 / YearReview / Drawer 仍以 <Bear /> 调用。
+   现统一走 Rive 渲染（PetView），不再用静态图。保留原有 props 签名
+   （size/accessories/mood/tone/stage），调用方无需改动：
+   - mood 映射为 PetView 情绪（非法/缺省回退 waiting）
+   - accessories/tone/stage 当前不参与渲染，由 .riv 状态机自行表现。 */
 
-import React from 'react';
-import { Image } from 'react-native';
+import { EMOTIONS, PetView, type Emotion } from './PetView';
 
-const ICON = require('../../assets/pets/bear/icon.png');
-
-export function Bear({ size = 120 }: any) {
-  return <Image source={ICON} style={{ width: size, height: size }} resizeMode="contain" />;
+export function Bear({ size = 120, mood }: any) {
+  const emotion: Emotion = (EMOTIONS as readonly string[]).includes(mood)
+    ? (mood as Emotion)
+    : 'waiting';
+  return <PetView species="bear" emotion={emotion} size={size} />;
 }
 
 export default Bear;

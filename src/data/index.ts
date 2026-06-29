@@ -5,7 +5,6 @@
 import { supabase } from '../lib/supabase';
 import { File as FSFile } from 'expo-file-system';
 import { t, getLang } from '../i18n';
-import type { PetRenderer } from '../components/pet-renderers/types';
 
 // ── Pure constants (no DB dependency) ──
 
@@ -41,10 +40,6 @@ export const PET_BODY = 3;
 
 // 宠物/小熊衣橱系统总开关。改回 false 即可整体隐藏全部入口。
 export const SHOW_MASCOT = true;
-
-// 宠物渲染引擎：icon（静态图，所有宠物统一用 bear/icon.png）| rive（状态机，待补全）。
-// 切换此值即可在各引擎间对比效果，<PetView /> 对外接口不变。
-export const PET_RENDERER: PetRenderer = 'icon';
 
 // 可重复做的内置事——这些事做完后仍然可以"再做一次"。
 // 自定义事（custom）默认也可以重复。以后可由算法动态决定。
@@ -449,6 +444,43 @@ export async function updateNotificationPrefs(fields: Record<string, any>) {
     .select().single();
   if (error) throw error;
   return data;
+}
+
+// 通知模板（全局只读参考文案，RLS 允许任意登录用户读）。开发者工具用于内联预览。
+export async function fetchNotificationTemplates(lang?: string, species?: string) {
+  let q = supabase.from('notification_templates').select('scene, species, lang, title, body');
+  if (lang) q = q.eq('lang', lang);
+  if (species) q = q.eq('species', species);
+  const { data, error } = await q;
+  if (error) throw error;
+  return data ?? [];
+}
+
+// 开发者工具：把某个 scene 的真实模板作为测试推送发到本机设备（绕过所有护栏）。
+// deviceToken 直接传本机 DooPush token，最可靠；返回 { ok, scene, title, content, targets, sent }。
+export async function sendTestNotification(opts: {
+  scene: string; deviceToken?: string; lang?: string; species?: string;
+}) {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) throw new Error('Not authenticated');
+  const res = await fetch(`${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/send-pet-notifications`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${session.access_token}`,
+    },
+    body: JSON.stringify({
+      event: 'test',
+      scene: opts.scene,
+      device_token: opts.deviceToken,
+      actor_user_id: session.user.id,
+      lang: opts.lang,
+      species: opts.species,
+    }),
+  });
+  const json = await res.json().catch(() => ({} as any));
+  if (!res.ok || !json.ok) throw new Error(json.error || `HTTP ${res.status}`);
+  return json as { ok: boolean; scene: string; title: string; content: string; targets: number; sent: number };
 }
 
 // ── Family（家庭共享）──

@@ -348,9 +348,15 @@ function AuthGate() {
       appId?: string;
       apiKey?: string;
     };
+    // 缺凭据（如本地 Dev 构建未注入 EXPO_PUBLIC_DOOPUSH_*_DEV）时跳过推送初始化，
+    // 否则原生 configure 同步抛错会把整个 App 拖进 ErrorBoundary 白屏。
+    if (!doopush.appId || !doopush.apiKey) {
+      console.warn('[DooPush] 缺少 appId/apiKey，跳过推送初始化（检查 .env 的 EXPO_PUBLIC_DOOPUSH_* 是否齐全）');
+      return;
+    }
     DooPush.configure({
-      appId: doopush.appId!,
-      apiKey: doopush.apiKey!,
+      appId: doopush.appId,
+      apiKey: doopush.apiKey,
     });
 
     const msgSub = DooPush.addMessageListener((m) => {

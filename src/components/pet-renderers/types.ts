@@ -16,8 +16,6 @@ export const EMOTIONS = [
 
 export type Emotion = (typeof EMOTIONS)[number];
 
-export type PetRenderer = 'rive' | 'icon';
-
 export interface PetViewProps {
   species: Species;
   emotion: Emotion;

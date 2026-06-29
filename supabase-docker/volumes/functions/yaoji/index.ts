@@ -65,6 +65,7 @@ interface TokenRow {
   kid_name: string | null
   inviter_role: string
   illustration_path: string | null
+  opened_at: string | null
   expires_at: string
   is_active: boolean
 }
@@ -131,6 +132,14 @@ async function handleInfo(tokenId: string): Promise<Response> {
   try { token = await validateToken(tokenId) } catch (e) {
     return json({ error: (e as Error).message }, 400)
   }
+  if (!token.opened_at) {
+    await admin
+      .from('invite_tokens')
+      .update({ opened_at: new Date().toISOString() })
+      .eq('id', tokenId)
+      .is('opened_at', null)
+  }
+
   // Resolve illustration URL: full URL stays as-is, bucket path uses PUBLIC_URL
   let illustrationUrl: string | null = null
   const illoPath = token.illustration_path
@@ -893,8 +902,9 @@ let _lastStatus = ''
 const _origBroadcast = broadcast
 broadcast = function(s) { _lastStatus = s; _origBroadcast(s) }
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden && _lastStatus && _lastStatus !== 'done') broadcast('waiting')
-  else if (!document.hidden && _lastStatus === 'waiting') broadcast('viewed')
+  // Do not downgrade to waiting when the browser is hidden/closed: once opened,
+  // the app should keep treating this QR code as already used.
+  if (!document.hidden && (!_lastStatus || _lastStatus === 'waiting')) broadcast('viewed')
 })
 const ROLES = ['妈妈','爸爸','爷爷','奶奶','外公','外婆']
 const TONE_MAP = {

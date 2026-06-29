@@ -296,14 +296,92 @@ async function previewTemplates(body: any, templates: Template[]): Promise<Respo
 
 // ── 事件驱动：有人刚记了一件事 → 立即给其他家人发 family_activity ──
 // 由 client(insertMemory) / yaoji(邀记提交) 在记录落库后即时调用，绕过场景优先级与每日限流，
-// 只保留必要护栏：enabled & notify_family 偏好、family_activity 冷却、免打扰、排除记录者本人。
+// 只保留必要护栏：enabled & notify_family 偏好、免打扰、排除记录者本人。
+// 手动记一件事 / 邀记提交都是真人主动行为，不做冷却限流——每记一条都推。
+// 但仍写 notification_log：让定时巡检的"每天最多 1 条 / 同场景 48h 去重"知道这家今天已活跃，
+// 不会再叠加多余的 gentle 提醒或重复的 family_activity。
 // body: { event:'memory_created', family_id, kid_id?, who?, actor_user_id?, exclude_user_id? }
 //   - who 缺省时按 actor_user_id 的 profile 角色推导（普通记录路径）
 //   - 邀记路径显式传 who=被邀请角色，且不排除任何人（被邀请人无账号，inviter 也该收到）
-const FAMILY_ACTIVITY_COOLDOWN_MS = 60 * 60 * 1000
 
 function jsonResp(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json' } })
+}
+
+// ── 单条测试（开发者工具）──
+// 把指定 scene 的真实模板（按 species + lang 选，sample 变量代入）发到目标设备，
+// 绕过所有护栏（场景匹配/防重/限流/免打扰/偏好），用于一键验证某种通知的样子与点击路由。
+// body: { event:'test', scene, device_token?, family_id?, actor_user_id?, lang?='zh', species?='bear', kid_id? }
+//   - 优先 device_token（开发者工具直接传本机 DooPush token，最可靠）；
+//   - 否则按 actor_user_id 取该用户设备，或退而取 family_id 全家设备。
+async function sendTest(body: any, templates: Template[]): Promise<Response> {
+  const scene: string = body.scene
+  if (!scene) return jsonResp({ ok: false, error: 'scene required' }, 400)
+  const lang: Lang = body.lang === 'en' ? 'en' : 'zh'
+  const species: string = body.species || 'bear'
+  const vars = { done: 5, remain: 2, days: 3, who: lang === 'en' ? 'Dad' : '爸爸' }
+
+  // 目标设备 token
+  let tokens: string[] = []
+  if (typeof body.device_token === 'string' && body.device_token) {
+    tokens = [body.device_token]
+  } else if (body.actor_user_id) {
+    const { data: devs } = await admin.from('push_devices').select('token').eq('user_id', body.actor_user_id)
+    tokens = (devs ?? []).map((d: any) => d.token).filter((t: any): t is string => !!t)
+  } else if (body.family_id) {
+    const { data: members } = await admin
+      .from('family_members').select('user_id').eq('family_id', body.family_id)
+    const userIds = (members ?? []).map((m: any) => m.user_id)
+    if (userIds.length > 0) {
+      const { data: devs } = await admin.from('push_devices').select('token').in('user_id', userIds)
+      tokens = (devs ?? []).map((d: any) => d.token).filter((t: any): t is string => !!t)
+    }
+  }
+  if (tokens.length === 0) {
+    return jsonResp({ ok: false, error: 'no target device (pass device_token, or register push first)' }, 400)
+  }
+
+  const tpl =
+    templates.find((t) => t.scene === scene && t.species === species && t.lang === lang) ??
+    templates.find((t) => t.scene === scene && t.species === species && t.lang === 'zh') ??
+    templates.find((t) => t.scene === scene && t.lang === lang) ??
+    templates.find((t) => t.scene === scene) ?? null
+  if (!tpl) return jsonResp({ ok: false, error: `no template for scene=${scene}` }, 404)
+
+  const title = interpolate(tpl.title, vars)
+  const content = interpolate(tpl.body, vars)
+  let sent = 0
+  let lastErr = ''
+  for (const token of tokens) {
+    const r = await sendDooPushVerbose(token, title, content, { scene, kidId: body.kid_id || 'test' })
+    if (r.ok) sent++
+    else lastErr = `DooPush ${r.status}${r.detail ? ': ' + r.detail : ''}`
+  }
+  return jsonResp({
+    ok: sent > 0, scene, title, content, targets: tokens.length, sent,
+    error: sent === 0 ? (lastErr || 'no push sent') : undefined,
+  })
+}
+
+// 与 sendDooPush 相同，但把失败的 HTTP 状态/响应体带回来，供开发者工具显示
+// （区分 DooPush 限流 429 / 无效 token / token 不属于该 DooPush 应用 等）。
+async function sendDooPushVerbose(
+  deviceToken: string, title: string, content: string, data: Record<string, string>,
+): Promise<{ ok: boolean; status: number; detail?: string }> {
+  try {
+    const res = await fetch(`${DOOPUSH_BASE_URL}/apps/${DOOPUSH_APP_ID}/push/single`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-API-Key': DOOPUSH_API_KEY },
+      body: JSON.stringify({
+        title, content, device_id: deviceToken,
+        payload: { action: 'open_page', data: JSON.stringify(data) },
+      }),
+    })
+    if (!res.ok) return { ok: false, status: res.status, detail: (await res.text()).slice(0, 300) }
+    return { ok: true, status: res.status }
+  } catch (e) {
+    return { ok: false, status: 0, detail: String(e) }
+  }
 }
 
 async function notifyMemoryCreated(body: any, templates: Template[]): Promise<Response> {
@@ -316,13 +394,6 @@ async function notifyMemoryCreated(body: any, templates: Template[]): Promise<Re
   if (!pref.enabled || pref.notify_family === false) return jsonResp({ ok: true, skipped: 'disabled' })
 
   const now = new Date()
-
-  // 冷却：1h 内已发过 family_activity 则跳过（折叠短时间连发，避免刷屏）
-  const { data: recentLog } = await admin
-    .from('notification_log').select('id')
-    .eq('family_id', familyId).eq('scene', 'family_activity')
-    .gte('sent_at', new Date(now.getTime() - FAMILY_ACTIVITY_COOLDOWN_MS).toISOString()).limit(1)
-  if (recentLog && recentLog.length > 0) return jsonResp({ ok: true, skipped: 'cooldown' })
 
   // 解析真实 kid（notification_log.kid_id 有 NOT NULL+FK，不能写 'all'）并据此取 species
   const { data: kids } = await admin.from('kids').select('id').eq('family_id', familyId)
@@ -390,6 +461,10 @@ Deno.serve(async (req: Request) => {
 
     if (body?.preview) {
       return await previewTemplates(body, (templates ?? []) as Template[])
+    }
+
+    if (body?.event === 'test') {
+      return await sendTest(body, (templates ?? []) as Template[])
     }
 
     if (body?.event === 'memory_created') {

@@ -416,6 +416,7 @@ CREATE TABLE IF NOT EXISTS public.invite_tokens (
   inviter_role  TEXT NOT NULL DEFAULT '',
   illustration_path TEXT,
   expires_at    TIMESTAMPTZ NOT NULL,
+  opened_at     TIMESTAMPTZ,
   is_active     BOOLEAN NOT NULL DEFAULT true,
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -427,7 +428,8 @@ CREATE POLICY "invite_tokens_family" ON public.invite_tokens
 -- 11.1 invite_tokens 增加插画路径 + 记录些什么
 ALTER TABLE public.invite_tokens
   ADD COLUMN IF NOT EXISTS illustration_path TEXT,
-  ADD COLUMN IF NOT EXISTS level_record TEXT NOT NULL DEFAULT '';
+  ADD COLUMN IF NOT EXISTS level_record TEXT NOT NULL DEFAULT '',
+  ADD COLUMN IF NOT EXISTS opened_at TIMESTAMPTZ;
 
 -- 11.2 memories 增加邀记来源字段
 ALTER TABLE public.memories
