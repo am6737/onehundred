@@ -67,11 +67,6 @@ export default function PetPicker({ navigation, route }) {
             borderRadius: 999,
             alignItems: 'center',
             backgroundColor: saving ? theme.sand : theme.accent,
-            shadowColor: saving ? 'transparent' : theme.accentShadow,
-            shadowOffset: { width: 0, height: 14 },
-            shadowOpacity: saving ? 0 : 0.3,
-            shadowRadius: 28,
-            elevation: saving ? 0 : 4,
           }}
         >
           {saving ? (

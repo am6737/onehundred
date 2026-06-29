@@ -618,6 +618,8 @@ export const zh = {
     devRegistering: '注册中…',
     devRefresh: '刷新',
     devLock: '关闭开发者工具',
+    devSecFeatureGates: '功能门',
+    devFeatureGateHint: '功能门控制实验性功能的显示。开启后即刻生效，关闭后相关入口隐藏。',
     devEnv: '运行环境',
     devCopyAll: '复制全部信息',
     devSecAccount: '账号',

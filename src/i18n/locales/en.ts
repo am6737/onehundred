@@ -627,6 +627,8 @@ export const en = {
     devRegistering: 'Registering…',
     devRefresh: 'Refresh',
     devLock: 'Disable Developer Tools',
+    devSecFeatureGates: 'Feature Gates',
+    devFeatureGateHint: 'Feature gates control experimental features. Changes take effect immediately.',
     devEnv: 'Environment',
     devCopyAll: 'Copy all info',
     devSecAccount: 'Account',

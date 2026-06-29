@@ -3,7 +3,8 @@ import { View, Text, TouchableOpacity, Dimensions, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/tokens';
 import { useT } from '../i18n';
-import { PET_BODY, SHOW_MASCOT } from '../data';
+import { PET_BODY } from '../data';
+import { useFeatureGate } from '../lib/featureGates';
 import { useData } from '../data/DataProvider';
 import { Icon } from '../components/Icons';
 import { Bear } from '../components/Bear';
@@ -13,6 +14,7 @@ const { width: SW, height: SH } = Dimensions.get('window');
 export default function YearReview({ navigation, route }) {
   const { theme } = useTheme();
   const t = useT();
+  const showMascot = useFeatureGate('mascot');
   const { getKid, getMascot, wardrobeState, yearReview } = useData();
   const insets = useSafeAreaInsets();
   const kidId = route?.params?.kidId || 'all';
@@ -43,7 +45,7 @@ export default function YearReview({ navigation, route }) {
         marginTop: 18, maxWidth: 280, fontFamily: theme.fonts.body,
         fontSize: 16, lineHeight: 30, color: theme.inkSoft, textAlign: 'center',
       }}>{t('yearReview.coverBody', { who })}</Text>
-      {SHOW_MASCOT && (
+      {showMascot && (
         <View style={{ marginTop: 26 }}>
           <Bear size={120} stage={PET_BODY} accessories={acc.map(a => a.id)} tone={mascot.tone || 'orange'} mood="happy" />
         </View>
@@ -132,7 +134,7 @@ export default function YearReview({ navigation, route }) {
   }
 
   // Card 4: Bear grew — 宠物系统隐藏时整张卡片跳过
-  if (SHOW_MASCOT) {
+  if (showMascot) {
     cards.push(
       <View key="bear" style={{ alignItems: 'center' }}>
         <Text style={{ fontFamily: theme.fonts.body, fontSize: 15.5, color: theme.inkSoft, letterSpacing: 1 }}>
@@ -160,7 +162,7 @@ export default function YearReview({ navigation, route }) {
   // Card 5: Ending
   cards.push(
     <View key="end" style={{ alignItems: 'center' }}>
-      {SHOW_MASCOT && (
+      {showMascot && (
         <Bear size={104} stage={PET_BODY} accessories={['scarf', 'hat']} tone={mascot.tone || 'orange'} mood="sleepy" />
       )}
       <Text style={{

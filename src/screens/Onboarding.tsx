@@ -7,7 +7,8 @@ import Animated, { FadeIn } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme, COLORS } from '../theme/tokens';
 import { useT } from '../i18n';
-import { ROLES, NOW_YM, roleLabel, SHOW_MASCOT } from '../data';
+import { ROLES, NOW_YM, roleLabel } from '../data';
+import { useFeatureGate } from '../lib/featureGates';
 import { useData } from '../data/DataProvider';
 import { Icon, KidAvatar } from '../components/Icons';
 import { PetCarousel } from '../components/PetCarousel';
@@ -15,12 +16,11 @@ import type { Species } from '../components/pet-renderers/types';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
-// 宠物系统开启时，把"选小伙伴"作为创建流程的一步（带进度点）；关闭时维持原四步。
 type Page = 'welcome' | 'me' | 'child' | 'pet' | 'done';
-const FLOW: readonly Page[] = SHOW_MASCOT
-  ? ['welcome', 'me', 'child', 'pet', 'done']
-  : ['welcome', 'me', 'child', 'done'];
-const STEP_PAGES: readonly string[] = SHOW_MASCOT ? ['me', 'child', 'pet'] : ['me', 'child'];
+const FLOW_WITH_PET: readonly Page[] = ['welcome', 'me', 'child', 'pet', 'done'];
+const FLOW_WITHOUT_PET: readonly Page[] = ['welcome', 'me', 'child', 'done'];
+const STEPS_WITH_PET: readonly string[] = ['me', 'child', 'pet'];
+const STEPS_WITHOUT_PET: readonly string[] = ['me', 'child'];
 const ageFrom = (y: number, m: number) => Math.max(0, NOW_YM.y - y - (NOW_YM.m < m ? 1 : 0));
 
 /* ── TopBar with progress dots ── */
@@ -28,7 +28,8 @@ const ageFrom = (y: number, m: number) => Math.max(0, NOW_YM.y - y - (NOW_YM.m <
 function TopBar({ onBack, page }) {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
-  const i = STEP_PAGES.indexOf(page);
+  const stepPages = useFeatureGate('mascot') ? STEPS_WITH_PET : STEPS_WITHOUT_PET;
+  const i = stepPages.indexOf(page);
 
   return (
     <View style={{
@@ -52,7 +53,7 @@ function TopBar({ onBack, page }) {
       </View>
 
       <View style={{ flex: 1, flexDirection: 'row', justifyContent: 'center', gap: 7 }}>
-        {i >= 0 && STEP_PAGES.map((_, k) => (
+        {i >= 0 && stepPages.map((_, k) => (
           <View key={k} style={{
             width: k === i ? 22 : 7, height: 7, borderRadius: 999,
             backgroundColor: (k <= i) ? theme.accent : theme.line,
@@ -80,11 +81,6 @@ function CTA({ label, onPress, disabled = false, hint = '' }) {
         style={{
           paddingVertical: 17, borderRadius: 999, alignItems: 'center',
           backgroundColor: disabled ? theme.sand : theme.accent,
-          shadowColor: disabled ? 'transparent' : theme.accentShadow,
-          shadowOffset: { width: 0, height: 14 },
-          shadowOpacity: disabled ? 0 : 0.3,
-          shadowRadius: 28,
-          elevation: disabled ? 0 : 4,
         }}
       >
         <Text style={{
@@ -214,11 +210,6 @@ function MeStep({ value, onChange, onNext }) {
                   paddingVertical: 20, borderRadius: 20, alignItems: 'center',
                   backgroundColor: on ? theme.accent : theme.paper,
                   borderWidth: 1.5, borderColor: on ? theme.accent : theme.line,
-                  shadowColor: on ? theme.accentShadow : 'transparent',
-                  shadowOffset: { width: 0, height: 12 },
-                  shadowOpacity: on ? 0.3 : 0,
-                  shadowRadius: 24,
-                  elevation: on ? 4 : 0,
                 }}
               >
                 <Text style={{
@@ -458,11 +449,6 @@ function JoinRoleStep({ value, onChange, onEnter, loading }) {
                   paddingVertical: 20, borderRadius: 20, alignItems: 'center',
                   backgroundColor: on ? theme.accent : theme.paper,
                   borderWidth: 1.5, borderColor: on ? theme.accent : theme.line,
-                  shadowColor: on ? theme.accentShadow : 'transparent',
-                  shadowOffset: { width: 0, height: 12 },
-                  shadowOpacity: on ? 0.3 : 0,
-                  shadowRadius: 24,
-                  elevation: on ? 4 : 0,
                 }}
               >
                 <Text style={{ fontFamily: theme.fonts.head, fontSize: 19, color: on ? '#FFFDF7' : theme.ink }}>{roleLabel(r)}</Text>
@@ -479,6 +465,8 @@ function JoinRoleStep({ value, onChange, onEnter, loading }) {
 /* ── Main Onboarding Screen ── */
 
 export default function OnboardingScreen({ navigation }) {
+  const showMascot = useFeatureGate('mascot');
+  const FLOW = showMascot ? FLOW_WITH_PET : FLOW_WITHOUT_PET;
   const { addKid, createFamily, joinFamily, updateMe, setSpecies } = useData();
   const { theme } = useTheme();
   const t = useT();
@@ -503,7 +491,7 @@ export default function OnboardingScreen({ navigation }) {
       await createFamily(me, '');
       await updateMe({ role: me, custom_role: '' });
       const kid = await addKid({ name: child.name.trim(), y: child.y, m: child.m, tone: 'orange' });
-      if (SHOW_MASCOT) await setSpecies(kid.id, pet);
+      if (showMascot) await setSpecies(kid.id, pet);
       navigation.replace('Home');
     } catch (e: any) {
       console.error('Onboarding create error:', e);

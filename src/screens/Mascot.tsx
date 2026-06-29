@@ -423,11 +423,6 @@ export function UnlockMoment({ visible, item, mascot, onClose }: any) {
                     paddingVertical: 14,
                     borderRadius: 999,
                     backgroundColor: accent,
-                    shadowColor: accent,
-                    shadowOffset: { width: 0, height: 12 },
-                    shadowOpacity: 0.45,
-                    shadowRadius: 26,
-                    elevation: 8,
                   }}
                 >
                   {Icon.share('#FFFDF7', 19)}
@@ -565,11 +560,6 @@ export function UnlockMoment({ visible, item, mascot, onClose }: any) {
                     paddingVertical: 14,
                     borderRadius: 999,
                     backgroundColor: accent,
-                    shadowColor: accent,
-                    shadowOffset: { width: 0, height: 12 },
-                    shadowOpacity: 0.45,
-                    shadowRadius: 26,
-                    elevation: 8,
                   }}
                 >
                   {Icon.download('#FFFDF7', 19)}
@@ -820,13 +810,6 @@ export default function MascotPage({ route, navigation }) {
                     backgroundColor: on ? theme.accent : theme.paper,
                     borderWidth: 1,
                     borderColor: on ? theme.accent : theme.line,
-                    ...(on ? {
-                      shadowColor: theme.accentShadow,
-                      shadowOffset: { width: 0, height: 8 },
-                      shadowOpacity: 0.35,
-                      shadowRadius: 18,
-                      elevation: 6,
-                    } : {}),
                   }}
                 >
                   <View style={{
@@ -1078,13 +1061,6 @@ export default function MascotPage({ route, navigation }) {
                     borderWidth: 1.5,
                     borderColor: on ? theme.accent : theme.line,
                     borderStyle: on ? 'solid' : (w.got ? 'solid' : 'dashed'),
-                    ...(on ? {
-                      shadowColor: theme.accentShadow,
-                      shadowOffset: { width: 0, height: 10 },
-                      shadowOpacity: 0.35,
-                      shadowRadius: 22,
-                      elevation: 6,
-                    } : {}),
                   }}
                 >
                   {/* Check badge */}

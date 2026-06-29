@@ -1487,11 +1487,6 @@ const styles = StyleSheet.create({
     borderRadius: 37,
     justifyContent: 'center',
     alignItems: 'center',
-    elevation: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.25,
-    shadowRadius: 14,
   },
   sectionLabel: {
     flexDirection: 'row',
@@ -1559,11 +1554,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,253,247,0.92)',
     justifyContent: 'center',
     alignItems: 'center',
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
   },
   videoLabel: {
     marginTop: 14,

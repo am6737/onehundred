@@ -13,7 +13,8 @@ import {
 } from 'react-native';
 import { useTheme, TONE } from '../theme/tokens';
 import { useT } from '../i18n';
-import { meName, meChar, PET_BODY, SHOW_MASCOT, durationSince, sealedLockedFrom, sealedAllFrom, isMemoryUnsealed } from '../data';
+import { meName, meChar, PET_BODY, durationSince, sealedLockedFrom, sealedAllFrom, isMemoryUnsealed } from '../data';
+import { useFeatureGate } from '../lib/featureGates';
 import { useData } from '../data/DataProvider';
 import { Icon } from '../components/Icons';
 import { Bear } from '../components/Bear';
@@ -402,6 +403,7 @@ const heatStyles = StyleSheet.create({
 export default function Drawer({ visible, onClose, onNavigate, kidId = 'all', me }) {
   const { theme } = useTheme();
   const t = useT();
+  const showMascot = useFeatureGate('mascot');
   const { kids, levels, memories, wardrobe, customLevels, FAMILY, getKid, kidDone, memoriesForKid, getMascot, wardrobeState } = useData();
   const slideAnim = useRef(new Animated.Value(-DRAWER_WIDTH)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -637,7 +639,7 @@ export default function Drawer({ visible, onClose, onNavigate, kidId = 'all', me
           )}
 
           {/* ── Mascot / pet entry ── */}
-          {SHOW_MASCOT && mascot && (
+          {showMascot && mascot && (
             <TouchableOpacity
               activeOpacity={0.7}
               onPress={() => go('mascot')}

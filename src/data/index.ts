@@ -38,8 +38,8 @@ export const NOW_YM = {
 
 export const PET_BODY = 3;
 
-// 宠物/小熊衣橱系统总开关。改回 false 即可整体隐藏全部入口。
-export const SHOW_MASCOT = true;
+// 宠物系统开关已迁移到功能门：src/lib/featureGates.ts
+// 组件内用 useFeatureGate('mascot')，非组件代码用 isFeatureEnabled('mascot')。
 
 // 可重复做的内置事——这些事做完后仍然可以"再做一次"。
 // 自定义事（custom）默认也可以重复。以后可由算法动态决定。

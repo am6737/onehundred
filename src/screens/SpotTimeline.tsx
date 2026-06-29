@@ -348,7 +348,5 @@ const styles = StyleSheet.create({
   },
   compareBtn: {
     paddingVertical: 16, borderRadius: 999, alignItems: 'center',
-    shadowColor: '#DE8C57', shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35, shadowRadius: 13, elevation: 4,
   },
 });

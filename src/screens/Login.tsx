@@ -233,11 +233,6 @@ export function LoginWelcome({ navigation }) {
             borderRadius: 999,
             backgroundColor: theme.accent,
             alignItems: 'center',
-            shadowColor: theme.accentShadow,
-            shadowOffset: { width: 0, height: 8 },
-            shadowOpacity: 0.3,
-            shadowRadius: 16,
-            elevation: 4,
           }}
         >
           <Text style={{

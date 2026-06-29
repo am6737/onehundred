@@ -700,11 +700,6 @@ export function MemoryPage({ route, navigation }) {
               onPress={() => setShareVisible(true)}
               style={{
                 marginTop: 32, alignSelf: 'stretch',
-                shadowColor: theme.accentShadow,
-                shadowOffset: { width: 0, height: 10 },
-                shadowOpacity: 0.35,
-                shadowRadius: 12,
-                elevation: 6,
               }}
             />
           </View>
@@ -996,11 +991,6 @@ export function MemoryPage({ route, navigation }) {
             onPress={() => setShareVisible(true)}
             style={{
               marginTop: 24,
-              shadowColor: theme.accentShadow,
-              shadowOffset: { width: 0, height: 10 },
-              shadowOpacity: 0.35,
-              shadowRadius: 12,
-              elevation: 6,
             }}
           />
 
@@ -1066,13 +1056,6 @@ export function KidFilterChips({ value, onChange }) {
               backgroundColor: on ? theme.accent : theme.paper,
               borderWidth: 1,
               borderColor: on ? theme.accent : theme.line,
-              ...(on ? {
-                shadowColor: theme.accentShadow,
-                shadowOffset: { width: 0, height: 8 },
-                shadowOpacity: 0.3,
-                shadowRadius: 9,
-                elevation: 4,
-              } : {}),
             }}
           >
             <Text style={{

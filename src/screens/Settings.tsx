@@ -21,7 +21,8 @@ import { DooPush } from 'doopush-react-native-sdk';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme, COLORS } from '../theme/tokens';
 import { useI18n, useT } from '../i18n';
-import { ROLES, DEFAULT_ME, meName, meChar, roleLabel, NOW_YM, SHOW_MASCOT, fetchNotificationPrefs, updateNotificationPrefs, fetchNotificationTemplates, sendTestNotification } from '../data';
+import { ROLES, DEFAULT_ME, meName, meChar, roleLabel, NOW_YM, fetchNotificationPrefs, updateNotificationPrefs, fetchNotificationTemplates, sendTestNotification } from '../data';
+import { useFeatureGate, setFeatureEnabled, isFeatureEnabled, getFeatureGateIds, type FeatureGateId } from '../lib/featureGates';
 import { useData } from '../data/DataProvider';
 import { signOut, isAnonymous, bindEmail, deleteAccount, getCurrentUserPhone, maskPhone, updatePhone, verifyPhoneChange, signInWithApple, bindApple, isAppleSignInAvailable, getLinkedProviders, unbindProvider } from '../lib/auth';
 import { getInviteExpiryHours, setInviteExpiryHours, INVITE_EXPIRY_OPTIONS, DEFAULT_INVITE_EXPIRY } from '../lib/yaoji';
@@ -631,10 +632,6 @@ function AddChildSheet({ onAdd, onClose }: any) {
                       flex: 1, alignItems: 'center', gap: 7, paddingVertical: 14,
                       borderRadius: 18, backgroundColor: theme.paper,
                       borderWidth: 1.5, borderColor: on ? c : theme.line,
-                      ...(on ? {
-                        shadowColor: c, shadowOffset: { width: 0, height: 8 },
-                        shadowOpacity: 0.3, shadowRadius: 20, elevation: 4,
-                      } : {}),
                     }}
                   >
                     <View style={{
@@ -1826,6 +1823,58 @@ function flashToast(msg: string) {
   if (Platform.OS === 'android') ToastAndroid.show(msg, ToastAndroid.SHORT);
 }
 
+const GATE_I18N: Record<FeatureGateId, { zh: [string, string]; en: [string, string] }> = {
+  mascot: {
+    zh: ['宠物系统', '小伙伴养成、衣橱、成长提醒'],
+    en: ['Pet System', 'Pet companion, wardrobe, growth reminders'],
+  },
+};
+
+function FeatureGateSection() {
+  const { theme } = useTheme();
+  const { lang } = useI18n();
+  const t = useT();
+  const ids = getFeatureGateIds();
+  const mascotOn = useFeatureGate('mascot');
+
+  return (
+    <View style={{ marginTop: 16 }}>
+      <Text style={{
+        marginLeft: 6, marginBottom: 7, fontFamily: theme.fonts.body,
+        fontSize: 12.5, color: theme.inkSoft, letterSpacing: 0.3,
+      }}>
+        {t('settings.devSecFeatureGates')}
+      </Text>
+      <View style={{
+        backgroundColor: theme.paper, borderWidth: 1, borderColor: theme.line,
+        borderRadius: 18, overflow: 'hidden',
+      }}>
+        {ids.map((id, i) => {
+          const meta = GATE_I18N[id];
+          const [label, desc] = lang === 'en' ? meta.en : meta.zh;
+          const on = id === 'mascot' ? mascotOn : isFeatureEnabled(id);
+          return (
+            <ToggleRow
+              key={id}
+              title={label}
+              sub={desc}
+              value={on}
+              onValueChange={(v: boolean) => setFeatureEnabled(id, v)}
+              last={i === ids.length - 1}
+            />
+          );
+        })}
+      </View>
+      <Text style={{
+        paddingTop: 8, paddingHorizontal: 6, fontFamily: theme.fonts.body,
+        fontSize: 11.5, color: theme.inkSoft, lineHeight: 16,
+      }}>
+        {t('settings.devFeatureGateHint')}
+      </Text>
+    </View>
+  );
+}
+
 function DevToolsSheet({ onClose, onLock }: any) {
   const { theme, mode } = useTheme();
   const { lang } = useI18n();
@@ -2331,6 +2380,8 @@ function DevToolsSheet({ onClose, onLock }: any) {
             row({ id: 'supa', label: t('settings.devSupabase'), value: supaHost, block: true, last: true }),
           ])}
 
+          <FeatureGateSection />
+
           <View style={{ marginTop: 22, gap: 12 }}>
             <PrimaryButton
               label={registering ? t('settings.devRegistering') : t('settings.devRegister')}
@@ -2456,6 +2507,7 @@ function PetNotifyGroup() {
 export default function Settings({ navigation, route }: any) {
   const { theme, mode: themeMode, setTheme } = useTheme();
   const { lang, setLang, t } = useI18n();
+  const showMascot = useFeatureGate('mascot');
   const insets = useSafeAreaInsets();
   const { kids: dataKids, editKid, addKid: dbAddKid, setSpecies, FAMILY, getKid, kidLabel, getMascot, profile, updateMe } = useData();
 
@@ -2522,7 +2574,7 @@ export default function Settings({ navigation, route }: any) {
     try {
       const kid = await dbAddKid({ name: k.name, y: k.y, m: k.m, tone: k.tone });
       setKids(ks => [...ks, kid]);
-      if (SHOW_MASCOT) navigation.navigate('PetPicker', { kidId: kid.id });
+      if (showMascot) navigation.navigate('PetPicker', { kidId: kid.id });
     } catch (e: any) {
       console.warn('addKid:', e?.message || e);
       Alert.alert(t('onboarding.saveFailTitle'), t('onboarding.networkRetry'));
@@ -2590,10 +2642,10 @@ export default function Settings({ navigation, route }: any) {
         </SettingGroup>
 
         {/* ── Pet reminders ── */}
-        {SHOW_MASCOT && <PetNotifyGroup />}
+        {showMascot && <PetNotifyGroup />}
 
         {/* ── Pet section ── */}
-        {SHOW_MASCOT && kids.length > 0 && (
+        {showMascot && kids.length > 0 && (
           <SettingGroup label={t('settings.groupPet')} note={t('settings.petNote')}>
             {kids.map((k, i) => {
               const mas = getMascot(k.id);

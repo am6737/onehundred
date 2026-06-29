@@ -410,8 +410,6 @@ function LevelCard({ level, onOpen, onSkip, kidId, meLabel, cardHeight }: any) {
               borderWidth: 1, borderColor: theme.line,
               alignItems: 'center', justifyContent: 'center', gap: 3,
               paddingBottom: 10,
-              shadowColor: theme.shadow, shadowOpacity: 0.15, shadowRadius: 10,
-              shadowOffset: { width: 0, height: 4 }, elevation: 4,
             }}
           >
             {Icon.chevDown(theme.accent, 20)}
@@ -428,8 +426,6 @@ function LevelCard({ level, onOpen, onSkip, kidId, meLabel, cardHeight }: any) {
               flex: 1, paddingVertical: 16, paddingHorizontal: 18, borderRadius: 999,
               backgroundColor: theme.accent,
               flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-              shadowColor: theme.accentShadow, shadowOpacity: 0.4, shadowRadius: 13,
-              shadowOffset: { width: 0, height: 6 }, elevation: 6,
             }}
           >
             <Text style={{
@@ -482,8 +478,6 @@ function EndCard({ onBook, onReshuffle, onAddOwn, cardHeight, allDone }: any) {
               flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
               gap: 8, paddingVertical: 14, paddingHorizontal: 22, borderRadius: 999,
               backgroundColor: theme.accent,
-              shadowColor: theme.accentShadow, shadowOpacity: 0.4, shadowRadius: 12,
-              shadowOffset: { width: 0, height: 5 }, elevation: 6,
             }}
           >
             <Text style={{

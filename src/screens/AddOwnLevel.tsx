@@ -265,8 +265,6 @@ export default function AddOwnLevel({ route, navigation }) {
             activeOpacity={0.85}
             style={[styles.saveBtn, {
               backgroundColor: ready ? theme.accent : theme.sand,
-              shadowColor: ready ? theme.accentShadow : 'transparent',
-              shadowOpacity: ready ? 0.35 : 0,
             }]}
           >
             {saving ? (
@@ -413,7 +411,5 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowRadius: 13,
-    shadowOffset: { width: 0, height: 6 },
   },
 });
