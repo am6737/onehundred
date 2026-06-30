@@ -8,6 +8,12 @@ const DOOPUSH_APP_ID = IS_DEV
 const DOOPUSH_API_KEY = IS_DEV
   ? process.env.EXPO_PUBLIC_DOOPUSH_API_KEY_DEV
   : process.env.EXPO_PUBLIC_DOOPUSH_API_KEY;
+const DOOPUSH_OPPO_APP_KEY = IS_DEV
+  ? process.env.DOOPUSH_OPPO_APP_KEY_DEV
+  : process.env.DOOPUSH_OPPO_APP_KEY;
+const DOOPUSH_OPPO_APP_SECRET = IS_DEV
+  ? process.env.DOOPUSH_OPPO_APP_SECRET_DEV
+  : process.env.DOOPUSH_OPPO_APP_SECRET;
 
 const config: ExpoConfig = {
   name: IS_DEV ? "一百件事(Dev)" : "一百件事",
@@ -33,6 +39,14 @@ const config: ExpoConfig = {
       "android.permission.MODIFY_AUDIO_SETTINGS",
       "android.permission.FOREGROUND_SERVICE",
       "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK",
+      "android.permission.INTERNET",
+      "android.permission.ACCESS_NETWORK_STATE",
+      "android.permission.WAKE_LOCK",
+      "android.permission.VIBRATE",
+      "android.permission.POST_NOTIFICATIONS",
+      "android.permission.RECEIVE_BOOT_COMPLETED",
+      "com.oppo.launcher.permission.READ_SETTINGS",
+      "com.oppo.launcher.permission.WRITE_SETTINGS",
     ],
     package: IS_DEV ? "com.hitosea.moments100.dev" : "com.hitosea.moments100",
   },
@@ -100,6 +114,16 @@ const config: ExpoConfig = {
 // DooPush 插件要求 appId/apiKey 必填。构建时这些值由 EAS 环境变量注入，
 // 但在 eas env:push 等引导阶段尚未就绪——缺失时跳过插件以免 config 解析失败。
 if (DOOPUSH_APP_ID && DOOPUSH_API_KEY) {
+  const androidVendors: Record<string, unknown> = {};
+
+  // OPPO 推送：凭据由环境变量注入。缺失时跳过，避免 EAS 引导/本地 config 解析失败。
+  if (DOOPUSH_OPPO_APP_KEY && DOOPUSH_OPPO_APP_SECRET) {
+    androidVendors.oppo = {
+      appKey: DOOPUSH_OPPO_APP_KEY,
+      appSecret: DOOPUSH_OPPO_APP_SECRET,
+    };
+  }
+
   config.plugins!.push([
     "doopush-react-native-sdk",
     {
@@ -109,6 +133,13 @@ if (DOOPUSH_APP_ID && DOOPUSH_API_KEY) {
       ios: {
         mode: IS_DEV ? "development" : "production",
       },
+      ...(Object.keys(androidVendors).length > 0
+        ? {
+            android: {
+              vendors: androidVendors,
+            },
+          }
+        : {}),
     },
   ]);
 }
