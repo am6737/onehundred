@@ -90,7 +90,7 @@ async function processFamily(
 ): Promise<string> {
   const { data: prefRow } = await admin
     .from('notification_preferences').select('*').eq('family_id', familyId).maybeSingle()
-  const pref = prefRow ?? { enabled: true, frequency: 'normal', quiet_start: '22:00:00', quiet_end: '08:00:00' }
+  const pref = prefRow ?? { enabled: true, notify_family: true, frequency: 'normal', quiet_start: '22:00:00', quiet_end: '08:00:00' }
   if (!pref.enabled) return 'disabled'
 
   const now = new Date()
@@ -160,7 +160,7 @@ async function processFamily(
     const cap = perKid.filter((p) => p.capDays <= 30).sort((a, b) => a.capDays - b.capDays)[0]
     if (cap) return { scene: 'capsule', species: sp(cap.kid.id), kidId: cap.kid.id, vars: { days: cap.capDays } }
     if (streak >= 3) return { scene: 'streak', species: sp(primary.id), kidId: primary.id, vars: { days: streak } }
-    if (recent && who) return { scene: 'family_activity', species: sp(recent.kid_id), kidId: recent.kid_id, vars: { who }, excludeUserId: recent.user_id }
+    if (recent && who && pref.notify_family !== false) return { scene: 'family_activity', species: sp(recent.kid_id), kidId: recent.kid_id, vars: { who }, excludeUserId: recent.user_id }
     return null
   })()
   if (!match) return 'no_scene'
