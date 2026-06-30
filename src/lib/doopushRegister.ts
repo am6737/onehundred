@@ -1,5 +1,7 @@
 import * as Network from 'expo-network';
 import { DooPush } from 'doopush-react-native-sdk';
+import Constants from 'expo-constants';
+import { Platform } from 'react-native';
 type PushRegistration = { token: string; deviceId: string; vendor?: string };
 
 let registerInFlight: Promise<PushRegistration> | null = null;
@@ -12,6 +14,42 @@ export function markDooPushConfigured() {
 export function markDooPushUnconfigured() {
   configured = false;
   registerInFlight = null;
+}
+
+export function describeDooPushError(error: unknown) {
+  const e = error as any;
+  const own: Record<string, unknown> = {};
+  if (e && (typeof e === 'object' || typeof e === 'function')) {
+    for (const key of Object.getOwnPropertyNames(e)) {
+      try { own[key] = e[key]; } catch { own[key] = '<unreadable>'; }
+    }
+  }
+  return {
+    message: e?.message ?? String(error),
+    name: e?.name,
+    code: e?.code,
+    domain: e?.domain,
+    userInfo: e?.userInfo,
+    nativeStackAndroid: e?.nativeStackAndroid,
+    stack: e?.stack,
+    own,
+  };
+}
+
+function getRuntimeDooPushConfig(): { appId?: string; apiKey?: string } {
+  return (Constants.expoConfig?.extra?.doopush ?? {}) as { appId?: string; apiKey?: string };
+}
+
+function logDooPushRuntimeState(stage: string) {
+  const cfg = getRuntimeDooPushConfig();
+  console.log('[DooPush] runtime state', {
+    stage,
+    platform: Platform.OS,
+    configured,
+    hasAppId: Boolean(cfg.appId),
+    appId: cfg.appId,
+    hasApiKey: Boolean(cfg.apiKey),
+  });
 }
 
 async function getCachedRegistration(): Promise<PushRegistration | null> {
@@ -44,22 +82,49 @@ async function assertNetworkAvailable() {
  * and reuse cached registration whenever native already has token + deviceId.
  */
 export async function safeDooPushRegister(): Promise<PushRegistration> {
+  logDooPushRuntimeState('safeDooPushRegister:start');
   if (!configured) {
-    throw new Error('DooPush 尚未初始化，请先检查 EXPO_PUBLIC_DOOPUSH_APP_ID / EXPO_PUBLIC_DOOPUSH_API_KEY 是否已注入并成功 configure');
+    const cfg = getRuntimeDooPushConfig();
+    if (!cfg.appId || !cfg.apiKey) {
+      throw new Error('DooPush 尚未初始化，请先检查 EXPO_PUBLIC_DOOPUSH_APP_ID / EXPO_PUBLIC_DOOPUSH_API_KEY 是否已注入并成功 configure');
+    }
+    try {
+      DooPush.configure({ appId: cfg.appId, apiKey: cfg.apiKey });
+      markDooPushConfigured();
+      logDooPushRuntimeState('safeDooPushRegister:configured-fallback');
+    } catch (e) {
+      console.warn('[DooPush] fallback configure failed', describeDooPushError(e));
+      throw e;
+    }
   }
-  if (registerInFlight) return registerInFlight;
+  if (registerInFlight) {
+    console.log('[DooPush] register already in flight, reuse promise');
+    return registerInFlight;
+  }
 
   registerInFlight = (async () => {
     const cached = await getCachedRegistration();
-    if (cached) return cached;
+    if (cached) {
+      console.log('[DooPush] 使用缓存注册信息', { deviceId: cached.deviceId, vendor: cached.vendor, hasToken: Boolean(cached.token) });
+      return cached;
+    }
 
     await assertNetworkAvailable();
-    return DooPush.register();
+    console.log('[DooPush] calling native register');
+    try {
+      const result = await DooPush.register();
+      console.log('[DooPush] native register resolved', { deviceId: result.deviceId, vendor: result.vendor, hasToken: Boolean(result.token) });
+      return result;
+    } catch (e) {
+      console.warn('[DooPush] native register rejected detail', describeDooPushError(e));
+      throw e;
+    }
   })();
 
   try {
     return await registerInFlight;
   } finally {
     registerInFlight = null;
+    logDooPushRuntimeState('safeDooPushRegister:end');
   }
 }

@@ -15,7 +15,7 @@ import { I18nProvider, loadSavedLang, type Lang } from './src/i18n';
 import { DataProvider, useData } from './src/data/DataProvider';
 import { DEFAULT_ME, meName, upsertPushDevice } from './src/data';
 import { getSession, getValidSession, onAuthStateChange } from './src/lib/auth';
-import { markDooPushConfigured, markDooPushUnconfigured, safeDooPushRegister } from './src/lib/doopushRegister';
+import { describeDooPushError, markDooPushConfigured, markDooPushUnconfigured, safeDooPushRegister } from './src/lib/doopushRegister';
 
 import HomeFeed from './src/screens/HomeFeed';
 import Drawer from './src/screens/Drawer';
@@ -353,7 +353,7 @@ function AuthGate() {
       markDooPushConfigured();
     } catch (e) {
       markDooPushUnconfigured();
-      console.warn('[DooPush] 初始化失败，跳过推送注册', e);
+      console.warn('[DooPush] 初始化失败，跳过推送注册', describeDooPushError(e));
       return;
     }
 
@@ -376,7 +376,7 @@ function AuthGate() {
         setPushInfo({ token, deviceId });
       })
       .catch((e) => {
-        console.warn('[DooPush] 注册失败', e);
+        console.warn('[DooPush] 注册失败 detail', describeDooPushError(e));
       });
 
     return () => {
