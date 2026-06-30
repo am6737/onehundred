@@ -2641,8 +2641,8 @@ export default function Settings({ navigation, route }: any) {
           />
         </SettingGroup>
 
-        {/* ── Pet reminders ── */}
-        {showMascot && <PetNotifyGroup />}
+        {/* ── Notifications ── */}
+        <PetNotifyGroup />
 
         {/* ── Pet section ── */}
         {showMascot && kids.length > 0 && (
