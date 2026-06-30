@@ -15,7 +15,7 @@ import { I18nProvider, loadSavedLang, type Lang } from './src/i18n';
 import { DataProvider, useData } from './src/data/DataProvider';
 import { DEFAULT_ME, meName, upsertPushDevice } from './src/data';
 import { getSession, getValidSession, onAuthStateChange } from './src/lib/auth';
-import { safeDooPushRegister } from './src/lib/doopushRegister';
+import { markDooPushConfigured, markDooPushUnconfigured, safeDooPushRegister } from './src/lib/doopushRegister';
 
 import HomeFeed from './src/screens/HomeFeed';
 import Drawer from './src/screens/Drawer';
@@ -345,10 +345,17 @@ function AuthGate() {
       console.warn('[DooPush] 缺少 appId/apiKey，跳过推送初始化（检查 .env 的 EXPO_PUBLIC_DOOPUSH_* 是否齐全）');
       return;
     }
-    DooPush.configure({
-      appId: doopush.appId,
-      apiKey: doopush.apiKey,
-    });
+    try {
+      DooPush.configure({
+        appId: doopush.appId,
+        apiKey: doopush.apiKey,
+      });
+      markDooPushConfigured();
+    } catch (e) {
+      markDooPushUnconfigured();
+      console.warn('[DooPush] 初始化失败，跳过推送注册', e);
+      return;
+    }
 
     const msgSub = DooPush.addMessageListener((m) => {
       console.log('[DooPush] 收到推送', m);
@@ -376,6 +383,7 @@ function AuthGate() {
       msgSub.remove();
       clickSub.remove();
       openSub.remove();
+      markDooPushUnconfigured();
     };
   }, []);
 

@@ -3,6 +3,16 @@ import { DooPush } from 'doopush-react-native-sdk';
 type PushRegistration = { token: string; deviceId: string; vendor?: string };
 
 let registerInFlight: Promise<PushRegistration> | null = null;
+let configured = false;
+
+export function markDooPushConfigured() {
+  configured = true;
+}
+
+export function markDooPushUnconfigured() {
+  configured = false;
+  registerInFlight = null;
+}
 
 async function getCachedRegistration(): Promise<PushRegistration | null> {
   const [token, deviceId] = await Promise.all([
@@ -34,6 +44,9 @@ async function assertNetworkAvailable() {
  * and reuse cached registration whenever native already has token + deviceId.
  */
 export async function safeDooPushRegister(): Promise<PushRegistration> {
+  if (!configured) {
+    throw new Error('DooPush 尚未初始化，请先检查 EXPO_PUBLIC_DOOPUSH_APP_ID / EXPO_PUBLIC_DOOPUSH_API_KEY 是否已注入并成功 configure');
+  }
   if (registerInFlight) return registerInFlight;
 
   registerInFlight = (async () => {

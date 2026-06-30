@@ -116,7 +116,8 @@ const config: ExpoConfig = {
 if (DOOPUSH_APP_ID && DOOPUSH_API_KEY) {
   const androidVendors: Record<string, unknown> = {};
 
-  // OPPO 推送：凭据由环境变量注入。缺失时跳过，避免 EAS 引导/本地 config 解析失败。
+  // Android 按 DooPush React Native 文档只接 OPPO vendor；不配置 FCM。
+  // OPPO 凭据由环境变量注入。缺失时跳过，避免 EAS 引导/本地 config 解析失败。
   if (DOOPUSH_OPPO_APP_KEY && DOOPUSH_OPPO_APP_SECRET) {
     androidVendors.oppo = {
       appKey: DOOPUSH_OPPO_APP_KEY,
