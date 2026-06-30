@@ -22,7 +22,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme, COLORS } from '../theme/tokens';
 import { useI18n, useT } from '../i18n';
 import { ROLES, DEFAULT_ME, meName, meChar, roleLabel, NOW_YM, fetchNotificationPrefs, updateNotificationPrefs, fetchNotificationTemplates, sendTestNotification } from '../data';
-import { useFeatureGate, setFeatureEnabled, isFeatureEnabled, getFeatureGateIds, type FeatureGateId } from '../lib/featureGates';
 import { useData } from '../data/DataProvider';
 import { signOut, isAnonymous, bindEmail, deleteAccount, getCurrentUserPhone, maskPhone, updatePhone, verifyPhoneChange, signInWithApple, bindApple, isAppleSignInAvailable, getLinkedProviders, unbindProvider } from '../lib/auth';
 import { getInviteExpiryHours, setInviteExpiryHours, INVITE_EXPIRY_OPTIONS, DEFAULT_INVITE_EXPIRY } from '../lib/yaoji';
@@ -93,11 +92,13 @@ function Row({ icon = null, title, sub = null, value = null, onPress = null, las
       <View style={{ flex: 1, minWidth: 0 }}>
         <Text style={{
           fontFamily: theme.fonts.body, fontSize: 15.5, color: theme.ink,
+          includeFontPadding: false,
         }}>{title}</Text>
         {sub ? (
           <Text style={{
             marginTop: 2, fontFamily: theme.fonts.body,
             fontSize: 12.5, color: theme.inkSoft, lineHeight: 19,
+            includeFontPadding: false,
           }}>{sub}</Text>
         ) : null}
       </View>
@@ -105,6 +106,7 @@ function Row({ icon = null, title, sub = null, value = null, onPress = null, las
       {value != null ? (
         <Text style={{
           fontFamily: theme.fonts.body, fontSize: 14, color: theme.inkSoft,
+          includeFontPadding: false,
         }}>{value}</Text>
       ) : null}
       {tappable ? Icon.chevR(theme.inkSoft, 18) : null}
@@ -134,11 +136,13 @@ function ToggleRow({ icon, title, sub, value, onValueChange, last }: any) {
       <View style={{ flex: 1, minWidth: 0 }}>
         <Text style={{
           fontFamily: theme.fonts.body, fontSize: 15.5, color: theme.ink,
+          includeFontPadding: false,
         }}>{title}</Text>
         {sub ? (
           <Text style={{
             marginTop: 2, fontFamily: theme.fonts.body,
             fontSize: 12.5, color: theme.inkSoft, lineHeight: 19,
+            includeFontPadding: false,
           }}>{sub}</Text>
         ) : null}
       </View>
@@ -276,12 +280,12 @@ function IdentityRow({ me, options, onSelect, divider = false }: any) {
           borderBottomWidth: divider ? 1 : 0, borderBottomColor: theme.line,
         }}
       >
-        <Text style={{ flex: 1, fontFamily: theme.fonts.body, fontSize: 15.5, color: theme.ink }}>
+        <Text style={{ flex: 1, fontFamily: theme.fonts.body, fontSize: 15.5, color: theme.ink, includeFontPadding: false }}>
           {t('settings.iAm')}
         </Text>
         <Text style={{
           fontFamily: theme.fonts.body, fontSize: 14.5,
-          color: open ? theme.accent : theme.inkSoft,
+          color: open ? theme.accent : theme.inkSoft, includeFontPadding: false,
         }}>{meName(me)}</Text>
         <View style={{ transform: [{ rotate: open ? '180deg' : '0deg' }] }}>
           {Icon.chevDown(open ? theme.accent : theme.inkSoft, 18)}
@@ -315,7 +319,7 @@ function IdentityRow({ me, options, onSelect, divider = false }: any) {
                   >
                     <Text style={{
                       flex: 1, fontFamily: theme.fonts.body, fontSize: 14.5,
-                      color: on ? theme.accent : theme.ink,
+                      color: on ? theme.accent : theme.ink, includeFontPadding: false,
                     }}>{roleLabel(o)}</Text>
                     {on ? Icon.check(theme.accent, 14) : null}
                   </TouchableOpacity>
@@ -375,14 +379,14 @@ function SelectRow({ icon = null, title, sub = null, options, value, onSelect, l
           }}>{icon}</View>
         ) : null}
         <View style={{ flex: 1, minWidth: 0 }}>
-          <Text style={{ fontFamily: theme.fonts.body, fontSize: 15.5, color: theme.ink }}>{title}</Text>
+          <Text style={{ fontFamily: theme.fonts.body, fontSize: 15.5, color: theme.ink, includeFontPadding: false }}>{title}</Text>
           {sub ? (
-            <Text style={{ marginTop: 2, fontFamily: theme.fonts.body, fontSize: 12.5, color: theme.inkSoft, lineHeight: 19 }}>{sub}</Text>
+            <Text style={{ marginTop: 2, fontFamily: theme.fonts.body, fontSize: 12.5, color: theme.inkSoft, lineHeight: 19, includeFontPadding: false }}>{sub}</Text>
           ) : null}
         </View>
         <Text style={{
           fontFamily: theme.fonts.body, fontSize: 14,
-          color: open ? theme.accent : theme.inkSoft,
+          color: open ? theme.accent : theme.inkSoft, includeFontPadding: false,
         }}>{valueLabel}</Text>
         <View style={{ transform: [{ rotate: open ? '180deg' : '0deg' }] }}>
           {Icon.chevDown(open ? theme.accent : theme.inkSoft, 18)}
@@ -416,7 +420,7 @@ function SelectRow({ icon = null, title, sub = null, options, value, onSelect, l
                   >
                     <Text style={{
                       flex: 1, fontFamily: theme.fonts.body, fontSize: 14.5,
-                      color: on ? theme.accent : theme.ink,
+                      color: on ? theme.accent : theme.ink, includeFontPadding: false,
                     }}>{o.label}</Text>
                     {on ? Icon.check(theme.accent, 14) : null}
                   </TouchableOpacity>
@@ -489,14 +493,14 @@ function ChildProfileSheet({ kid, onChange, onClose }: any) {
               paddingVertical: 16, paddingHorizontal: 18,
               borderBottomWidth: 1, borderBottomColor: theme.line,
             }}>
-              <Text style={{ fontFamily: theme.fonts.body, fontSize: 15.5, color: theme.ink }}>{t('onboarding.birthYear')}</Text>
+              <Text style={{ fontFamily: theme.fonts.body, fontSize: 15.5, color: theme.ink, includeFontPadding: false }}>{t('onboarding.birthYear')}</Text>
               <Stepper value={y} min={2008} max={NOW_YM.y} onChange={setY} fmt={v => t('onboarding.yearFmt', { v })} />
             </View>
             <View style={{
               flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
               paddingVertical: 16, paddingHorizontal: 18,
             }}>
-              <Text style={{ fontFamily: theme.fonts.body, fontSize: 15.5, color: theme.ink }}>{t('onboarding.birthMonth')}</Text>
+              <Text style={{ fontFamily: theme.fonts.body, fontSize: 15.5, color: theme.ink, includeFontPadding: false }}>{t('onboarding.birthMonth')}</Text>
               <Stepper value={m} min={1} max={12} wrap onChange={setM} fmt={v => t('onboarding.monthFmt', { v })} />
             </View>
           </View>
@@ -601,14 +605,14 @@ function AddChildSheet({ onAdd, onClose }: any) {
               paddingVertical: 16, paddingHorizontal: 18,
               borderBottomWidth: 1, borderBottomColor: theme.line,
             }}>
-              <Text style={{ fontFamily: theme.fonts.body, fontSize: 15.5, color: theme.ink }}>{t('onboarding.birthYear')}</Text>
+              <Text style={{ fontFamily: theme.fonts.body, fontSize: 15.5, color: theme.ink, includeFontPadding: false }}>{t('onboarding.birthYear')}</Text>
               <Stepper value={y} min={2008} max={NOW_YM.y} onChange={setY} fmt={v => t('onboarding.yearFmt', { v })} />
             </View>
             <View style={{
               flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
               paddingVertical: 16, paddingHorizontal: 18,
             }}>
-              <Text style={{ fontFamily: theme.fonts.body, fontSize: 15.5, color: theme.ink }}>{t('onboarding.birthMonth')}</Text>
+              <Text style={{ fontFamily: theme.fonts.body, fontSize: 15.5, color: theme.ink, includeFontPadding: false }}>{t('onboarding.birthMonth')}</Text>
               <Stepper value={m} min={1} max={12} wrap onChange={setM} fmt={v => t('onboarding.monthFmt', { v })} />
             </View>
           </View>
@@ -693,7 +697,7 @@ function MemberRow({ avatar, name, role, last = false }: any) {
       borderBottomWidth: last ? 0 : 1, borderBottomColor: theme.line,
     }}>
       {avatar}
-      <Text style={{ flex: 1, fontFamily: theme.fonts.body, fontSize: 15.5, color: theme.ink }}>{name}</Text>
+      <Text style={{ flex: 1, fontFamily: theme.fonts.body, fontSize: 15.5, color: theme.ink, includeFontPadding: false }}>{name}</Text>
       <Text style={{ fontFamily: theme.fonts.body, fontSize: 13, color: theme.inkSoft }}>{role}</Text>
     </View>
   );
@@ -1580,6 +1584,7 @@ function AccountSecuritySheet({ anon, onAnonChanged, onClose }: any) {
                 </View>
                 <Text style={{
                   flex: 1, fontFamily: theme.fonts.body, fontSize: 15.5, color: '#C0616B',
+                  includeFontPadding: false,
                 }}>{t('settings.deleteAccount')}</Text>
                 {Icon.chevR(theme.inkSoft, 18)}
               </TouchableOpacity>
@@ -1823,58 +1828,6 @@ function flashToast(msg: string) {
   if (Platform.OS === 'android') ToastAndroid.show(msg, ToastAndroid.SHORT);
 }
 
-const GATE_I18N: Record<FeatureGateId, { zh: [string, string]; en: [string, string] }> = {
-  mascot: {
-    zh: ['宠物系统', '小伙伴养成、衣橱、成长提醒'],
-    en: ['Pet System', 'Pet companion, wardrobe, growth reminders'],
-  },
-};
-
-function FeatureGateSection() {
-  const { theme } = useTheme();
-  const { lang } = useI18n();
-  const t = useT();
-  const ids = getFeatureGateIds();
-  const mascotOn = useFeatureGate('mascot');
-
-  return (
-    <View style={{ marginTop: 16 }}>
-      <Text style={{
-        marginLeft: 6, marginBottom: 7, fontFamily: theme.fonts.body,
-        fontSize: 12.5, color: theme.inkSoft, letterSpacing: 0.3,
-      }}>
-        {t('settings.devSecFeatureGates')}
-      </Text>
-      <View style={{
-        backgroundColor: theme.paper, borderWidth: 1, borderColor: theme.line,
-        borderRadius: 18, overflow: 'hidden',
-      }}>
-        {ids.map((id, i) => {
-          const meta = GATE_I18N[id];
-          const [label, desc] = lang === 'en' ? meta.en : meta.zh;
-          const on = id === 'mascot' ? mascotOn : isFeatureEnabled(id);
-          return (
-            <ToggleRow
-              key={id}
-              title={label}
-              sub={desc}
-              value={on}
-              onValueChange={(v: boolean) => setFeatureEnabled(id, v)}
-              last={i === ids.length - 1}
-            />
-          );
-        })}
-      </View>
-      <Text style={{
-        paddingTop: 8, paddingHorizontal: 6, fontFamily: theme.fonts.body,
-        fontSize: 11.5, color: theme.inkSoft, lineHeight: 16,
-      }}>
-        {t('settings.devFeatureGateHint')}
-      </Text>
-    </View>
-  );
-}
-
 function DevToolsSheet({ onClose, onLock }: any) {
   const { theme, mode } = useTheme();
   const { lang } = useI18n();
@@ -1927,9 +1880,8 @@ function DevToolsSheet({ onClose, onLock }: any) {
 
   useEffect(() => { refresh(); }, [refresh]);
 
-  // 当前孩子的宠物 species（决定测试推送/预览用哪套文案），缺省 bear
-  const primaryKidId = data.kids?.[0]?.id;
-  const species = (primaryKidId ? data.getMascot?.(primaryKidId)?.species : null) || 'bear';
+  // 推送测试/预览用的文案物种：与线上 sender 行为一致，固定 squirrel。
+  const species = 'squirrel';
 
   // 拉取通知模板（按当前语言 + species），供「推送测试」分组内联预览
   useEffect(() => {
@@ -2380,8 +2332,6 @@ function DevToolsSheet({ onClose, onLock }: any) {
             row({ id: 'supa', label: t('settings.devSupabase'), value: supaHost, block: true, last: true }),
           ])}
 
-          <FeatureGateSection />
-
           <View style={{ marginTop: 22, gap: 12 }}>
             <PrimaryButton
               label={registering ? t('settings.devRegistering') : t('settings.devRegister')}
@@ -2507,9 +2457,8 @@ function PetNotifyGroup() {
 export default function Settings({ navigation, route }: any) {
   const { theme, mode: themeMode, setTheme } = useTheme();
   const { lang, setLang, t } = useI18n();
-  const showMascot = useFeatureGate('mascot');
   const insets = useSafeAreaInsets();
-  const { kids: dataKids, editKid, addKid: dbAddKid, setSpecies, FAMILY, getKid, kidLabel, getMascot, profile, updateMe } = useData();
+  const { kids: dataKids, editKid, addKid: dbAddKid, FAMILY, getKid, kidLabel, profile, updateMe } = useData();
 
   // 身份（我是谁）直接走 DataProvider：profile 是唯一真源，避免把回调函数塞进导航参数
   // （会触发 React Navigation 的 non-serializable 警告）。本地 state 让选择即时反映。
@@ -2569,12 +2518,11 @@ export default function Settings({ navigation, route }: any) {
     setKids(ks => ks.map(k => k.id === editId ? { ...k, ...patch } : k));
     editKid(editId, patch).catch(e => console.warn('updateKid:', e?.message || e));
   };
-  // 添加小朋友：真正落库拿到 id，再为 TA 选一只小伙伴（宠物绑在孩子身上）。
+  // 添加小朋友：真正落库拿到 id 后并入本地列表。
   const addKid = async (k) => {
     try {
       const kid = await dbAddKid({ name: k.name, y: k.y, m: k.m, tone: k.tone });
       setKids(ks => [...ks, kid]);
-      if (showMascot) navigation.navigate('PetPicker', { kidId: kid.id });
     } catch (e: any) {
       console.warn('addKid:', e?.message || e);
       Alert.alert(t('onboarding.saveFailTitle'), t('onboarding.networkRetry'));
@@ -2643,26 +2591,6 @@ export default function Settings({ navigation, route }: any) {
 
         {/* ── Notifications ── */}
         <PetNotifyGroup />
-
-        {/* ── Pet section ── */}
-        {showMascot && kids.length > 0 && (
-          <SettingGroup label={t('settings.groupPet')} note={t('settings.petNote')}>
-            {kids.map((k, i) => {
-              const mas = getMascot(k.id);
-              return (
-                <Row
-                  key={k.id}
-                  icon={<KidAvatar name={k.name} tone={k.tone} size={32} />}
-                  title={t('settings.changePet')}
-                  sub={k.name}
-                  value={mas?.name || ''}
-                  onPress={() => navigation.navigate('PetPicker', { kidId: k.id })}
-                  last={i === kids.length - 1}
-                />
-              );
-            })}
-          </SettingGroup>
-        )}
 
         {/* ── Family section ── */}
         <SettingGroup label={t('settings.groupFamily')}>

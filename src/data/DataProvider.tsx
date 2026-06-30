@@ -1,12 +1,12 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import {
-  fetchLevels, fetchKids, fetchMemories, fetchMascots,
-  fetchWardrobe, fetchCustomLevels, fetchProfile, insertCustomLevel,
+  fetchLevels, fetchKids, fetchMemories,
+  fetchCustomLevels, fetchProfile, insertCustomLevel,
   updateCustomLevel, deleteCustomLevel,
-  insertMemory, insertKid, updateKid, updateProfile, deleteMemory, setMascotSpecies,
+  insertMemory, insertKid, updateKid, updateProfile, deleteMemory,
   getKidFrom, kidLabelFrom, kidDoneFrom, memoriesForKidFrom, memoriesForLevelFrom,
-  allLevelsFrom, getMascotFrom, wardrobeStateFrom, nextUnlockFrom,
+  allLevelsFrom,
   throwbackFrom, yearReviewFrom, levelWeightFrom, weightedShuffleFrom,
   frameLabelFrom,
   FAMILY,
@@ -36,8 +36,6 @@ export function DataProvider({ children, userId }) {
   const [levels, setLevels] = useState<any[]>([]);
   const [kids, setKids] = useState<any[]>([]);
   const [memories, setMemories] = useState<any[]>([]);
-  const [mascots, setMascots] = useState<Record<string, any>>({});
-  const [wardrobe, setWardrobe] = useState<any[]>([]);
   const [customLevels, setCustomLevels] = useState<any[]>([]);
   const [profile, setProfile] = useState<any>(null);
   const [family, setFamily] = useState<any>(null);
@@ -61,17 +59,15 @@ export function DataProvider({ children, userId }) {
     setLoaded(false);
     setError(null);
     try {
-      const [lv, ki, me, ma, wa, cl, pr, fam] = await withRetry(() =>
+      const [lv, ki, me, cl, pr, fam] = await withRetry(() =>
         Promise.all([
-          fetchLevels(), fetchKids(), fetchMemories(), fetchMascots(),
-          fetchWardrobe(), fetchCustomLevels(), fetchProfile(), fetchMyFamily(),
+          fetchLevels(), fetchKids(), fetchMemories(),
+          fetchCustomLevels(), fetchProfile(), fetchMyFamily(),
         ])
       );
       setLevels(lv);
       setKids(ki);
       setMemories(me);
-      setMascots(ma);
-      setWardrobe(wa);
       setCustomLevels(cl);
       setProfile(pr);
       setFamily(fam);
@@ -92,11 +88,8 @@ export function DataProvider({ children, userId }) {
   const memoriesForKid = useCallback((id) => memoriesForKidFrom(memories, id), [memories]);
   const memoriesForLevel = useCallback((levelNum) => memoriesForLevelFrom(memories, levelNum), [memories]);
   const allLevels = useCallback(() => allLevelsFrom(customLevels, levels), [customLevels, levels]);
-  const getMascot = useCallback((id) => getMascotFrom(mascots, id), [mascots]);
-  const wardrobeState = useCallback((done) => wardrobeStateFrom(wardrobe, done), [wardrobe]);
-  const nextUnlock = useCallback((done) => nextUnlockFrom(wardrobe, done), [wardrobe]);
   const throwback = useCallback((kidId?) => throwbackFrom(memories, kidId), [memories]);
-  const yearReview = useCallback((kidId?) => yearReviewFrom(memories, mascots, wardrobe, kidId), [memories, mascots, wardrobe]);
+  const yearReview = useCallback((kidId?) => yearReviewFrom(memories, kidId), [memories]);
   const frameLabel = useCallback((perspective, kidId, meLabel?) => frameLabelFrom(kids, perspective, kidId, meLabel), [kids]);
   const levelWeight = useCallback((l, kid) => levelWeightFrom(kids, l, kid), [kids]);
   const weightedShuffle = useCallback((arr, kid, seed) => weightedShuffleFrom(kids, arr, kid, seed), [kids]);
@@ -140,12 +133,6 @@ export function DataProvider({ children, userId }) {
     setKids(prev => prev.map(k => k.id === id ? { ...k, ...fields } : k));
   }, []);
 
-  const setSpecies = useCallback(async (kidId, species) => {
-    const m = await setMascotSpecies(kidId, species);
-    setMascots(prev => ({ ...prev, [kidId]: m }));
-    return m;
-  }, []);
-
   const updateMe = useCallback(async (fields) => {
     await updateProfile(fields);
     setProfile(prev => prev ? { ...prev, ...fields } : prev);
@@ -175,12 +162,12 @@ export function DataProvider({ children, userId }) {
   const dismissError = useCallback(() => setError(null), []);
 
   const value = {
-    levels, kids, memories, mascots, wardrobe, customLevels, profile, family, loading, loaded, error,
+    levels, kids, memories, customLevels, profile, family, loading, loaded, error,
     refresh: loadAll, dismissError,
     getKid, kidLabel, kidDone, memoriesForKid, memoriesForLevel, allLevels,
-    getMascot, wardrobeState, nextUnlock, throwback, yearReview,
+    throwback, yearReview,
     frameLabel, levelWeight, weightedShuffle,
-    addMemory, removeMemory, addKid, editKid, setSpecies, addCustomLevel, editCustomLevel, removeCustomLevel, updateMe,
+    addMemory, removeMemory, addKid, editKid, addCustomLevel, editCustomLevel, removeCustomLevel, updateMe,
     createFamily, joinFamily, leaveFamily, removeMember,
     FAMILY,
   };

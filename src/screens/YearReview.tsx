@@ -3,25 +3,19 @@ import { View, Text, TouchableOpacity, Dimensions, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/tokens';
 import { useT } from '../i18n';
-import { PET_BODY } from '../data';
-import { useFeatureGate } from '../lib/featureGates';
 import { useData } from '../data/DataProvider';
 import { Icon } from '../components/Icons';
-import { Bear } from '../components/Bear';
 
 const { width: SW, height: SH } = Dimensions.get('window');
 
 export default function YearReview({ navigation, route }) {
   const { theme } = useTheme();
   const t = useT();
-  const showMascot = useFeatureGate('mascot');
-  const { getKid, getMascot, wardrobeState, yearReview } = useData();
+  const { getKid, yearReview } = useData();
   const insets = useSafeAreaInsets();
   const kidId = route?.params?.kidId || 'all';
   const data = useMemo(() => yearReview(kidId), [kidId, yearReview]);
   const who = kidId === 'all' ? t('yearReview.family') : (getKid(kidId)?.name || t('drawer.child'));
-  const mascot = kidId === 'all' ? { name: t('yearReview.defaultMascot'), tone: 'orange' } : (getMascot(kidId) || { name: t('yearReview.defaultMascot'), tone: 'orange' });
-  const acc = wardrobeState(data.total).filter(w => w.got);
   const [cardIndex, setCardIndex] = useState(0);
 
   const P_LABELS = [
@@ -45,11 +39,6 @@ export default function YearReview({ navigation, route }) {
         marginTop: 18, maxWidth: 280, fontFamily: theme.fonts.body,
         fontSize: 16, lineHeight: 30, color: theme.inkSoft, textAlign: 'center',
       }}>{t('yearReview.coverBody', { who })}</Text>
-      {showMascot && (
-        <View style={{ marginTop: 26 }}>
-          <Bear size={120} stage={PET_BODY} accessories={acc.map(a => a.id)} tone={mascot.tone || 'orange'} mood="happy" />
-        </View>
-      )}
     </View>
   );
 
@@ -133,38 +122,9 @@ export default function YearReview({ navigation, route }) {
     );
   }
 
-  // Card 4: Bear grew — 宠物系统隐藏时整张卡片跳过
-  if (showMascot) {
-    cards.push(
-      <View key="bear" style={{ alignItems: 'center' }}>
-        <Text style={{ fontFamily: theme.fonts.body, fontSize: 15.5, color: theme.inkSoft, letterSpacing: 1 }}>
-          {t('yearReview.bearLead', { name: mascot.name || t('yearReview.bearDefault') })}
-        </Text>
-        <View style={{ marginTop: 18 }}>
-          <Bear size={138} stage={PET_BODY} accessories={acc.map(a => a.id)} tone={mascot.tone || 'orange'} mood="celebrate" />
-        </View>
-        <Text style={{
-          marginTop: 14, fontFamily: theme.fonts.head, fontSize: 26, color: theme.ink,
-        }}>{t('yearReview.bearUnlocked', { n: acc.length })}</Text>
-        <View style={{ marginTop: 14, flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
-          {acc.map(a => (
-            <View key={a.id} style={{
-              paddingHorizontal: 15, paddingVertical: 8, borderRadius: 999, backgroundColor: theme.sand,
-            }}>
-              <Text style={{ fontFamily: theme.fonts.head, fontSize: 14, color: theme.ink }}>{a.name}</Text>
-            </View>
-          ))}
-        </View>
-      </View>
-    );
-  }
-
   // Card 5: Ending
   cards.push(
     <View key="end" style={{ alignItems: 'center' }}>
-      {showMascot && (
-        <Bear size={104} stage={PET_BODY} accessories={['scarf', 'hat']} tone={mascot.tone || 'orange'} mood="sleepy" />
-      )}
       <Text style={{
         marginTop: 14, fontFamily: theme.fonts.head, fontSize: 28, lineHeight: 39,
         color: theme.ink, textAlign: 'center',

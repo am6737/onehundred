@@ -36,11 +36,6 @@ export const NOW_YM = {
   get m() { return new Date().getMonth() + 1; },
 };
 
-export const PET_BODY = 3;
-
-// 宠物系统开关已迁移到功能门：src/lib/featureGates.ts
-// 组件内用 useFeatureGate('mascot')，非组件代码用 isFeatureEnabled('mascot')。
-
 // 可重复做的内置事——这些事做完后仍然可以"再做一次"。
 // 自定义事（custom）默认也可以重复。以后可由算法动态决定。
 export const REPEATABLE_LEVELS = new Set(['05']);
@@ -143,24 +138,12 @@ function mapKid(row) {
   };
 }
 
-function mapMascot(row) {
-  return {
-    kid: row.kid_id, name: row.name, tone: row.tone, since: row.since,
-    stage: row.stage, grown: row.grown, items: row.items, log: row.log,
-    species: row.species ?? 'bear',
-  };
-}
-
 function mapCustomLevel(row) {
   return {
     id: row.id, num: row.num, perspective: row.perspective, tone: row.tone, custom: true,
     title: row.title, why: row.why, how: row.how, record: row.record_hint,
     suggest: row.suggest, illustrationPath: row.illustration_path,
   };
-}
-
-function mapWardrobe(row) {
-  return { id: row.id, name: row.name, slot: row.slot, at: row.at, line: row.line };
 }
 
 // ── Async fetch functions ──
@@ -181,20 +164,6 @@ export async function fetchMemories() {
   const { data, error } = await supabase.from('memories').select('*').order('created_at', { ascending: false });
   if (error) throw error;
   return (data || []).map(mapMemory);
-}
-
-export async function fetchMascots() {
-  const { data, error } = await supabase.from('mascots').select('*');
-  if (error) throw error;
-  const obj = {};
-  (data || []).forEach(row => { obj[row.kid_id] = mapMascot(row); });
-  return obj;
-}
-
-export async function fetchWardrobe() {
-  const { data, error } = await supabase.from('wardrobe').select('*').order('at');
-  if (error) throw error;
-  return (data || []).map(mapWardrobe);
 }
 
 export async function fetchCustomLevels() {
@@ -691,46 +660,6 @@ export function allLevelsFrom(customLevels, levels) {
   return [...customLevels, ...levels];
 }
 
-export function getMascotFrom(mascots, id) {
-  return mascots[id] || mascots[Object.keys(mascots)[0]] || { kid: id, name: '', tone: 'orange', since: '', stage: 1, grown: 0, items: [], log: [], species: 'bear' };
-}
-
-// 宠物种类默认名（新建 mascot 行时用）。
-const PET_DEFAULT_NAME: Record<string, { zh: string; en: string }> = {
-  bear: { zh: '团团', en: 'Dango' },
-  dog:  { zh: '旺旺', en: 'Woof' },
-  cat:  { zh: '咪咪', en: 'Mimi' },
-};
-
-// 写入孩子选的宠物种类：有 mascot 行就更新，没有就新建（建娃时不会自动建行）。
-export async function setMascotSpecies(kidId: string, species: string) {
-  const { data: updated, error: upErr } = await supabase
-    .from('mascots').update({ species }).eq('kid_id', kidId).select();
-  if (upErr) throw upErr;
-  if (updated && updated.length) return mapMascot(updated[0]);
-
-  const familyId = await getMyFamilyId();
-  if (!familyId) throw new Error('no_family');
-  const name = (PET_DEFAULT_NAME[species] ?? PET_DEFAULT_NAME.bear)[getLang() === 'en' ? 'en' : 'zh'];
-  const { data: inserted, error: insErr } = await supabase
-    .from('mascots').insert({ kid_id: kidId, family_id: familyId, name, species }).select().single();
-  if (insErr) throw insErr;
-  return mapMascot(inserted);
-}
-
-export function wardrobeStateFrom(wardrobe, done) {
-  return wardrobe.map(w => ({ ...w, got: done >= w.at }));
-}
-
-export function nextUnlockFrom(wardrobe, done) {
-  const next = wardrobe.find(w => done < w.at) || null;
-  const unlocked = wardrobe.filter(w => done >= w.at).length;
-  if (!next) return { next: null, remain: 0, ratio: 1, unlocked, total: wardrobe.length };
-  const prevAt = [...wardrobe].reverse().find(w => done >= w.at)?.at || 0;
-  const span = next.at - prevAt || 1;
-  return { next, remain: next.at - done, ratio: Math.min(1, (done - prevAt) / span), unlocked, total: wardrobe.length };
-}
-
 export function throwbackFrom(memories, kidId = 'all') {
   const list = kidId === 'all' ? memories : memories.filter(m => m.kid === kidId || m.kid === 'all');
   if (list.length < 2) return null;
@@ -792,7 +721,7 @@ export function frameLabelFrom(kids, perspective, kidId, meLabel = t('role.paren
   return PERSPECTIVES[perspective].long;
 }
 
-export function yearReviewFrom(memories, mascots, wardrobe, kidId = 'all') {
+export function yearReviewFrom(memories, kidId = 'all') {
   const list = kidId === 'all' ? memories : memories.filter(m => m.kid === kidId || m.kid === 'all');
   const byP = { parent: 0, child: 0, together: 0 };
   const byType = { voice: 0, photo: 0, text: 0, video: 0 };
@@ -803,14 +732,10 @@ export function yearReviewFrom(memories, mascots, wardrobe, kidId = 'all') {
     if (m.place && !isMemoryLocked(m)) places[m.place] = (places[m.place] || 0) + 1; // 封存中不泄露地点
   });
   const top = Object.entries(places).sort((a, b) => (b[1] as number) - (a[1] as number))[0];
-  const doneCount = kidId === 'all' ? memories.length : list.length;
-  const mascot = kidId === 'all' ? mascots[Object.keys(mascots)[0]] : (mascots[kidId] || { grown: 0 });
   return {
     total: list.length, byP, byType,
     voiceCount: byType.voice,
     topPlace: top ? top[0] : null,
-    grown: mascot?.grown || 0,
-    unlocked: nextUnlockFrom(wardrobe, mascot?.grown || 0).unlocked,
     firstTitle: list.length ? list[list.length - 1].title : null,
     lastTitle: list.length ? list[0].title : null,
   };

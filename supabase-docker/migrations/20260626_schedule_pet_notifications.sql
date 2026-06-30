@@ -23,19 +23,20 @@ SELECT cron.unschedule(jobid)
 FROM cron.job
 WHERE jobname = 'check-notification-triggers';
 
--- 每小时整点触发。URL 用 compose 网络内的 Kong 网关地址
+-- 每小时 :23 分触发（非整点，模拟真人感；设计文档 §4.2）。
+-- URL 用 compose 网络内的 Kong 网关地址
 -- （与 functions 服务的 SUPABASE_URL=http://kong:8000 一致）；
 -- functions-v1 路由无 key-auth 且 FUNCTIONS_VERIFY_JWT=false，故无需鉴权头。
--- timeout 放宽到 60s：一次扫描要顺序发多台设备的 DooPush，默认 5s 会被截断。
+-- timeout 放宽到 180s：含随机 jitter（最长 ~120s）+ 顺序发多台设备的 DooPush。
 SELECT cron.schedule(
   'check-notification-triggers',
-  '0 * * * *',
+  '23 * * * *',
   $cmd$
     SELECT net.http_post(
       url     := 'http://kong:8000/functions/v1/send-pet-notifications',
       body    := '{}'::jsonb,
       headers := '{"Content-Type": "application/json"}'::jsonb,
-      timeout_milliseconds := 60000
+      timeout_milliseconds := 180000
     );
   $cmd$
 );

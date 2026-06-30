@@ -79,8 +79,9 @@ DO $$ BEGIN
     WITH CHECK (family_id = public.my_family_id());
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
--- ── 5. 模板种子数据（7 场景 × 3 宠物 × 2 语言 = 42 行）──
--- title = 宠物名（团团/旺旺/咪咪 · Dango/Woof/Mimi）；body 来自通知方案文案。
+-- ── 5. 模板种子数据（7 场景 × 4 形象 × 2 语言 = 56 行）──
+-- title = 形象名。MVP 实际使用 squirrel（果果 / Pip）；bear/dog/cat（团团/旺旺/咪咪 ·
+-- Dango/Woof/Mimi）为已搁置宠物系统的参考数据，保留不用。
 INSERT INTO public.notification_templates (scene, species, lang, title, body) VALUES
 -- 场景 1：gentle_remind（3 天没记录）
 ('gentle_remind', 'bear', 'zh', '团团', '团团翻了翻日记本，最近几页还是空白的呢'),
@@ -130,7 +131,22 @@ INSERT INTO public.notification_templates (scene, species, lang, title, body) VA
 ('streak', 'dog',  'zh', '旺旺', '{{days}} 天连续记录！！旺旺骄傲得尾巴都摇断了！'),
 ('streak', 'dog',  'en', 'Woof', '{{days}} days straight!! Woof''s tail is wagging off!'),
 ('streak', 'cat',  'zh', '咪咪', '连续 {{days}} 天了…好吧，咪咪承认你们还挺厉害的。'),
-('streak', 'cat',  'en', 'Mimi', '{{days}} days in a row… Fine, Mimi admits that''s impressive.')
+('streak', 'cat',  'en', 'Mimi', '{{days}} days in a row… Fine, Mimi admits that''s impressive.'),
+-- squirrel（果果 / Pip）—— 单一吉祥物 MVP 实际使用；性情体现在「收着/守护/期待」，不堆坚果比喻
+('gentle_remind',   'squirrel', 'zh', '果果', '翻了翻这几天的记录，还是空白的呢…今天有什么小事想记吗？'),
+('gentle_remind',   'squirrel', 'en', 'Pip',  'Pip peeked at the last few days — still blank. Anything small to jot down today?'),
+('growth_nudge',    'squirrel', 'zh', '果果', '这一周，孩子一定又有新变化了吧…果果想听呀'),
+('growth_nudge',    'squirrel', 'en', 'Pip',  'The little one must have changed a bit this week… Pip would love to hear'),
+('loss_hint',       'squirrel', 'zh', '果果', '有些小事不记下来，真的会慢慢忘掉的…果果有点舍不得'),
+('loss_hint',       'squirrel', 'en', 'Pip',  'Little moments fade if they''re not written down… Pip would hate to lose them'),
+('milestone',       'squirrel', 'zh', '果果', '已经记下 {{done}} 件啦！离一百件，又近了 {{remain}} 步呢'),
+('milestone',       'squirrel', 'en', 'Pip',  '{{done}} things recorded! Just {{remain}} more to reach a hundred'),
+('capsule',         'squirrel', 'zh', '果果', '那封写给未来的信，还有 {{days}} 天就要打开啦…果果一直帮你收着呢'),
+('capsule',         'squirrel', 'en', 'Pip',  'That letter to the future opens in {{days}} days… Pip''s been keeping it safe'),
+('family_activity', 'squirrel', 'zh', '果果', '{{who}}刚记了一件新的事，一起去看看呀'),
+('family_activity', 'squirrel', 'en', 'Pip',  '{{who}} just recorded something new — let''s go see'),
+('streak',          'squirrel', 'zh', '果果', '连续 {{days}} 天都有记录啦，果果好开心呀'),
+('streak',          'squirrel', 'en', 'Pip',  '{{days}} days in a row — Pip''s so happy')
 ON CONFLICT (scene, species, lang, sort_order)
   DO UPDATE SET title = EXCLUDED.title, body = EXCLUDED.body;
 

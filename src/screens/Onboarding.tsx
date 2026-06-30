@@ -8,19 +8,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme, COLORS } from '../theme/tokens';
 import { useT } from '../i18n';
 import { ROLES, NOW_YM, roleLabel } from '../data';
-import { useFeatureGate } from '../lib/featureGates';
 import { useData } from '../data/DataProvider';
 import { Icon, KidAvatar } from '../components/Icons';
-import { PetCarousel } from '../components/PetCarousel';
-import type { Species } from '../components/pet-renderers/types';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
-type Page = 'welcome' | 'me' | 'child' | 'pet' | 'done';
-const FLOW_WITH_PET: readonly Page[] = ['welcome', 'me', 'child', 'pet', 'done'];
-const FLOW_WITHOUT_PET: readonly Page[] = ['welcome', 'me', 'child', 'done'];
-const STEPS_WITH_PET: readonly string[] = ['me', 'child', 'pet'];
-const STEPS_WITHOUT_PET: readonly string[] = ['me', 'child'];
+type Page = 'welcome' | 'me' | 'child' | 'done';
+const FLOW: readonly Page[] = ['welcome', 'me', 'child', 'done'];
+const STEPS: readonly string[] = ['me', 'child'];
 const ageFrom = (y: number, m: number) => Math.max(0, NOW_YM.y - y - (NOW_YM.m < m ? 1 : 0));
 
 /* ── TopBar with progress dots ── */
@@ -28,8 +23,7 @@ const ageFrom = (y: number, m: number) => Math.max(0, NOW_YM.y - y - (NOW_YM.m <
 function TopBar({ onBack, page }) {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
-  const stepPages = useFeatureGate('mascot') ? STEPS_WITH_PET : STEPS_WITHOUT_PET;
-  const i = stepPages.indexOf(page);
+  const i = STEPS.indexOf(page);
 
   return (
     <View style={{
@@ -53,7 +47,7 @@ function TopBar({ onBack, page }) {
       </View>
 
       <View style={{ flex: 1, flexDirection: 'row', justifyContent: 'center', gap: 7 }}>
-        {i >= 0 && stepPages.map((_, k) => (
+        {i >= 0 && STEPS.map((_, k) => (
           <View key={k} style={{
             width: k === i ? 22 : 7, height: 7, borderRadius: 999,
             backgroundColor: (k <= i) ? theme.accent : theme.line,
@@ -361,35 +355,6 @@ function DoneStep({ me, child, onEnter, loading }) {
   );
 }
 
-/* ── Step: Pet（选小伙伴，创建与加入两条路径共用）── */
-
-function PetStep({ value, onChange, onNext, loading = false }) {
-  const { theme } = useTheme();
-  const t = useT();
-  const name = t(`petPicker.${value}.name`);
-
-  return (
-    <>
-      <View style={{ paddingHorizontal: 22, paddingTop: 6 }}>
-        <Text style={{ fontFamily: theme.fonts.head, fontSize: 27, lineHeight: 38, color: theme.ink, textAlign: 'center' }}>
-          {t('petPicker.title')}
-        </Text>
-        <Text style={{ marginTop: 8, fontFamily: theme.fonts.hand, fontSize: 16, color: theme.inkSoft, textAlign: 'center' }}>
-          {t('petPicker.subtitle')}
-        </Text>
-      </View>
-
-      <PetCarousel value={value} onChange={onChange} />
-
-      <CTA
-        label={loading ? t('petPicker.saving') : t('petPicker.confirm', { name })}
-        onPress={onNext}
-        disabled={loading}
-      />
-    </>
-  );
-}
-
 /* ── Join step A: 邀请码 ── */
 function JoinCodeStep({ code, onChange, onNext }) {
   const { theme } = useTheme();
@@ -465,9 +430,7 @@ function JoinRoleStep({ value, onChange, onEnter, loading }) {
 /* ── Main Onboarding Screen ── */
 
 export default function OnboardingScreen({ navigation }) {
-  const showMascot = useFeatureGate('mascot');
-  const FLOW = showMascot ? FLOW_WITH_PET : FLOW_WITHOUT_PET;
-  const { addKid, createFamily, joinFamily, updateMe, setSpecies } = useData();
+  const { addKid, createFamily, joinFamily, updateMe } = useData();
   const { theme } = useTheme();
   const t = useT();
 
@@ -477,21 +440,19 @@ export default function OnboardingScreen({ navigation }) {
   const [me, setMe] = useState('');
   const [code, setCode] = useState('');
   const [child, setChild] = useState({ name: '', y: 2021, m: 3 });
-  const [pet, setPet] = useState<Species>('bear');
   const [saving, setSaving] = useState(false);
 
   const idx = FLOW.indexOf(page);
   const next = () => setPage(FLOW[Math.min(FLOW.length - 1, idx + 1)]);
 
-  // 创建路径：建家 → 镜像角色 → 加孩子 → 写入所选宠物 → 进首页
+  // 创建路径：建家 → 镜像角色 → 加孩子 → 进首页
   const enter = async () => {
     if (saving) return;
     setSaving(true);
     try {
       await createFamily(me, '');
       await updateMe({ role: me, custom_role: '' });
-      const kid = await addKid({ name: child.name.trim(), y: child.y, m: child.m, tone: 'orange' });
-      if (showMascot) await setSpecies(kid.id, pet);
+      await addKid({ name: child.name.trim(), y: child.y, m: child.m, tone: 'orange' });
       navigation.replace('Home');
     } catch (e: any) {
       console.error('Onboarding create error:', e);
@@ -545,7 +506,6 @@ export default function OnboardingScreen({ navigation }) {
       case 'welcome': return <WelcomeStep onNext={next} onJoin={startJoin} />;
       case 'me': return <MeStep value={me} onChange={setMe} onNext={next} />;
       case 'child': return <ChildStep child={child} onChange={setChild} onNext={next} />;
-      case 'pet': return <PetStep value={pet} onChange={setPet} onNext={next} />;
       case 'done': return <DoneStep me={me} child={child} onEnter={enter} loading={saving} />;
       default: return null;
     }

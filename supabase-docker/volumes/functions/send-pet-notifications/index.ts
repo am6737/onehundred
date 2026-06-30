@@ -2,7 +2,7 @@
 // send-pet-notifications — 宠物拟人化通知调度
 //
 // 由 pg_cron 每小时调用（见 migrations/20260623_pet_notifications.sql 第 6 节）。
-// 自动扫描各家庭记录状态 → 匹配场景 → 防重 → 按宠物 species + 设备 lang 选模板
+// 自动扫描各家庭记录状态 → 匹配场景 → 防重 → 按吉祥物（果果/squirrel）+ 设备 lang 选模板
 // → 调 DooPush /push/single 发送 → 写 notification_log。
 //
 // 需要的环境变量（Edge Function secrets）：
@@ -104,7 +104,6 @@ async function processFamily(
 
   const { data: kids } = await admin.from('kids').select('id, name').eq('family_id', familyId)
   if (!kids || kids.length === 0) return 'no_kids'
-  const kidIds = kids.map((k) => k.id)
   const primary = kids[0]
 
   const { data: mems } = await admin
@@ -112,10 +111,8 @@ async function processFamily(
     .eq('family_id', familyId).order('created_at', { ascending: false })
   const memories = (mems ?? []) as Memory[]
 
-  const { data: mascotRows } = await admin
-    .from('mascots').select('kid_id, species').in('kid_id', kidIds)
-  const speciesByKid = new Map<string, string>((mascotRows ?? []).map((r) => [r.kid_id, r.species ?? 'bear']))
-  const sp = (kidId: string) => speciesByKid.get(kidId) ?? 'bear'
+  // 单一吉祥物：果果（squirrel）。旧的 per-kid 宠物种类已废弃，统一用 squirrel。
+  const sp = (_kidId: string) => 'squirrel'
 
   // ── 指标 ──
   const th = FREQ_THRESHOLDS[pref.frequency] ?? FREQ_THRESHOLDS.normal
@@ -246,12 +243,12 @@ async function sendDooPush(
 
 // ── 预览模式（仅测试用）──
 // 绕过场景匹配/防重/限流，把模板逐条发到指定设备，用于预览全部文案。
-// body: { preview:true, family_id?|device_token?, lang?='zh', species?=全部 }
+// body: { preview:true, family_id?|device_token?, lang?='zh', species?='squirrel' }
 //   - 给 family_id：解析该家庭所有设备 token；或直接给 device_token。
-//   - species 省略 → 发全部种类（bear/dog/cat）；给定则只发该种类。
+//   - species 省略 → 默认果果（squirrel）；显式给定可预览旧的 bear/dog/cat 参考文案。
 async function previewTemplates(body: any, templates: Template[]): Promise<Response> {
   const lang: Lang = body.lang === 'en' ? 'en' : 'zh'
-  const species: string | null = body.species ?? null // null → 全部种类
+  const species: string | null = body.species ?? 'squirrel' // 默认果果
   const vars = { done: 5, remain: 2, days: 3, who: lang === 'en' ? 'Dad' : '爸爸' }
 
   let tokens: string[] = []
@@ -311,14 +308,14 @@ function jsonResp(data: unknown, status = 200): Response {
 // ── 单条测试（开发者工具）──
 // 把指定 scene 的真实模板（按 species + lang 选，sample 变量代入）发到目标设备，
 // 绕过所有护栏（场景匹配/防重/限流/免打扰/偏好），用于一键验证某种通知的样子与点击路由。
-// body: { event:'test', scene, device_token?, family_id?, actor_user_id?, lang?='zh', species?='bear', kid_id? }
+// body: { event:'test', scene, device_token?, family_id?, actor_user_id?, lang?='zh', species?='squirrel', kid_id? }
 //   - 优先 device_token（开发者工具直接传本机 DooPush token，最可靠）；
 //   - 否则按 actor_user_id 取该用户设备，或退而取 family_id 全家设备。
 async function sendTest(body: any, templates: Template[]): Promise<Response> {
   const scene: string = body.scene
   if (!scene) return jsonResp({ ok: false, error: 'scene required' }, 400)
   const lang: Lang = body.lang === 'en' ? 'en' : 'zh'
-  const species: string = body.species || 'bear'
+  const species: string = body.species || 'squirrel'
   const vars = { done: 5, remain: 2, days: 3, who: lang === 'en' ? 'Dad' : '爸爸' }
 
   // 目标设备 token
@@ -395,13 +392,12 @@ async function notifyMemoryCreated(body: any, templates: Template[]): Promise<Re
 
   const now = new Date()
 
-  // 解析真实 kid（notification_log.kid_id 有 NOT NULL+FK，不能写 'all'）并据此取 species
+  // 解析真实 kid（notification_log.kid_id 有 NOT NULL+FK，不能写 'all'）
   const { data: kids } = await admin.from('kids').select('id').eq('family_id', familyId)
   if (!kids || kids.length === 0) return jsonResp({ ok: true, skipped: 'no_kids' })
   const rawKidId: string = body.kid_id || 'all'
   const kidId = rawKidId !== 'all' && kids.some((k) => k.id === rawKidId) ? rawKidId : kids[0].id
-  const { data: mascot } = await admin.from('mascots').select('species').eq('kid_id', kidId).maybeSingle()
-  const species = mascot?.species ?? 'bear'
+  const species = 'squirrel' // 单一吉祥物：果果
 
   // who：优先入参，否则按记录者 profile 角色推导
   let who: string = typeof body.who === 'string' ? body.who.trim() : ''
@@ -474,8 +470,16 @@ Deno.serve(async (req: Request) => {
     const { data: wardrobe } = await admin.from('wardrobe').select('at').order('at')
     const { data: families } = await admin.from('families').select('id')
 
+    // 随机 jitter：每个家庭分配 0-120 秒随机延迟，模拟真人感（设计文档 §4.2）。
+    // 按 jitter 排序后依次等差值，总耗时 ≤ 120 秒而非 N × 120 秒。
+    const withJitter = (families ?? []).map((f) => ({ ...f, jitter: Math.random() * 120_000 }))
+    withJitter.sort((a, b) => a.jitter - b.jitter)
     const results: Record<string, string> = {}
-    for (const fam of families ?? []) {
+    let elapsed = 0
+    for (const fam of withJitter) {
+      const wait = Math.max(0, fam.jitter - elapsed)
+      if (wait > 0) await new Promise((r) => setTimeout(r, wait))
+      elapsed = fam.jitter
       try {
         results[fam.id] = await processFamily(fam.id, wardrobe ?? [], (templates ?? []) as Template[])
       } catch (e) {

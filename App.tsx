@@ -25,7 +25,6 @@ import LevelTimeline from './src/screens/SpotTimeline';
 import SpotCompare from './src/screens/SpotCompare';
 import RecordFlow from './src/screens/RecordFlow';
 import { MemoryPage, MemoryBook } from './src/screens/Memory';
-import MascotPage, { UnlockMoment } from './src/screens/Mascot';
 import SealedPage from './src/screens/SealedPage';
 import RecordsCalendar from './src/screens/RecordsCalendar';
 import YearReview from './src/screens/YearReview';
@@ -38,7 +37,6 @@ import SettingsScreen from './src/screens/Settings';
 import Agreement from './src/screens/Agreement';
 import OnboardingScreen from './src/screens/Onboarding';
 import InviteRecord from './src/screens/InviteRecord';
-import PetPicker from './src/screens/PetPicker';
 
 const Stack = createNativeStackNavigator();
 export const navigationRef = createNavigationContainerRef();
@@ -118,9 +116,6 @@ function HomeWithDrawer({ navigation }) {
     setDrawerVisible(false);
     const params = { kidId, me };
     switch (route) {
-      case 'mascot':
-        navigation.navigate('Mascot', params);
-        break;
       case 'records':
         navigation.navigate('RecordsCalendar', params);
         break;
@@ -202,9 +197,6 @@ function extractPayload(data?: Record<string, string>): { scene?: string; kidId?
 
 function targetFromScene(scene: string | undefined, kidId: string | undefined): { name: string; params?: any } {
   switch (scene) {
-    case 'milestone':
-    case 'streak':
-      return { name: 'Mascot', params: { kidId } };
     case 'capsule':
       return { name: 'Sealed', params: { kidId } };
     case 'gentle_remind':
@@ -289,7 +281,6 @@ function AppNavigator() {
         <Stack.Screen name="EmailLogin" component={EmailLogin} />
         <Stack.Screen name="Agreement" component={Agreement} />
         <Stack.Screen name="Onboarding" component={OnboardingScreen} />
-        <Stack.Screen name="PetPicker" component={PetPicker} />
         <Stack.Screen name="Home" component={HomeWithDrawer} />
         <Stack.Screen name="LevelDetail" component={LevelDetail} />
         <Stack.Screen
@@ -311,7 +302,6 @@ function AppNavigator() {
         />
         <Stack.Screen name="Memory" component={MemoryPage} />
         <Stack.Screen name="MemoryBook" component={MemoryBook} />
-        <Stack.Screen name="Mascot" component={MascotPage} />
         <Stack.Screen name="Sealed" component={SealedPage} />
         <Stack.Screen name="RecordsCalendar" component={RecordsCalendar} />
         <Stack.Screen

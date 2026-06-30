@@ -13,11 +13,9 @@ import {
 } from 'react-native';
 import { useTheme, TONE } from '../theme/tokens';
 import { useT } from '../i18n';
-import { meName, meChar, PET_BODY, durationSince, sealedLockedFrom, sealedAllFrom, isMemoryUnsealed } from '../data';
-import { useFeatureGate } from '../lib/featureGates';
+import { meName, meChar, durationSince, sealedLockedFrom, sealedAllFrom, isMemoryUnsealed } from '../data';
 import { useData } from '../data/DataProvider';
 import { Icon } from '../components/Icons';
-import { Bear } from '../components/Bear';
 
 const DRAWER_WIDTH = 310;
 const ANIM_DURATION_IN = 380;
@@ -33,17 +31,6 @@ function heatColor(count, accent, cream) {
   if (count === 1) return accent + '66'; // ~40% opacity
   if (count === 2) return accent + 'A3'; // ~64% opacity
   return accent + 'E0'; // ~88% opacity
-}
-
-/* ── helper: compute next unlock info from done count ── */
-
-function computeUnlockInfo(done, wardrobe) {
-  const sorted = [...wardrobe].sort((a, b) => a.at - b.at);
-  const unlocked = sorted.filter((w) => done >= w.at).length;
-  const total = sorted.length;
-  const next = sorted.find((w) => w.at > done) || null;
-  const remain = next ? next.at - done : 0;
-  return { unlocked, total, next, remain };
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -403,8 +390,7 @@ const heatStyles = StyleSheet.create({
 export default function Drawer({ visible, onClose, onNavigate, kidId = 'all', me }) {
   const { theme } = useTheme();
   const t = useT();
-  const showMascot = useFeatureGate('mascot');
-  const { kids, levels, memories, wardrobe, customLevels, FAMILY, getKid, kidDone, memoriesForKid, getMascot, wardrobeState } = useData();
+  const { kids, memories, customLevels, FAMILY, getKid, kidDone } = useData();
   const slideAnim = useRef(new Animated.Value(-DRAWER_WIDTH)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const [shouldRender, setShouldRender] = useState(false);
@@ -490,15 +476,6 @@ export default function Drawer({ visible, onClose, onNavigate, kidId = 'all', me
     : sealedLocked[0]
       ? t('drawer.sealedWaiting', { label: sealedLocked[0].sealLabel || t('drawer.theAppointedDay') })
       : t('drawer.sealedNone');
-
-  // Mascot info
-  const petKid = isAll ? (kids[0]?.id || 'duo') : kidId;
-  const mascot = getMascot(petKid);
-  const mascotDone = memoriesForKid(petKid).length;
-  const unlockInfo = computeUnlockInfo(mascotDone, wardrobe);
-  const activeAccessories = wardrobeState(mascotDone)
-    .filter((w) => w.got)
-    .map((w) => w.id);
 
   if (!shouldRender) return null;
 
@@ -636,76 +613,6 @@ export default function Drawer({ visible, onClose, onNavigate, kidId = 'all', me
               kidId={kidId}
               onOpen={(month) => go('records')}
             />
-          )}
-
-          {/* ── Mascot / pet entry ── */}
-          {showMascot && mascot && (
-            <TouchableOpacity
-              activeOpacity={0.7}
-              onPress={() => go('mascot')}
-              style={[
-                drawerStyles.petCard,
-                {
-                  backgroundColor: theme.paper,
-                  borderColor: theme.line,
-                },
-              ]}
-            >
-              <View
-                style={[
-                  drawerStyles.petAvatar,
-                  {
-                    backgroundColor: theme.sand,
-                    borderColor: theme.line,
-                  },
-                ]}
-              >
-                <Bear
-                  size={54}
-                  stage={PET_BODY}
-                  accessories={activeAccessories}
-                  tone={getKid(petKid)?.tone || 'orange'}
-                />
-              </View>
-              <View style={drawerStyles.petInfo}>
-                <View style={drawerStyles.petNameRow}>
-                  <Text
-                    style={[
-                      drawerStyles.petName,
-                      { fontFamily: theme.fonts.head, color: theme.ink },
-                    ]}
-                  >
-                    {t('drawer.petWardrobe', { name: mascot.name })}
-                  </Text>
-                  <View
-                    style={[
-                      drawerStyles.petBadge,
-                      { backgroundColor: theme.sand },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        drawerStyles.petBadgeText,
-                        { fontFamily: theme.fonts.body, color: theme.accent },
-                      ]}
-                    >
-                      {unlockInfo.unlocked}/{unlockInfo.total}
-                    </Text>
-                  </View>
-                </View>
-                <Text
-                  style={[
-                    drawerStyles.petHint,
-                    { fontFamily: theme.fonts.body, color: theme.inkSoft },
-                  ]}
-                >
-                  {unlockInfo.next
-                    ? t('drawer.petUnlock', { remain: unlockInfo.remain, name: unlockInfo.next.name })
-                    : t('drawer.petAllDone')}
-                </Text>
-              </View>
-              {Icon.chevR(theme.inkSoft, 20)}
-            </TouchableOpacity>
           )}
 
           {/* ── Navigation rows ── */}
@@ -846,51 +753,6 @@ const drawerStyles = StyleSheet.create({
     marginTop: 10,
     fontSize: 13,
     lineHeight: 20,
-  },
-  /* ─ pet card ─ */
-  petCard: {
-    marginTop: 14,
-    borderRadius: 22,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderWidth: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  petAvatar: {
-    width: 58,
-    height: 58,
-    borderRadius: 18,
-    borderWidth: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    overflow: 'hidden',
-    marginRight: 14,
-  },
-  petInfo: {
-    flex: 1,
-    minWidth: 0,
-  },
-  petNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  petName: {
-    fontSize: 16,
-    marginRight: 7,
-  },
-  petBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 999,
-  },
-  petBadgeText: {
-    fontSize: 11.5,
-  },
-  petHint: {
-    marginTop: 5,
-    fontSize: 12.5,
-    lineHeight: 18,
   },
   /* ─ bottom bar ─ */
   bottomBar: {
