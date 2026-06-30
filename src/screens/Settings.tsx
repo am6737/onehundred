@@ -43,6 +43,11 @@ function ageFrom(y: any, m: any) {
    Small components
    ══════════════════════════════════════════════════════════ */
 
+// 所有设置行共用的最小行高。让单行行高不再依赖行内最高元素
+// （图标 34 / 文字 / 原生 Switch 在 Android 上各不相同），保证 iOS / Android
+// 上每一行高度一致。带副标题的行会自然超过此值。
+const ROW_MIN_HEIGHT = 58;
+
 // SettingGroup — a card-like group of setting rows
 function SettingGroup({ label, note = null, children }: any) {
   const { theme } = useTheme();
@@ -79,7 +84,8 @@ function Row({ icon = null, title, sub = null, value = null, onPress = null, las
   const inner = (
     <View style={{
       width: '100%', flexDirection: 'row', alignItems: 'center',
-      gap: 13, paddingVertical: 15, paddingHorizontal: 16,
+      gap: 13, paddingVertical: 12, paddingHorizontal: 16,
+      minHeight: ROW_MIN_HEIGHT,
       borderBottomWidth: last ? 0 : 1, borderBottomColor: theme.line,
     }}>
       {icon ? (
@@ -124,6 +130,7 @@ function ToggleRow({ icon, title, sub, value, onValueChange, last }: any) {
     <View style={{
       flexDirection: 'row', alignItems: 'center',
       gap: 13, paddingVertical: 12, paddingHorizontal: 16,
+      minHeight: ROW_MIN_HEIGHT,
       borderBottomWidth: last ? 0 : 1, borderBottomColor: theme.line,
     }}>
       {icon ? (
@@ -276,7 +283,8 @@ function IdentityRow({ me, options, onSelect, divider = false }: any) {
         activeOpacity={0.7}
         style={{
           flexDirection: 'row', alignItems: 'center',
-          gap: 13, paddingVertical: 15, paddingHorizontal: 16,
+          gap: 13, paddingVertical: 12, paddingHorizontal: 16,
+          minHeight: ROW_MIN_HEIGHT,
           borderBottomWidth: divider ? 1 : 0, borderBottomColor: theme.line,
         }}
       >
@@ -367,7 +375,8 @@ function SelectRow({ icon = null, title, sub = null, options, value, onSelect, l
         activeOpacity={0.7}
         style={{
           flexDirection: 'row', alignItems: 'center',
-          gap: 13, paddingVertical: 15, paddingHorizontal: 16,
+          gap: 13, paddingVertical: 12, paddingHorizontal: 16,
+          minHeight: ROW_MIN_HEIGHT,
           borderBottomWidth: last ? 0 : 1, borderBottomColor: theme.line,
         }}
       >
@@ -694,6 +703,7 @@ function MemberRow({ avatar, name, role, last = false }: any) {
     <View style={{
       flexDirection: 'row', alignItems: 'center', gap: 13,
       paddingVertical: 14, paddingHorizontal: 16,
+      minHeight: ROW_MIN_HEIGHT,
       borderBottomWidth: last ? 0 : 1, borderBottomColor: theme.line,
     }}>
       {avatar}
@@ -1572,7 +1582,8 @@ function AccountSecuritySheet({ anon, onAnonChanged, onClose }: any) {
                 activeOpacity={0.7}
                 style={{
                   width: '100%', flexDirection: 'row', alignItems: 'center',
-                  gap: 13, paddingVertical: 15, paddingHorizontal: 16,
+                  gap: 13, paddingVertical: 12, paddingHorizontal: 16,
+                  minHeight: ROW_MIN_HEIGHT,
                 }}
               >
                 <View style={{
@@ -2411,12 +2422,6 @@ function PetNotifyGroup() {
             ]}
             value={prefs.frequency}
             onSelect={(v: string) => save({ frequency: v })}
-          />
-          <ToggleRow
-            title={t('settings.notifyFamily')}
-            sub={t('settings.notifyFamilySub')}
-            value={prefs.notify_family}
-            onValueChange={(v: boolean) => save({ notify_family: v })}
           />
           <ToggleRow
             title={t('settings.dnd')}
