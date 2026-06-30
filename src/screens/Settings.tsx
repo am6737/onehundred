@@ -25,6 +25,7 @@ import { ROLES, DEFAULT_ME, meName, meChar, roleLabel, NOW_YM, fetchNotification
 import { useData } from '../data/DataProvider';
 import { signOut, isAnonymous, bindEmail, deleteAccount, getCurrentUserPhone, maskPhone, updatePhone, verifyPhoneChange, signInWithApple, bindApple, isAppleSignInAvailable, getLinkedProviders, unbindProvider } from '../lib/auth';
 import { getInviteExpiryHours, setInviteExpiryHours, INVITE_EXPIRY_OPTIONS, DEFAULT_INVITE_EXPIRY } from '../lib/yaoji';
+import { safeDooPushRegister } from '../lib/doopushRegister';
 import { supabase } from '../lib/supabase';
 import { Icon, KidAvatar } from '../components/Icons';
 import { LayerHeader, Sheet, Chip, PrimaryButton, SecondaryButton, Section } from '../components/common';
@@ -1943,7 +1944,7 @@ function DevToolsSheet({ onClose, onLock }: any) {
     if (registering) return;
     setRegistering(true);
     try {
-      const r = await DooPush.register();
+      const r = await safeDooPushRegister();
       setToken(r.token);
       setDeviceId(r.deviceId);
     } catch (e: any) {

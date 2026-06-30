@@ -15,6 +15,7 @@ import { I18nProvider, loadSavedLang, type Lang } from './src/i18n';
 import { DataProvider, useData } from './src/data/DataProvider';
 import { DEFAULT_ME, meName, upsertPushDevice } from './src/data';
 import { getSession, getValidSession, onAuthStateChange } from './src/lib/auth';
+import { safeDooPushRegister } from './src/lib/doopushRegister';
 
 import HomeFeed from './src/screens/HomeFeed';
 import Drawer from './src/screens/Drawer';
@@ -362,7 +363,7 @@ function AuthGate() {
     });
 
     // 启动即请求推送权限并拿到 token，不依赖登录，避免后续功能拿不到权限
-    DooPush.register()
+    safeDooPushRegister()
       .then(({ token, deviceId }) => {
         console.log('[DooPush] 注册成功', token, deviceId);
         setPushInfo({ token, deviceId });
