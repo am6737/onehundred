@@ -118,11 +118,18 @@ export default function QRScanner({ onClose, onScanned }: Props) {
         </View>
       )}
 
-      {/* 取景框 + 提示 */}
+      {/* 轻遮罩：扫中后淡入压暗背景 */}
+      {ok && <Animated.View pointerEvents="none" style={[styles.okMask, { opacity: maskFade }]} />}
+
+      {/* 取景框 + 提示（loading 就放在框内，天然居中） */}
       {granted && (
         <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.center]}>
-          <View ref={frameRef} onLayout={measureFrame} style={styles.frame} />
-          <Text style={[styles.hint, { fontFamily: theme.fonts.body }]}>{t('scan.hint')}</Text>
+          <View ref={frameRef} onLayout={measureFrame} style={styles.frame}>
+            {ok && <ActivityIndicator color="#FFFDF7" size="large" />}
+          </View>
+          {!ok && (
+            <Text style={[styles.hint, { fontFamily: theme.fonts.body }]}>{t('scan.hint')}</Text>
+          )}
         </View>
       )}
 
@@ -134,23 +141,6 @@ export default function QRScanner({ onClose, onScanned }: Props) {
         <Text style={[styles.title, { fontFamily: theme.fonts.head }]}>{t('scan.title')}</Text>
       </View>
 
-      {/* 扫中后：轻遮罩 + loading，给"正在加入"的过场 */}
-      {ok && (
-        <Animated.View style={[styles.okOverlay, { opacity: maskFade }]}>
-          {hitRect ? (
-            <View style={{
-              position: 'absolute',
-              left: hitRect.x + hitRect.w / 2 - 30,
-              top: hitRect.y + hitRect.h / 2 - 30,
-              width: 60, height: 60, justifyContent: 'center', alignItems: 'center',
-            }}>
-              <ActivityIndicator color="#FFFDF7" size="large" />
-            </View>
-          ) : (
-            <ActivityIndicator color="#FFFDF7" size="large" />
-          )}
-        </Animated.View>
-      )}
     </Animated.View>
   );
 }
@@ -165,11 +155,11 @@ const styles = StyleSheet.create({
     width: 240, height: 240, borderRadius: 26,
     borderWidth: 3, borderColor: '#FFFDF7',
     backgroundColor: 'transparent',
+    justifyContent: 'center', alignItems: 'center',
   },
-  okOverlay: {
+  okMask: {
     position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
     backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'center', alignItems: 'center',
   },
   hint: { marginTop: 26, color: '#FFFDF7', fontSize: 15, textAlign: 'center' },
   topBar: {
