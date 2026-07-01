@@ -76,9 +76,9 @@ export default function QRScanner({ onClose, onScanned }: Props) {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     // 先让"已识别"的成功态停留一下，再淡出回调，避免瞬间硬切、显得丝滑
     setTimeout(() => {
-      Animated.timing(fade, { toValue: 0, duration: 260, useNativeDriver: true })
+      Animated.timing(fade, { toValue: 0, duration: 300, useNativeDriver: true })
         .start(() => onScanned(code));
-    }, 420);
+    }, 900);
   }, [handled, onScanned, fade, hitRect]);
 
   const granted = !!permission?.granted;
@@ -135,7 +135,6 @@ export default function QRScanner({ onClose, onScanned }: Props) {
       {ok && (
         <View style={styles.okOverlay}>
           <ActivityIndicator color="#FFFDF7" size="large" />
-          <Text style={[styles.okText, { fontFamily: theme.fonts.body }]}>{t('scan.recognized')}</Text>
         </View>
       )}
     </Animated.View>
@@ -157,9 +156,6 @@ const styles = StyleSheet.create({
     position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
     backgroundColor: 'rgba(0,0,0,0.4)',
     justifyContent: 'center', alignItems: 'center',
-  },
-  okText: {
-    marginTop: 16, color: '#FFFDF7', fontSize: 15, textAlign: 'center',
   },
   hint: { marginTop: 26, color: '#FFFDF7', fontSize: 15, textAlign: 'center' },
   topBar: {
