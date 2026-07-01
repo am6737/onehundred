@@ -216,7 +216,7 @@ export default function JoinFamily({ navigation, route }) {
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.cream }}>
-      <LayerHeader title={t('joinFamily.title')} onBack={handleBack} />
+      {!scanning && <LayerHeader title={t('joinFamily.title')} onBack={handleBack} />}
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{ paddingHorizontal: 22, paddingBottom: 48 + insets.bottom }}

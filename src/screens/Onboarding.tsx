@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View, Text, TouchableOpacity, TextInput, ScrollView,
   Dimensions, Alert, ActivityIndicator,
@@ -357,11 +357,17 @@ function DoneStep({ me, child, onEnter, loading }) {
 }
 
 /* ── Join step A: 邀请码 ── */
-function JoinCodeStep({ code, onChange, onNext }) {
+function JoinCodeStep({ code, onChange, onNext, onScanningChange }) {
   const { theme } = useTheme();
   const t = useT();
   const [scanning, setScanning] = useState(false);
   const ok = code.trim().length > 0;
+
+  useEffect(() => {
+    onScanningChange?.(scanning);
+    return () => onScanningChange?.(false);
+  }, [onScanningChange, scanning]);
+
   return (
     <>
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 24, paddingTop: 6 }}>
@@ -465,6 +471,7 @@ export default function OnboardingScreen({ navigation }) {
   const [code, setCode] = useState('');
   const [child, setChild] = useState({ name: '', y: 2021, m: 3 });
   const [saving, setSaving] = useState(false);
+  const [qrScanning, setQrScanning] = useState(false);
 
   const idx = FLOW.indexOf(page);
   const next = () => setPage(FLOW[Math.min(FLOW.length - 1, idx + 1)]);
@@ -523,7 +530,7 @@ export default function OnboardingScreen({ navigation }) {
 
   const body = (() => {
     if (mode === 'join') {
-      if (joinStep === 'code') return <JoinCodeStep code={code} onChange={setCode} onNext={() => setJoinStep('role')} />;
+      if (joinStep === 'code') return <JoinCodeStep code={code} onChange={setCode} onNext={() => setJoinStep('role')} onScanningChange={setQrScanning} />;
       return <JoinRoleStep value={me} onChange={setMe} onEnter={doJoin} loading={saving} />;
     }
     switch (page) {
@@ -540,7 +547,7 @@ export default function OnboardingScreen({ navigation }) {
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.cream }}>
-      <TopBar onBack={showBack ? back : null} page={barPage} />
+      {!qrScanning && <TopBar onBack={showBack ? back : null} page={barPage} />}
       <View style={{ flex: 1 }}>
         {body}
       </View>
