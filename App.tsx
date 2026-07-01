@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { View, Text, ActivityIndicator, Linking, Pressable, Platform } from 'react-native';
+import { View, Text, ActivityIndicator, Linking, Pressable, Platform, PermissionsAndroid } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -42,6 +42,20 @@ import InviteRecord from './src/screens/InviteRecord';
 
 const Stack = createNativeStackNavigator();
 export const navigationRef = createNavigationContainerRef();
+
+async function requestAndroidNotificationPermission() {
+  if (Platform.OS !== 'android') return true;
+
+  const androidVersion = Number(Platform.Version);
+  if (!Number.isFinite(androidVersion) || androidVersion < 33) return true;
+
+  const permission = PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS;
+  const alreadyGranted = await PermissionsAndroid.check(permission);
+  if (alreadyGranted) return true;
+
+  const result = await PermissionsAndroid.request(permission);
+  return result === PermissionsAndroid.RESULTS.GRANTED;
+}
 
 function isZh() {
   try { return getLocales()[0]?.languageCode === 'zh'; } catch { return true; }
@@ -364,17 +378,26 @@ function AuthGate() {
       routeFromNotification(m?.data);
     });
 
-    // 启动即请求推送权限并拿到 token，不依赖登录，避免后续功能拿不到权限
-    safeDooPushRegister()
-      .then(({ token, deviceId }) => {
-        console.log('[DooPush] 注册成功', token, deviceId);
-        setPushInfo({ token, deviceId });
-      })
-      .catch((e) => {
-        console.warn('[DooPush] 注册失败 detail', formatDooPushError(e));
-      });
+    let cancelled = false;
+
+    // 启动即请求系统通知权限并拿到 token，不依赖登录，避免后续功能拿不到权限。
+    // Android 13+ 的 POST_NOTIFICATIONS 是运行时权限；只在 manifest 声明不会弹系统授权窗。
+    (async () => {
+      const permissionGranted = await requestAndroidNotificationPermission();
+      if (!permissionGranted) {
+        console.warn('[DooPush] 用户未授权 Android 通知权限，跳过推送注册');
+        return;
+      }
+
+      const { token, deviceId } = await safeDooPushRegister();
+      console.log('[DooPush] 注册成功', token, deviceId);
+      if (!cancelled) setPushInfo({ token, deviceId });
+    })().catch((e) => {
+      console.warn('[DooPush] 注册失败 detail', formatDooPushError(e));
+    });
 
     return () => {
+      cancelled = true;
       msgSub.remove();
       clickSub.remove();
       openSub.remove();
