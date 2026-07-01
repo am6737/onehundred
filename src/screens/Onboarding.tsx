@@ -371,7 +371,6 @@ function JoinCodeStep({ code, onChange, onNext, onScanningChange }) {
   return (
     <>
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 24, paddingTop: 6 }}>
-        <Text style={{ fontFamily: theme.fonts.hand, fontSize: 17, color: theme.accent, marginBottom: 8 }}>{t('onboarding.joinTitle')}</Text>
         <Text style={{ fontFamily: theme.fonts.head, fontSize: 27, lineHeight: 38, color: theme.ink }}>{t('onboarding.enterCode')}</Text>
         <Text style={{ marginTop: 12, fontSize: 15, lineHeight: 28, color: theme.inkSoft }}>
           {t('onboarding.joinHint')}
