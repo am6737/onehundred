@@ -83,6 +83,13 @@ const config: ExpoConfig = {
         isAccessMediaLocationEnabled: false,
       },
     ],
+    [
+      "expo-camera",
+      {
+        cameraPermission:
+          "允许「一百件事」使用相机，拍下值得记住的时刻，或扫描家人的邀请二维码加入家庭。",
+      },
+    ],
     "expo-localization",
     "expo-asset",
     [

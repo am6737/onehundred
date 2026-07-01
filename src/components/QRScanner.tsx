@@ -1,0 +1,129 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Linking as RNLinking,
+} from 'react-native';
+import { CameraView, useCameraPermissions, type BarcodeScanningResult } from 'expo-camera';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTheme } from '../theme/tokens';
+import { useT } from '../i18n';
+import { Icon } from './Icons';
+import { parseInviteCode } from '../lib/invite';
+
+type Props = {
+  visible: boolean;
+  onClose: () => void;
+  /** 扫到有效邀请码时回调，已解析成纯邀请码 */
+  onScanned: (code: string) => void;
+};
+
+/**
+ * 全屏相机扫码遮罩。用绝对定位覆盖层而非 RN Modal，
+ * 规避本项目在新架构（Fabric）下 Modal 的一些坑。
+ */
+export default function QRScanner({ visible, onClose, onScanned }: Props) {
+  const { theme } = useTheme();
+  const t = useT();
+  const insets = useSafeAreaInsets();
+  const [permission, requestPermission] = useCameraPermissions();
+  const [handled, setHandled] = useState(false);
+
+  // 每次打开重置去重锁
+  useEffect(() => {
+    if (visible) setHandled(false);
+  }, [visible]);
+
+  // 打开时若权限未决定，主动申请一次
+  useEffect(() => {
+    if (visible && permission && !permission.granted && permission.canAskAgain) {
+      requestPermission();
+    }
+  }, [visible, permission]);
+
+  const handleScan = useCallback((result: BarcodeScanningResult) => {
+    if (handled) return;
+    const code = parseInviteCode(result.data);
+    if (!code) return; // 不是我们的邀请码，忽略继续扫
+    setHandled(true);
+    onScanned(code);
+  }, [handled, onScanned]);
+
+  if (!visible) return null;
+
+  const granted = !!permission?.granted;
+
+  return (
+    <View style={[StyleSheet.absoluteFill, styles.root]}>
+      {granted ? (
+        <CameraView
+          style={StyleSheet.absoluteFill}
+          facing="back"
+          barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
+          onBarcodeScanned={handled ? undefined : handleScan}
+        />
+      ) : (
+        <View style={styles.center}>
+          {!permission ? (
+            <ActivityIndicator color="#FFFDF7" />
+          ) : (
+            <>
+              <Text style={[styles.permText, { fontFamily: theme.fonts.body }]}>
+                {t('scan.permTitle')}
+              </Text>
+              <TouchableOpacity
+                onPress={() => (permission.canAskAgain ? requestPermission() : RNLinking.openSettings())}
+                activeOpacity={0.85}
+                style={[styles.permBtn, { backgroundColor: theme.accent }]}
+              >
+                <Text style={[styles.permBtnText, { fontFamily: theme.fonts.head }]}>
+                  {permission.canAskAgain ? t('scan.permGrant') : t('scan.permSettings')}
+                </Text>
+              </TouchableOpacity>
+            </>
+          )}
+        </View>
+      )}
+
+      {/* 取景框 + 提示 */}
+      {granted && (
+        <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.center]}>
+          <View style={styles.frame} />
+          <Text style={[styles.hint, { fontFamily: theme.fonts.body }]}>{t('scan.hint')}</Text>
+        </View>
+      )}
+
+      {/* 顶部标题栏 + 关闭 */}
+      <View style={[styles.topBar, { top: insets.top + 8 }]}>
+        <TouchableOpacity onPress={onClose} hitSlop={12} activeOpacity={0.7} style={styles.closeBtn}>
+          {Icon.chevL('#FFFDF7', 22)}
+        </TouchableOpacity>
+        <Text style={[styles.title, { fontFamily: theme.fonts.head }]}>{t('scan.title')}</Text>
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  root: { backgroundColor: '#000', zIndex: 100 },
+  center: { justifyContent: 'center', alignItems: 'center', padding: 32 },
+  permText: { color: '#FFFDF7', fontSize: 16, textAlign: 'center', lineHeight: 25, marginBottom: 22 },
+  permBtn: { paddingVertical: 13, paddingHorizontal: 26, borderRadius: 999 },
+  permBtnText: { color: '#FFFDF7', fontSize: 15 },
+  frame: {
+    width: 240, height: 240, borderRadius: 26,
+    borderWidth: 3, borderColor: '#FFFDF7',
+    backgroundColor: 'transparent',
+  },
+  hint: { marginTop: 26, color: '#FFFDF7', fontSize: 15, textAlign: 'center' },
+  topBar: {
+    position: 'absolute', left: 12, right: 12,
+    flexDirection: 'row', alignItems: 'center',
+  },
+  closeBtn: {
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center', alignItems: 'center',
+  },
+  title: {
+    flex: 1, textAlign: 'center', color: '#FFFDF7', fontSize: 16, marginRight: 40,
+  },
+});

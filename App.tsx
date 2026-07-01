@@ -15,7 +15,8 @@ import { I18nProvider, loadSavedLang, type Lang } from './src/i18n';
 import { DataProvider, useData } from './src/data/DataProvider';
 import { DEFAULT_ME, meName, upsertPushDevice } from './src/data';
 import { getSession, getValidSession, onAuthStateChange } from './src/lib/auth';
-import { describeDooPushError, markDooPushConfigured, markDooPushUnconfigured, safeDooPushRegister } from './src/lib/doopushRegister';
+import { parseInviteCode } from './src/lib/invite';
+import { formatDooPushError, markDooPushConfigured, markDooPushUnconfigured, safeDooPushRegister } from './src/lib/doopushRegister';
 
 import HomeFeed from './src/screens/HomeFeed';
 import Drawer from './src/screens/Drawer';
@@ -172,12 +173,6 @@ function HomeWithDrawer({ navigation }) {
   );
 }
 
-function parseJoinUrl(url: string): string | null {
-  if (!url) return null;
-  const m = url.match(/(?:moments100:\/\/|https:\/\/yibaijianshi\.app\/)join\/([A-Za-z0-9]+)/);
-  return m ? m[1] : null;
-}
-
 /* 宠物通知点击 → 深度链接跳转。
    后端在 DooPush payload.data 里带 { scene, kidId }；不同平台可能把它放在
    data.scene（已展平）或 data.data（JSON 字符串），两种都兼容。
@@ -246,7 +241,7 @@ function AppNavigator() {
 
   useEffect(() => {
     const handleUrl = ({ url }: { url: string }) => {
-      const code = parseJoinUrl(url);
+      const code = parseInviteCode(url);
       if (code && navigationRef.isReady()) {
         (navigationRef as any).navigate('JoinFamily', { code });
       }
@@ -353,7 +348,7 @@ function AuthGate() {
       markDooPushConfigured();
     } catch (e) {
       markDooPushUnconfigured();
-      console.warn('[DooPush] 初始化失败，跳过推送注册', describeDooPushError(e));
+      console.warn('[DooPush] 初始化失败，跳过推送注册', formatDooPushError(e));
       return;
     }
 
@@ -376,7 +371,7 @@ function AuthGate() {
         setPushInfo({ token, deviceId });
       })
       .catch((e) => {
-        console.warn('[DooPush] 注册失败 detail', describeDooPushError(e));
+        console.warn('[DooPush] 注册失败 detail', formatDooPushError(e));
       });
 
     return () => {

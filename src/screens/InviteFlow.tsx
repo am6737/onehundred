@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, Alert, Share, ActivityIndicator } from 'react-native';
+import QRCode from 'react-native-qrcode-svg';
+import * as Clipboard from 'expo-clipboard';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/tokens';
 import { useT } from '../i18n';
@@ -7,6 +9,7 @@ import { roleLabel } from '../data';
 import { useData } from '../data/DataProvider';
 import { Icon, KidAvatar } from '../components/Icons';
 import { LayerHeader, PrimaryButton, SecondaryButton, Sheet, Chip } from '../components/common';
+import { familyInviteUrl } from '../lib/invite';
 
 function InvAvatar({ label, tone, size = 52, theme }: any) {
   return (
@@ -65,18 +68,29 @@ export default function InviteFlow({ navigation, route }) {
   const t = useT();
   const insets = useSafeAreaInsets();
 
-  const INVITE_OPTIONS = [
-    { id: 'link', icon: 'share', label: t('invite.optLinkLabel'), desc: t('invite.optLinkDesc') },
-    { id: 'qr', icon: 'eye', label: t('invite.optQrLabel'), desc: t('invite.optQrDesc') },
-    { id: 'wechat', icon: 'users', label: t('invite.optWechatLabel'), desc: t('invite.optWechatDesc') },
-  ];
   const [step, setStep] = useState('list');
   const [showShare, setShowShare] = useState<any>(false);
 
   const { family, removeMember } = useData();
   const inviteCode = family?.inviteCode || '——';
+  const hasCode = !!family?.inviteCode;
   const members = family?.members || [];
   const isCreator = family?.isCreator;
+
+  const onShareLink = async () => {
+    if (!hasCode) return;
+    try {
+      await Share.share({
+        message: t('invite.shareMessage', { code: inviteCode, url: familyInviteUrl(inviteCode) }),
+      });
+    } catch {}
+  };
+
+  const onCopyCode = async () => {
+    if (!hasCode) return;
+    await Clipboard.setStringAsync(inviteCode);
+    Alert.alert(t('invite.copiedTitle'));
+  };
 
   if (step === 'share') {
     return (
@@ -93,44 +107,54 @@ export default function InviteFlow({ navigation, route }) {
             }}>{t('invite.chooseWay')}</Text>
           </View>
 
+          {/* 二维码卡片：让家人打开 App 扫一扫即可加入 */}
           <View style={{
             borderRadius: 22, backgroundColor: theme.paper,
-            borderWidth: 1, borderColor: theme.line, padding: 20, marginBottom: 20,
+            borderWidth: 1, borderColor: theme.line, padding: 24, marginBottom: 20,
+            alignItems: 'center',
           }}>
             <Text style={{
+              fontFamily: theme.fonts.head, fontSize: 17, color: theme.ink,
+              textAlign: 'center', marginBottom: 4,
+            }}>{t('invite.qrTitle')}</Text>
+            <Text style={{
               fontFamily: theme.fonts.body, fontSize: 13, color: theme.inkSoft,
-              textAlign: 'center', marginBottom: 8,
-            }}>{t('invite.code')}</Text>
+              textAlign: 'center', marginBottom: 20, lineHeight: 20,
+            }}>{t('invite.qrHint')}</Text>
+
+            {hasCode ? (
+              <View style={{ padding: 16, borderRadius: 18, backgroundColor: '#FFFFFF' }}>
+                <QRCode
+                  value={familyInviteUrl(inviteCode)}
+                  size={200}
+                  backgroundColor="#FFFFFF"
+                  color="#2A2723"
+                />
+              </View>
+            ) : (
+              <ActivityIndicator color={theme.accent} style={{ height: 232 }} />
+            )}
+
+            <Text style={{
+              fontFamily: theme.fonts.body, fontSize: 12.5, color: theme.inkSoft,
+              textAlign: 'center', marginTop: 20, marginBottom: 6,
+            }}>{t('invite.orManualCode')}</Text>
             <Text style={{
               fontFamily: theme.fonts.head, fontSize: 24, color: theme.accent,
-              textAlign: 'center', letterSpacing: 2,
+              textAlign: 'center', letterSpacing: 3,
             }}>{inviteCode}</Text>
           </View>
 
-          {INVITE_OPTIONS.map(opt => (
-            <TouchableOpacity
-              key={opt.id}
-              onPress={() => Alert.alert(t('invite.comingSoonTitle'), t('invite.comingSoonBody'))}
-              activeOpacity={0.8}
-              style={{
-                flexDirection: 'row', alignItems: 'center', gap: 14,
-                padding: 16, borderRadius: 18, backgroundColor: theme.paper,
-                borderWidth: 1, borderColor: theme.line, marginBottom: 12,
-              }}
-            >
-              <View style={{
-                width: 44, height: 44, borderRadius: 22,
-                backgroundColor: theme.sand, justifyContent: 'center', alignItems: 'center',
-              }}>
-                {Icon[opt.icon]?.(theme.accent, 20)}
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontFamily: theme.fonts.head, fontSize: 16, color: theme.ink }}>{opt.label}</Text>
-                <Text style={{ fontFamily: theme.fonts.body, fontSize: 12.5, color: theme.inkSoft, marginTop: 2 }}>{opt.desc}</Text>
-              </View>
-              {Icon.chevR(theme.inkSoft, 18)}
-            </TouchableOpacity>
-          ))}
+          <PrimaryButton
+            label={t('invite.shareLink')}
+            icon={Icon.share('#FFFDF7', 18)}
+            onPress={onShareLink}
+          />
+          <View style={{ height: 12 }} />
+          <SecondaryButton
+            label={t('invite.copyCode')}
+            onPress={onCopyCode}
+          />
         </ScrollView>
       </View>
     );

@@ -9,6 +9,7 @@ import { ROLES, roleLabel, peekInvite } from '../data';
 import { useData } from '../data/DataProvider';
 import { Icon } from '../components/Icons';
 import { LayerHeader } from '../components/common';
+import QRScanner from '../components/QRScanner';
 
 export default function JoinFamily({ navigation, route }) {
   const { theme } = useTheme();
@@ -22,16 +23,19 @@ export default function JoinFamily({ navigation, route }) {
   const [takenRoles, setTakenRoles] = useState<string[]>([]);
   const [role, setRole] = useState('');
   const [loading, setLoading] = useState(false);
+  const [scanning, setScanning] = useState(false);
   const autoTriggered = useRef(false);
 
   const isSolo = family && family.members?.length === 1;
   const availableRoles = ROLES.filter(r => !takenRoles.includes(r));
 
-  const handleNext = async () => {
-    if (!code.trim() || loading) return;
+  const handleNext = async (rawCode?: string) => {
+    const c = (rawCode ?? code).trim();
+    if (!c || loading) return;
     setLoading(true);
     try {
-      const result = await peekInvite(code.trim());
+      const result = await peekInvite(c);
+      setCode(c);
       setTakenRoles(result.roles);
       setStep('role');
     } catch (e: any) {
@@ -44,6 +48,13 @@ export default function JoinFamily({ navigation, route }) {
     } finally {
       setLoading(false);
     }
+  };
+
+  // 扫码成功：填入邀请码并直接进入下一步（角色选择）
+  const handleScanned = (scanned: string) => {
+    setScanning(false);
+    setCode(scanned);
+    handleNext(scanned);
   };
 
   // 真正执行加入：solo 家庭先退出，再兑换邀请码
@@ -218,15 +229,31 @@ export default function JoinFamily({ navigation, route }) {
           {t('joinFamily.desc')}
         </Text>
 
-        {/* Code input */}
+        {/* Scan QR — 主推的加入方式 */}
+        <TouchableOpacity
+          onPress={() => setScanning(true)}
+          activeOpacity={0.85}
+          style={{
+            marginTop: 28, paddingVertical: 18, borderRadius: 18,
+            backgroundColor: theme.accent,
+            flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
+          }}
+        >
+          {Icon.camera('#FFFDF7', 20)}
+          <Text style={{ fontFamily: theme.fonts.head, fontSize: 16, color: '#FFFDF7' }}>
+            {t('joinFamily.scanButton')}
+          </Text>
+        </TouchableOpacity>
+
+        {/* Code input — 手动输入兜底 */}
         <View style={{
-          marginTop: 32, padding: 24, borderRadius: 22,
+          marginTop: 18, padding: 24, borderRadius: 22,
           backgroundColor: theme.paper, borderWidth: 1, borderColor: theme.line,
           alignItems: 'center',
         }}>
           <Text style={{
             fontFamily: theme.fonts.body, fontSize: 13, color: theme.inkSoft, marginBottom: 14,
-          }}>{t('onboarding.enterCode')}</Text>
+          }}>{t('joinFamily.orManual')}</Text>
           <TextInput
             value={code}
             onChangeText={setCode}
@@ -247,7 +274,7 @@ export default function JoinFamily({ navigation, route }) {
 
         {/* Next button */}
         <TouchableOpacity
-          onPress={handleNext}
+          onPress={() => handleNext()}
           disabled={!code.trim() || loading}
           activeOpacity={0.7}
           style={{
@@ -270,6 +297,8 @@ export default function JoinFamily({ navigation, route }) {
           fontFamily: theme.fonts.body, fontSize: 13, lineHeight: 21, color: theme.inkSoft,
         }}>{t('joinFamily.codeHint')}</Text>
       </ScrollView>
+
+      <QRScanner visible={scanning} onClose={() => setScanning(false)} onScanned={handleScanned} />
     </View>
   );
 }

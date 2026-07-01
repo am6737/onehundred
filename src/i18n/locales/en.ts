@@ -404,6 +404,13 @@ export const en = {
     haveCode: 'Have an invite code?',
     haveCodeDesc: 'Enter the code your family shared with you to join them',
     enterCodeToJoin: 'Enter code to join',
+    qrTitle: 'Have family scan to join',
+    qrHint: 'Ask them to open 100 Things and tap Scan on the Join family screen, then point at this QR code',
+    orManualCode: 'Or enter this invite code manually',
+    shareLink: 'Share invite link',
+    copyCode: 'Copy invite code',
+    copiedTitle: 'Invite code copied',
+    shareMessage: "I'm recording our child's growth on 100 Things. Join our family with this code: {{code}}\nOr tap to join: {{url}}",
   },
 
   joinFamily: {
@@ -421,6 +428,16 @@ export const en = {
     leaveWarnBody: 'The child "{{names}}" and {{count}} memories in your current family will no longer be accessible after you join a new family (the data won\'t be deleted, but you won\'t be able to see them). Continue?',
     leaveWarnBodyNoMemories: 'The child "{{names}}" in your current family will no longer be accessible after you join a new family (the data won\'t be deleted, but you won\'t be able to see them). Continue?',
     leaveWarnConfirm: 'Join anyway',
+    scanButton: 'Scan QR code',
+    orManual: 'Or enter the invite code manually',
+  },
+
+  scan: {
+    title: 'Scan invite QR',
+    hint: 'Point at the QR code to scan',
+    permTitle: 'Camera access is needed to scan',
+    permGrant: 'Allow camera',
+    permSettings: 'Open settings',
   },
 
   drawer: {
