@@ -14,7 +14,7 @@ export default function JoinFamily({ navigation, route }) {
   const { theme } = useTheme();
   const t = useT();
   const insets = useSafeAreaInsets();
-  const { family, joinFamily, leaveFamily } = useData();
+  const { family, joinFamily, leaveFamily, kids, memories } = useData();
 
   const initialCode = route?.params?.code || '';
   const [step, setStep] = useState<'code' | 'role'>('code');
@@ -46,18 +46,12 @@ export default function JoinFamily({ navigation, route }) {
     }
   };
 
-  const handleJoin = async () => {
-    if (!role || loading) return;
+  // 真正执行加入：solo 家庭先退出，再兑换邀请码
+  const runJoin = async () => {
     setLoading(true);
     try {
-      if (family) {
-        if (isSolo) {
-          await leaveFamily();
-        } else {
-          Alert.alert(t('joinFamily.cannotLeave'), t('joinFamily.cannotLeaveDesc'));
-          setLoading(false);
-          return;
-        }
+      if (isSolo) {
+        await leaveFamily();
       }
       await joinFamily(code.trim(), role, '');
       navigation.goBack();
@@ -73,6 +67,33 @@ export default function JoinFamily({ navigation, route }) {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleJoin = () => {
+    if (!role || loading) return;
+    // 多人家庭：不能带着其他成员离开，直接拦住
+    if (family && !isSolo) {
+      Alert.alert(t('joinFamily.cannotLeave'), t('joinFamily.cannotLeaveDesc'));
+      return;
+    }
+    // solo 家庭里已经建了孩子/回忆：加入新家后会失去访问权，先确认
+    if (isSolo && kids.length > 0) {
+      const names = kids.map(k => k.name).filter(Boolean).join('、');
+      const body = memories.length > 0
+        ? t('joinFamily.leaveWarnBody', { names, count: memories.length })
+        : t('joinFamily.leaveWarnBodyNoMemories', { names });
+      Alert.alert(
+        t('joinFamily.leaveWarnTitle'),
+        body,
+        [
+          { text: t('common.cancel'), style: 'cancel' },
+          { text: t('joinFamily.leaveWarnConfirm'), style: 'destructive', onPress: () => { runJoin(); } },
+        ],
+      );
+      return;
+    }
+    // 空 solo 家庭 或 尚未建家：直接加入
+    runJoin();
   };
 
   const handleBack = () => {

@@ -412,6 +412,10 @@ export const zh = {
     takenHint: '{{roles}} 已经在这个家里了',
     cannotLeave: '无法加入',
     cannotLeaveDesc: '你当前的家庭还有其他成员，请先让管理员处理后再试。',
+    leaveWarnTitle: '加入新家庭前请确认',
+    leaveWarnBody: '你当前记录的孩子「{{names}}」和 {{count}} 条回忆，加入新家庭后将无法再访问（数据不会删除，但你将看不到）。确定继续吗？',
+    leaveWarnBodyNoMemories: '你当前记录的孩子「{{names}}」，加入新家庭后将无法再访问（数据不会删除，但你将看不到）。确定继续吗？',
+    leaveWarnConfirm: '继续加入',
   },
   drawer: {
     weekTitle: '这一周的记录',

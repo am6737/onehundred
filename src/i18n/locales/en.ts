@@ -417,6 +417,10 @@ export const en = {
     takenHint: '{{roles}} is already in this family',
     cannotLeave: 'Cannot join',
     cannotLeaveDesc: 'Your current family still has other members. Please ask the admin to handle it first.',
+    leaveWarnTitle: 'Confirm before joining',
+    leaveWarnBody: 'The child "{{names}}" and {{count}} memories in your current family will no longer be accessible after you join a new family (the data won\'t be deleted, but you won\'t be able to see them). Continue?',
+    leaveWarnBodyNoMemories: 'The child "{{names}}" in your current family will no longer be accessible after you join a new family (the data won\'t be deleted, but you won\'t be able to see them). Continue?',
+    leaveWarnConfirm: 'Join anyway',
   },
 
   drawer: {
