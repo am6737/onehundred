@@ -23,7 +23,7 @@ export default function JoinFamily({ navigation, route }) {
   const [takenRoles, setTakenRoles] = useState<string[]>([]);
   const [role, setRole] = useState('');
   const [loading, setLoading] = useState(false);
-  const [scanning, setScanning] = useState(false);
+  const [scanning, setScanning] = useState(!!route?.params?.autoScan);
   const autoTriggered = useRef(false);
 
   const isSolo = family && family.members?.length === 1;
@@ -298,7 +298,9 @@ export default function JoinFamily({ navigation, route }) {
         }}>{t('joinFamily.codeHint')}</Text>
       </ScrollView>
 
-      <QRScanner visible={scanning} onClose={() => setScanning(false)} onScanned={handleScanned} />
+      {scanning && (
+        <QRScanner onClose={() => setScanning(false)} onScanned={handleScanned} />
+      )}
     </View>
   );
 }

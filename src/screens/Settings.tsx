@@ -844,27 +844,42 @@ function InviteSheet({ kids, me, onClose, onJoinFamily }: any) {
 
           {/* Join another family — for solo users */}
           {adults.length <= 1 && onJoinFamily && (
-            <TouchableOpacity
-              onPress={onJoinFamily}
-              activeOpacity={0.7}
-              style={{
-                marginTop: 20, padding: 18, borderRadius: 20,
-                backgroundColor: theme.sand,
-                flexDirection: 'row', alignItems: 'center', gap: 12,
-              }}
-            >
-              {Icon.plus(theme.accent, 18)}
-              <View style={{ flex: 1 }}>
-                <Text style={{
-                  fontFamily: theme.fonts.head, fontSize: 15, color: theme.ink,
-                }}>{t('invite.haveCode')}</Text>
-                <Text style={{
-                  marginTop: 2, fontFamily: theme.fonts.body, fontSize: 12.5,
-                  color: theme.inkSoft,
-                }}>{t('invite.haveCodeDesc')}</Text>
-              </View>
-              {Icon.chevR(theme.inkSoft, 16)}
-            </TouchableOpacity>
+            <View style={{ marginTop: 22 }}>
+              <Text style={{
+                fontFamily: theme.fonts.head, fontSize: 15, color: theme.ink, textAlign: 'center',
+              }}>{t('invite.haveCode')}</Text>
+              <Text style={{
+                marginTop: 4, fontFamily: theme.fonts.body, fontSize: 12.5,
+                color: theme.inkSoft, textAlign: 'center',
+              }}>{t('invite.haveCodeDesc')}</Text>
+              <TouchableOpacity
+                onPress={() => onJoinFamily(true)}
+                activeOpacity={0.85}
+                style={{
+                  marginTop: 14, paddingVertical: 15, borderRadius: 999,
+                  backgroundColor: theme.accent,
+                  flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+                }}
+              >
+                {Icon.camera('#FFFDF7', 18)}
+                <Text style={{ fontFamily: theme.fonts.head, fontSize: 16, color: '#FFFDF7' }}>
+                  {t('invite.scanToJoin')}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => onJoinFamily(false)}
+                activeOpacity={0.7}
+                style={{
+                  marginTop: 10, paddingVertical: 15, borderRadius: 999,
+                  borderWidth: 1.5, borderColor: theme.line,
+                  alignItems: 'center', justifyContent: 'center',
+                }}
+              >
+                <Text style={{ fontFamily: theme.fonts.head, fontSize: 16, color: theme.ink }}>
+                  {t('invite.enterCodeToJoin')}
+                </Text>
+              </TouchableOpacity>
+            </View>
           )}
         </ScrollView>
       </View>
@@ -2764,7 +2779,7 @@ export default function Settings({ navigation, route }: any) {
         <AddChildSheet onAdd={addKid} onClose={() => setSheet(null)} />
       ) : null}
       {sheet === 'invite' ? (
-        <InviteSheet kids={kids} me={me} onClose={() => setSheet(null)} onJoinFamily={() => { setSheet(null); navigation.navigate('JoinFamily'); }} />
+        <InviteSheet kids={kids} me={me} onClose={() => setSheet(null)} onJoinFamily={(autoScan?: boolean) => { setSheet(null); navigation.navigate('JoinFamily', { autoScan }); }} />
       ) : null}
 {sheet === 'about' ? (
         <AboutSheet onClose={() => setSheet(null)} />

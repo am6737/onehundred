@@ -10,7 +10,6 @@ import { Icon } from './Icons';
 import { parseInviteCode } from '../lib/invite';
 
 type Props = {
-  visible: boolean;
   onClose: () => void;
   /** 扫到有效邀请码时回调，已解析成纯邀请码 */
   onScanned: (code: string) => void;
@@ -20,24 +19,19 @@ type Props = {
  * 全屏相机扫码遮罩。用绝对定位覆盖层而非 RN Modal，
  * 规避本项目在新架构（Fabric）下 Modal 的一些坑。
  */
-export default function QRScanner({ visible, onClose, onScanned }: Props) {
+export default function QRScanner({ onClose, onScanned }: Props) {
   const { theme } = useTheme();
   const t = useT();
   const insets = useSafeAreaInsets();
   const [permission, requestPermission] = useCameraPermissions();
   const [handled, setHandled] = useState(false);
 
-  // 每次打开重置去重锁
+  // 挂载时若权限未决定，主动申请一次
   useEffect(() => {
-    if (visible) setHandled(false);
-  }, [visible]);
-
-  // 打开时若权限未决定，主动申请一次
-  useEffect(() => {
-    if (visible && permission && !permission.granted && permission.canAskAgain) {
+    if (permission && !permission.granted && permission.canAskAgain) {
       requestPermission();
     }
-  }, [visible, permission]);
+  }, [permission]);
 
   const handleScan = useCallback((result: BarcodeScanningResult) => {
     if (handled) return;
@@ -46,8 +40,6 @@ export default function QRScanner({ visible, onClose, onScanned }: Props) {
     setHandled(true);
     onScanned(code);
   }, [handled, onScanned]);
-
-  if (!visible) return null;
 
   const granted = !!permission?.granted;
 

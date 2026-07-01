@@ -400,6 +400,7 @@ export const zh = {
     haveCode: '收到了邀请码？',
     haveCodeDesc: '输入家人分享给你的邀请码，加入他们的家',
     enterCodeToJoin: '输入邀请码加入',
+    scanToJoin: '扫一扫加入',
     qrTitle: '让家人扫码加入',
     qrHint: '家人打开「一百件事」，在「加入家庭」里点扫一扫，对准下面的二维码就行',
     orManualCode: '或手动输入这串邀请码',

@@ -404,6 +404,7 @@ export const en = {
     haveCode: 'Have an invite code?',
     haveCodeDesc: 'Enter the code your family shared with you to join them',
     enterCodeToJoin: 'Enter code to join',
+    scanToJoin: 'Scan to join',
     qrTitle: 'Have family scan to join',
     qrHint: 'Ask them to open 100 Things and tap Scan on the Join family screen, then point at this QR code',
     orManualCode: 'Or enter this invite code manually',
