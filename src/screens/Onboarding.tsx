@@ -10,6 +10,7 @@ import { useT } from '../i18n';
 import { ROLES, NOW_YM, roleLabel } from '../data';
 import { useData } from '../data/DataProvider';
 import { Icon, KidAvatar } from '../components/Icons';
+import QRScanner from '../components/QRScanner';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
@@ -359,6 +360,7 @@ function DoneStep({ me, child, onEnter, loading }) {
 function JoinCodeStep({ code, onChange, onNext }) {
   const { theme } = useTheme();
   const t = useT();
+  const [scanning, setScanning] = useState(false);
   const ok = code.trim().length > 0;
   return (
     <>
@@ -368,6 +370,23 @@ function JoinCodeStep({ code, onChange, onNext }) {
         <Text style={{ marginTop: 12, fontSize: 15, lineHeight: 28, color: theme.inkSoft }}>
           {t('onboarding.joinHint')}
         </Text>
+        <TouchableOpacity
+          onPress={() => setScanning(true)}
+          activeOpacity={0.85}
+          style={{
+            marginTop: 22, paddingVertical: 16, borderRadius: 999,
+            backgroundColor: theme.accent,
+            flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+          }}
+        >
+          {Icon.camera('#FFFDF7', 18)}
+          <Text style={{ fontFamily: theme.fonts.head, fontSize: 16, color: '#FFFDF7' }}>
+            {t('invite.scanToJoin')}
+          </Text>
+        </TouchableOpacity>
+        <Text style={{
+          marginTop: 18, fontSize: 12.5, color: theme.inkSoft, textAlign: 'center',
+        }}>{t('invite.orManualCode')}</Text>
         <TextInput
           value={code}
           onChangeText={(v) => onChange(v.toUpperCase())}
@@ -375,9 +394,8 @@ function JoinCodeStep({ code, onChange, onNext }) {
           placeholderTextColor={theme.inkSoft}
           autoCapitalize="characters"
           autoCorrect={false}
-          autoFocus
           style={{
-            marginTop: 22, width: '100%',
+            marginTop: 10, width: '100%',
             borderWidth: 1.5, borderColor: theme.line, borderRadius: 18,
             paddingVertical: 16, paddingHorizontal: 17,
             backgroundColor: theme.paper, color: theme.ink,
@@ -386,6 +404,12 @@ function JoinCodeStep({ code, onChange, onNext }) {
         />
       </ScrollView>
       <CTA label={t('common.next')} onPress={onNext} disabled={!ok} />
+      {scanning && (
+        <QRScanner
+          onClose={() => setScanning(false)}
+          onScanned={(c) => { setScanning(false); onChange(c); onNext(); }}
+        />
+      )}
     </>
   );
 }
