@@ -5,7 +5,7 @@ import React, { useState, useCallback, useRef, useEffect, useMemo, useImperative
 import {
   View, Text, TouchableOpacity, ScrollView, Switch,
   Modal, Pressable, TextInput, StyleSheet, Dimensions,
-  Alert, ActivityIndicator, Image, Platform, ToastAndroid, Animated,
+  Alert, ActivityIndicator, Image, Platform, ToastAndroid, Animated, Share,
 } from 'react-native';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import WheelPicker from '@quidone/react-native-wheel-picker';
@@ -21,7 +21,7 @@ import { DooPush } from 'doopush-react-native-sdk';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme, COLORS } from '../theme/tokens';
 import { useI18n, useT } from '../i18n';
-import { ROLES, DEFAULT_ME, meName, meChar, roleLabel, NOW_YM, fetchNotificationPrefs, updateNotificationPrefs, fetchNotificationTemplates, sendTestNotification } from '../data';
+import { ROLES, DEFAULT_ME, meName, meChar, roleLabel, NOW_YM, fetchNotificationPrefs, updateNotificationPrefs, fetchNotificationTemplates, sendTestNotification, fetchProfile } from '../data';
 import { useData } from '../data/DataProvider';
 import { signOut, isAnonymous, bindEmail, deleteAccount, getCurrentUserPhone, maskPhone, updatePhone, verifyPhoneChange, signInWithApple, bindApple, isAppleSignInAvailable, getLinkedProviders, unbindProvider } from '../lib/auth';
 import { getInviteExpiryHours, setInviteExpiryHours, INVITE_EXPIRY_OPTIONS, DEFAULT_INVITE_EXPIRY } from '../lib/yaoji';
@@ -29,6 +29,8 @@ import { safeDooPushRegister } from '../lib/doopushRegister';
 import { supabase } from '../lib/supabase';
 import { Icon, KidAvatar } from '../components/Icons';
 import { LayerHeader, Sheet, Chip, PrimaryButton, SecondaryButton, Section } from '../components/common';
+import { familyInviteUrl } from '../lib/invite';
+import QRCode from 'react-native-qrcode-svg';
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 
@@ -738,6 +740,12 @@ function InviteSheet({ kids, me, onClose, onJoinFamily }: any) {
     setCopied(true);
     setTimeout(() => setCopied(false), 1800);
   };
+  const shareLink = async () => {
+    if (code === '——') return;
+    try {
+      await Share.share({ message: t('invite.shareMessage', { code, url: familyInviteUrl(code) }) });
+    } catch {}
+  };
 
   return (
     <Modal visible animationType="slide" onRequestClose={onClose}>
@@ -779,8 +787,20 @@ function InviteSheet({ kids, me, onClose, onJoinFamily }: any) {
             }}>
               {t('settings.inviteDesc')}
             </Text>
+
+            {/* 二维码：让家人打开 App 扫一扫即可加入 */}
+            {code !== '——' ? (
+              <View style={{ marginTop: 18, padding: 14, borderRadius: 18, backgroundColor: '#FFFFFF' }}>
+                <QRCode value={familyInviteUrl(code)} size={180} backgroundColor="#FFFFFF" color="#2A2723" />
+              </View>
+            ) : null}
+
+            <Text style={{
+              marginTop: 18, fontFamily: theme.fonts.body, fontSize: 12.5,
+              color: theme.inkSoft, textAlign: 'center',
+            }}>{t('invite.orManualCode')}</Text>
             <View style={{
-              marginTop: 16, padding: 14, borderRadius: 16,
+              marginTop: 8, padding: 14, borderRadius: 16,
               backgroundColor: theme.sand, width: '100%', alignItems: 'center',
             }}>
               <Text style={{
@@ -805,6 +825,20 @@ function InviteSheet({ kids, me, onClose, onJoinFamily }: any) {
                 fontFamily: theme.fonts.head, fontSize: 16,
                 color: copied ? theme.accent : '#FFFDF7',
               }}>{copied ? t('settings.codeCopied') : t('settings.copyCode')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={shareLink}
+              activeOpacity={0.7}
+              style={{
+                marginTop: 10, width: '100%', minHeight: 52, paddingVertical: 14, borderRadius: 999,
+                borderWidth: 1.5, borderColor: theme.line,
+                flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+              }}
+            >
+              {Icon.share(theme.accent, 18)}
+              <Text style={{ fontFamily: theme.fonts.head, fontSize: 16, color: theme.ink }}>
+                {t('invite.shareLink')}
+              </Text>
             </TouchableOpacity>
           </View>
 
@@ -1460,6 +1494,8 @@ function AccountSecuritySheet({ anon, onAnonChanged, onClose }: any) {
   const [showUnbind, setShowUnbind] = useState<string | null>(null); // 'apple' | 'wechat'
   const [uid, setUid] = useState('');
   const [uidCopied, setUidCopied] = useState(false);
+  const [generatedEmail, setGeneratedEmail] = useState('');
+  const [emailCopied, setEmailCopied] = useState(false);
   const [currentPhone, setCurrentPhone] = useState('');
   const [providers, setProviders] = useState<string[]>([]);
   const [appleAvail, setAppleAvail] = useState(false);
@@ -1473,6 +1509,7 @@ function AccountSecuritySheet({ anon, onAnonChanged, onClose }: any) {
       if (data?.user?.id) setUid(data.user.id.slice(0, 8));
       setCurrentPhone(data?.user?.phone || '');
     });
+    fetchProfile().then(p => { if (p?.generated_email) setGeneratedEmail(p.generated_email); });
     refreshProviders();
     isAppleSignInAvailable().then(setAppleAvail);
   }, []);
@@ -1510,6 +1547,13 @@ function AccountSecuritySheet({ anon, onAnonChanged, onClose }: any) {
     setTimeout(() => setUidCopied(false), 1800);
   };
 
+  const copyEmail = async () => {
+    if (!generatedEmail) return;
+    await Clipboard.setStringAsync(generatedEmail);
+    setEmailCopied(true);
+    setTimeout(() => setEmailCopied(false), 1800);
+  };
+
   return (
     <Modal visible animationType="slide" onRequestClose={onClose}>
       <View style={{ flex: 1, backgroundColor: theme.cream }}>
@@ -1522,6 +1566,18 @@ function AccountSecuritySheet({ anon, onAnonChanged, onClose }: any) {
                 title={uid}
                 value={uidCopied ? t('settings.userIdCopied') : t('settings.copyId')}
                 onPress={copyUid}
+                last
+              />
+            </SettingGroup>
+          ) : null}
+
+          {generatedEmail ? (
+            <SettingGroup label={t('settings.email')}>
+              <Row
+                icon={Icon.mail(theme.accent, 19)}
+                title={generatedEmail}
+                value={emailCopied ? t('settings.userIdCopied') : t('settings.copyId')}
+                onPress={copyEmail}
                 last
               />
             </SettingGroup>
