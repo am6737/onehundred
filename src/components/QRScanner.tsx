@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Linking as RNLinking,
+  View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Linking as RNLinking, Animated,
 } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { CameraView, useCameraPermissions, type BarcodeScanningResult } from 'expo-camera';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/tokens';
@@ -25,6 +26,8 @@ export default function QRScanner({ onClose, onScanned }: Props) {
   const insets = useSafeAreaInsets();
   const [permission, requestPermission] = useCameraPermissions();
   const [handled, setHandled] = useState(false);
+  const [ok, setOk] = useState(false);
+  const fade = useRef(new Animated.Value(1)).current;
 
   // 挂载时若权限未决定，主动申请一次
   useEffect(() => {
@@ -38,13 +41,19 @@ export default function QRScanner({ onClose, onScanned }: Props) {
     const code = parseInviteCode(result.data);
     if (!code) return; // 不是我们的邀请码，忽略继续扫
     setHandled(true);
-    onScanned(code);
-  }, [handled, onScanned]);
+    setOk(true);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    // 先让"已识别"的成功态停留一下，再淡出回调，避免瞬间硬切、显得丝滑
+    setTimeout(() => {
+      Animated.timing(fade, { toValue: 0, duration: 260, useNativeDriver: true })
+        .start(() => onScanned(code));
+    }, 420);
+  }, [handled, onScanned, fade]);
 
   const granted = !!permission?.granted;
 
   return (
-    <View style={[StyleSheet.absoluteFill, styles.root]}>
+    <Animated.View style={[StyleSheet.absoluteFill, styles.root, { opacity: fade }]}>
       {granted ? (
         <CameraView
           style={StyleSheet.absoluteFill}
@@ -78,8 +87,16 @@ export default function QRScanner({ onClose, onScanned }: Props) {
       {/* 取景框 + 提示 */}
       {granted && (
         <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.center]}>
-          <View style={styles.frame} />
-          <Text style={[styles.hint, { fontFamily: theme.fonts.body }]}>{t('scan.hint')}</Text>
+          <View style={[styles.frame, ok && { borderColor: theme.accent }]}>
+            {ok && (
+              <View style={[styles.okBadge, { backgroundColor: theme.accent }]}>
+                {Icon.check('#FFFDF7', 34)}
+              </View>
+            )}
+          </View>
+          <Text style={[styles.hint, { fontFamily: theme.fonts.body }]}>
+            {ok ? t('scan.recognized') : t('scan.hint')}
+          </Text>
         </View>
       )}
 
@@ -90,7 +107,7 @@ export default function QRScanner({ onClose, onScanned }: Props) {
         </TouchableOpacity>
         <Text style={[styles.title, { fontFamily: theme.fonts.head }]}>{t('scan.title')}</Text>
       </View>
-    </View>
+    </Animated.View>
   );
 }
 
@@ -104,6 +121,11 @@ const styles = StyleSheet.create({
     width: 240, height: 240, borderRadius: 26,
     borderWidth: 3, borderColor: '#FFFDF7',
     backgroundColor: 'transparent',
+    justifyContent: 'center', alignItems: 'center',
+  },
+  okBadge: {
+    width: 74, height: 74, borderRadius: 37,
+    justifyContent: 'center', alignItems: 'center',
   },
   hint: { marginTop: 26, color: '#FFFDF7', fontSize: 15, textAlign: 'center' },
   topBar: {

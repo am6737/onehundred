@@ -430,6 +430,7 @@ export const zh = {
   scan: {
     title: '扫描邀请二维码',
     hint: '将二维码放进框内即可',
+    recognized: '已识别，正在加入…',
     permTitle: '需要相机权限才能扫码加入',
     permGrant: '允许使用相机',
     permSettings: '去设置里开启相机',

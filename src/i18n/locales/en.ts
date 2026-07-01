@@ -436,6 +436,7 @@ export const en = {
   scan: {
     title: 'Scan invite QR',
     hint: 'Point at the QR code to scan',
+    recognized: 'Got it — joining…',
     permTitle: 'Camera access is needed to scan',
     permGrant: 'Allow camera',
     permSettings: 'Open settings',
