@@ -16,6 +16,21 @@ type Props = {
   onScanned: (code: string) => void;
 };
 
+/** 取二维码的中心点（优先角点，其次 bounds）；拿不到有效坐标返回 null。 */
+function centerOf(r: BarcodeScanningResult): { x: number; y: number } | null {
+  const pts = r.cornerPoints;
+  if (pts && pts.length) {
+    let sx = 0, sy = 0;
+    for (const p of pts) { sx += p.x; sy += p.y; }
+    return { x: sx / pts.length, y: sy / pts.length };
+  }
+  const b = r.bounds;
+  if (b && b.size && (b.size.width > 0 || b.size.height > 0)) {
+    return { x: b.origin.x + b.size.width / 2, y: b.origin.y + b.size.height / 2 };
+  }
+  return null;
+}
+
 /**
  * 全屏相机扫码遮罩。用绝对定位覆盖层而非 RN Modal，
  * 规避本项目在新架构（Fabric）下 Modal 的一些坑。
@@ -28,6 +43,13 @@ export default function QRScanner({ onClose, onScanned }: Props) {
   const [handled, setHandled] = useState(false);
   const [ok, setOk] = useState(false);
   const fade = useRef(new Animated.Value(1)).current;
+  const frameRef = useRef<View>(null);
+  const [hitRect, setHitRect] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
+  const measureFrame = () => {
+    frameRef.current?.measureInWindow((x, y, w, h) => {
+      if (w && h) setHitRect({ x, y, w, h });
+    });
+  };
 
   // 挂载时若权限未决定，主动申请一次
   useEffect(() => {
@@ -40,6 +62,15 @@ export default function QRScanner({ onClose, onScanned }: Props) {
     if (handled) return;
     const code = parseInviteCode(result.data);
     if (!code) return; // 不是我们的邀请码，忽略继续扫
+    // 只认取景框内的二维码：能拿到坐标就判断中心是否落在框内，拿不到就放行
+    const c = centerOf(result);
+    if (c && hitRect) {
+      const pad = 36;
+      const inside =
+        c.x >= hitRect.x - pad && c.x <= hitRect.x + hitRect.w + pad &&
+        c.y >= hitRect.y - pad && c.y <= hitRect.y + hitRect.h + pad;
+      if (!inside) return; // 码在框外，忽略继续扫
+    }
     setHandled(true);
     setOk(true);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
@@ -48,7 +79,7 @@ export default function QRScanner({ onClose, onScanned }: Props) {
       Animated.timing(fade, { toValue: 0, duration: 260, useNativeDriver: true })
         .start(() => onScanned(code));
     }, 420);
-  }, [handled, onScanned, fade]);
+  }, [handled, onScanned, fade, hitRect]);
 
   const granted = !!permission?.granted;
 
@@ -87,16 +118,8 @@ export default function QRScanner({ onClose, onScanned }: Props) {
       {/* 取景框 + 提示 */}
       {granted && (
         <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.center]}>
-          <View style={[styles.frame, ok && { borderColor: theme.accent }]}>
-            {ok && (
-              <View style={[styles.okBadge, { backgroundColor: theme.accent }]}>
-                {Icon.check('#FFFDF7', 34)}
-              </View>
-            )}
-          </View>
-          <Text style={[styles.hint, { fontFamily: theme.fonts.body }]}>
-            {ok ? t('scan.recognized') : t('scan.hint')}
-          </Text>
+          <View ref={frameRef} onLayout={measureFrame} style={styles.frame} />
+          <Text style={[styles.hint, { fontFamily: theme.fonts.body }]}>{t('scan.hint')}</Text>
         </View>
       )}
 
@@ -107,6 +130,14 @@ export default function QRScanner({ onClose, onScanned }: Props) {
         </TouchableOpacity>
         <Text style={[styles.title, { fontFamily: theme.fonts.head }]}>{t('scan.title')}</Text>
       </View>
+
+      {/* 扫中后：轻遮罩 + loading，给"正在加入"的过场 */}
+      {ok && (
+        <View style={styles.okOverlay}>
+          <ActivityIndicator color="#FFFDF7" size="large" />
+          <Text style={[styles.okText, { fontFamily: theme.fonts.body }]}>{t('scan.recognized')}</Text>
+        </View>
+      )}
     </Animated.View>
   );
 }
@@ -121,11 +152,14 @@ const styles = StyleSheet.create({
     width: 240, height: 240, borderRadius: 26,
     borderWidth: 3, borderColor: '#FFFDF7',
     backgroundColor: 'transparent',
+  },
+  okOverlay: {
+    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.4)',
     justifyContent: 'center', alignItems: 'center',
   },
-  okBadge: {
-    width: 74, height: 74, borderRadius: 37,
-    justifyContent: 'center', alignItems: 'center',
+  okText: {
+    marginTop: 16, color: '#FFFDF7', fontSize: 15, textAlign: 'center',
   },
   hint: { marginTop: 26, color: '#FFFDF7', fontSize: 15, textAlign: 'center' },
   topBar: {
