@@ -29,6 +29,9 @@ const config: ExpoConfig = {
     usesAppleSignIn: true,
   },
   android: {
+    // DooPush Android SDK 声明 allowBackup=false；这里跟它保持一致，
+    // 避免清单合并冲突，同时防止推送 token 等本地数据被系统备份跨设备还原。
+    allowBackup: false,
     adaptiveIcon: {
       backgroundColor: "#FFF5EE",
       foregroundImage: "./assets/android-icon-foreground.png",
