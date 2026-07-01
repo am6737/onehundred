@@ -43,6 +43,7 @@ export default function QRScanner({ onClose, onScanned }: Props) {
   const [handled, setHandled] = useState(false);
   const [ok, setOk] = useState(false);
   const fade = useRef(new Animated.Value(1)).current;
+  const maskFade = useRef(new Animated.Value(0)).current;
   const frameRef = useRef<View>(null);
   const [hitRect, setHitRect] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
   const measureFrame = () => {
@@ -73,13 +74,15 @@ export default function QRScanner({ onClose, onScanned }: Props) {
     }
     setHandled(true);
     setOk(true);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-    // 先让"已识别"的成功态停留一下，再淡出回调，避免瞬间硬切、显得丝滑
+    // 干脆的单次震动，和遮罩淡入、loading 一起进入，节奏统一
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    Animated.timing(maskFade, { toValue: 1, duration: 220, useNativeDriver: true }).start();
+    // 停留一会儿再整层淡出、回调
     setTimeout(() => {
       Animated.timing(fade, { toValue: 0, duration: 300, useNativeDriver: true })
         .start(() => onScanned(code));
     }, 900);
-  }, [handled, onScanned, fade, hitRect]);
+  }, [handled, onScanned, fade, maskFade, hitRect]);
 
   const granted = !!permission?.granted;
 
@@ -133,9 +136,20 @@ export default function QRScanner({ onClose, onScanned }: Props) {
 
       {/* 扫中后：轻遮罩 + loading，给"正在加入"的过场 */}
       {ok && (
-        <View style={styles.okOverlay}>
-          <ActivityIndicator color="#FFFDF7" size="large" />
-        </View>
+        <Animated.View style={[styles.okOverlay, { opacity: maskFade }]}>
+          {hitRect ? (
+            <View style={{
+              position: 'absolute',
+              left: hitRect.x + hitRect.w / 2 - 30,
+              top: hitRect.y + hitRect.h / 2 - 30,
+              width: 60, height: 60, justifyContent: 'center', alignItems: 'center',
+            }}>
+              <ActivityIndicator color="#FFFDF7" size="large" />
+            </View>
+          ) : (
+            <ActivityIndicator color="#FFFDF7" size="large" />
+          )}
+        </Animated.View>
       )}
     </Animated.View>
   );
