@@ -5,7 +5,7 @@ import React, { useState, useCallback, useRef, useEffect, useMemo, useImperative
 import {
   View, Text, TouchableOpacity, ScrollView, Switch,
   Modal, Pressable, TextInput, StyleSheet, Dimensions,
-  Alert, ActivityIndicator, Image, Platform, ToastAndroid, Animated, Share,
+  Alert, ActivityIndicator, Image, Platform, ToastAndroid, Animated, Share, PermissionsAndroid, Linking,
 } from 'react-native';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import WheelPicker from '@quidone/react-native-wheel-picker';
@@ -37,6 +37,24 @@ const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 /* ══════════════════════════════════════════════════════════
    Helpers
    ══════════════════════════════════════════════════════════ */
+
+async function hasAndroidNotificationPermission() {
+  if (Platform.OS !== 'android') return true;
+
+  const androidVersion = Number(Platform.Version);
+  if (!Number.isFinite(androidVersion) || androidVersion < 33) return true;
+
+  return PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS);
+}
+
+async function requestAndroidNotificationPermission() {
+  if (await hasAndroidNotificationPermission()) return true;
+
+  const result = await PermissionsAndroid.request(
+    PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
+  );
+  return result === PermissionsAndroid.RESULTS.GRANTED;
+}
 
 function ageFrom(y: any, m: any) {
   return Math.max(0, NOW_YM.y - y - (NOW_YM.m < m ? 1 : 0));
@@ -2442,8 +2460,18 @@ function PetNotifyGroup() {
 
   useEffect(() => {
     let alive = true;
-    fetchNotificationPrefs()
-      .then(p => { if (alive && p) setPrefs(prev => ({ ...prev, ...p })); })
+    Promise.all([
+      fetchNotificationPrefs().catch(() => null),
+      hasAndroidNotificationPermission().catch(() => true),
+    ])
+      .then(([p, permissionGranted]) => {
+        if (!alive) return;
+        setPrefs(prev => ({
+          ...prev,
+          ...(p || {}),
+          enabled: permissionGranted ? ((p as any)?.enabled ?? prev.enabled) : false,
+        }));
+      })
       .catch(() => {});
     return () => { alive = false; };
   }, []);
@@ -2451,6 +2479,34 @@ function PetNotifyGroup() {
   const save = (patch: Record<string, any>) => {
     setPrefs(prev => ({ ...prev, ...patch }));
     updateNotificationPrefs(patch).catch(e => console.warn('notif prefs:', e?.message || e));
+  };
+
+  const showNotificationPermissionHint = () => {
+    Alert.alert(
+      '需要通知权限',
+      '请允许系统通知权限，才能接收宠物提醒和家人动态通知。你也可以稍后在系统设置里为「一百件事」开启通知。',
+      [
+        { text: '稍后', style: 'cancel' },
+        { text: '去设置', onPress: () => Linking.openSettings().catch(() => {}) },
+      ],
+    );
+  };
+
+  const toggleNotifyEnabled = async (on: boolean) => {
+    if (!on) {
+      save({ enabled: false });
+      return;
+    }
+
+    const permissionGranted = await requestAndroidNotificationPermission().catch(() => false);
+    if (!permissionGranted) {
+      setPrefs(prev => ({ ...prev, enabled: false }));
+      showNotificationPermissionHint();
+      return;
+    }
+
+    save({ enabled: true });
+    safeDooPushRegister().catch(e => console.warn('[DooPush] 设置页补注册失败', e?.message || e));
   };
 
   const hourOf = (s: string) => parseInt((s || '0').split(':')[0], 10) || 0;
@@ -2480,7 +2536,7 @@ function PetNotifyGroup() {
       <ToggleRow
         title={t('settings.petNotifyEnabled')}
         value={prefs.enabled}
-        onValueChange={(v: boolean) => save({ enabled: v })}
+        onValueChange={toggleNotifyEnabled}
         last={!prefs.enabled}
       />
       {prefs.enabled && (
