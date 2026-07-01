@@ -411,6 +411,7 @@ CREATE TABLE IF NOT EXISTS public.invite_tokens (
   level_record  TEXT NOT NULL DEFAULT '',
   level_suggest TEXT NOT NULL DEFAULT 'photo',
   level_tone    TEXT NOT NULL DEFAULT 'orange',
+  perspective   TEXT NOT NULL DEFAULT 'together',
   kid_id        TEXT,
   kid_name      TEXT,
   inviter_role  TEXT NOT NULL DEFAULT '',
@@ -425,11 +426,12 @@ CREATE POLICY "invite_tokens_family" ON public.invite_tokens
   FOR ALL USING (family_id = public.my_family_id())
   WITH CHECK (family_id = public.my_family_id());
 
--- 11.1 invite_tokens 增加插画路径 + 记录些什么
+-- 11.1 invite_tokens 增加插画路径 + 记录些什么 + 事项真实视角
 ALTER TABLE public.invite_tokens
   ADD COLUMN IF NOT EXISTS illustration_path TEXT,
   ADD COLUMN IF NOT EXISTS level_record TEXT NOT NULL DEFAULT '',
-  ADD COLUMN IF NOT EXISTS opened_at TIMESTAMPTZ;
+  ADD COLUMN IF NOT EXISTS opened_at TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS perspective TEXT NOT NULL DEFAULT 'together';
 
 -- 11.2 memories 增加邀记来源字段
 ALTER TABLE public.memories

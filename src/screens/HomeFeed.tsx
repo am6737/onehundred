@@ -540,8 +540,11 @@ export default function HomeFeed({ navigation, onOpenDrawer, perspective, setPer
   const [readyToRefresh, setReadyToRefresh] = useState(false);
   const refreshingRef = useRef(false);
 
+  // 只按 levelNum 判定「做过」：num 是全局唯一的事项标识（levels.num 是主键，自定义事用「★n」），
+  // perspective 冗余且不可靠——邀记（yaoji）流程写回的记忆 perspective 被服务端硬编码成 together，
+  // 若把它并进 key，就会和首页里 parent/child 事项对不上，导致做完的事在首页删不掉。
   const doneSet = useMemo(
-    () => new Set(memoriesForKid(kidId).map(m => `${m.perspective}|${m.levelNum}`)),
+    () => new Set(memoriesForKid(kidId).map(m => m.levelNum)),
     [memoriesForKid, kidId]
   );
 
@@ -558,7 +561,7 @@ export default function HomeFeed({ navigation, onOpenDrawer, perspective, setPer
       // 用 shuffleKey 当 seed：refresh 静默重载不会重排，只有「换一批」才换顺序
       const shuf = weightedShuffle(pool, kidId, shuffleKey + 1);
       // 当前孩子做过的活动不再出现（kid='all' 的记录对每个孩子都算做过）
-      const lv = shuf.filter((l) => !doneSet.has(`${l.perspective}|${l.num}`));
+      const lv = shuf.filter((l) => !doneSet.has(l.num));
       const items: any[] = [];
       lv.forEach((l, i) => {
         items.push({ type: 'level', key: `${l.num}-${p}-${shuffleKey}`, level: l, index: i });

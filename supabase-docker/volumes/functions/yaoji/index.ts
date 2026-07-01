@@ -61,6 +61,7 @@ interface TokenRow {
   level_record: string
   level_suggest: string
   level_tone: string
+  perspective: string
   kid_id: string | null
   kid_name: string | null
   inviter_role: string
@@ -94,7 +95,7 @@ async function handleCreate(req: Request): Promise<Response> {
   const body = await req.json()
   const { levelNum, levelTitle, kidId, kidName, expiresDays = 1,
           levelWhy, levelHow, levelRecord, levelSuggest, levelTone,
-          inviterRole, illustrationPath } = body
+          perspective, inviterRole, illustrationPath } = body
 
   if (!levelNum || !levelTitle) return json({ error: 'missing_fields' }, 400)
 
@@ -112,6 +113,7 @@ async function handleCreate(req: Request): Promise<Response> {
       level_record: levelRecord || '',
       level_suggest: levelSuggest || 'photo',
       level_tone: levelTone || 'orange',
+      perspective: perspective || 'together',
       kid_id: kidId || null,
       kid_name: kidName || null,
       inviter_role: inviterRole || '',
@@ -226,7 +228,7 @@ async function handleSubmit(req: Request, tokenId: string): Promise<Response> {
     user_id: token.created_by,
     kid_id: token.kid_id || 'all',
     level_num: token.level_num,
-    perspective: 'together',
+    perspective: token.perspective || 'together',
     type,
     duration: duration || null,
     shots: shots || null,

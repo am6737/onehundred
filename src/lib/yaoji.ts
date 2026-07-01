@@ -28,6 +28,7 @@ export interface InviteToken {
   familyId: string;
   levelNum: string;
   levelTitle: string;
+  perspective: string;
   kidId: string | null;
   kidName: string | null;
   inviterRole: string;
@@ -45,6 +46,7 @@ export async function createInviteToken(params: {
   levelRecord?: string;
   levelSuggest?: string;
   levelTone?: string;
+  perspective?: string;
   kidId?: string;
   kidName?: string;
   inviterRole?: string;
@@ -76,6 +78,7 @@ export async function fetchInviteTokens(levelNum: string): Promise<InviteToken[]
     familyId: row.family_id,
     levelNum: row.level_num,
     levelTitle: row.level_title,
+    perspective: row.perspective,
     kidId: row.kid_id,
     kidName: row.kid_name,
     inviterRole: row.inviter_role,
