@@ -36,6 +36,14 @@ export function describeDooPushError(error: unknown) {
   };
 }
 
+export function formatDooPushError(error: unknown) {
+  try {
+    return JSON.stringify(describeDooPushError(error), null, 2);
+  } catch {
+    return String(error);
+  }
+}
+
 function getRuntimeDooPushConfig(): { appId?: string; apiKey?: string } {
   return (Constants.expoConfig?.extra?.doopush ?? {}) as { appId?: string; apiKey?: string };
 }
@@ -93,7 +101,7 @@ export async function safeDooPushRegister(): Promise<PushRegistration> {
       markDooPushConfigured();
       logDooPushRuntimeState('safeDooPushRegister:configured-fallback');
     } catch (e) {
-      console.warn('[DooPush] fallback configure failed', describeDooPushError(e));
+      console.warn('[DooPush] fallback configure failed', formatDooPushError(e));
       throw e;
     }
   }
@@ -116,7 +124,7 @@ export async function safeDooPushRegister(): Promise<PushRegistration> {
       console.log('[DooPush] native register resolved', { deviceId: result.deviceId, vendor: result.vendor, hasToken: Boolean(result.token) });
       return result;
     } catch (e) {
-      console.warn('[DooPush] native register rejected detail', describeDooPushError(e));
+      console.warn('[DooPush] native register rejected detail', formatDooPushError(e));
       throw e;
     }
   })();

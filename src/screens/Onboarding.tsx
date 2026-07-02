@@ -7,7 +7,7 @@ import Animated, { FadeIn } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme, COLORS } from '../theme/tokens';
 import { useT } from '../i18n';
-import { ROLES, NOW_YM, roleLabel } from '../data';
+import { ROLES, NOW_YM, roleLabel, peekInvite } from '../data';
 import { useData } from '../data/DataProvider';
 import { Icon, KidAvatar } from '../components/Icons';
 import QRScanner from '../components/QRScanner';
@@ -357,7 +357,7 @@ function DoneStep({ me, child, onEnter, loading }) {
 }
 
 /* ── Join step A: 邀请码 ── */
-function JoinCodeStep({ code, onChange, onNext, onScanningChange }) {
+function JoinCodeStep({ code, onChange, onNext, busy, onScanningChange }) {
   const { theme } = useTheme();
   const t = useT();
   const [scanning, setScanning] = useState(false);
@@ -408,11 +408,11 @@ function JoinCodeStep({ code, onChange, onNext, onScanningChange }) {
           }}
         />
       </ScrollView>
-      <CTA label={t('common.next')} onPress={onNext} disabled={!ok} />
+      <CTA label={busy ? t('common.loading') : t('common.next')} onPress={() => onNext()} disabled={!ok || busy} />
       {scanning && (
         <QRScanner
           onClose={() => setScanning(false)}
-          onScanned={(c) => { setScanning(false); onChange(c); onNext(); }}
+          onScanned={(c) => { setScanning(false); onChange(c); onNext(c); }}
         />
       )}
     </>
@@ -420,7 +420,7 @@ function JoinCodeStep({ code, onChange, onNext, onScanningChange }) {
 }
 
 /* ── Join step B: 选自己的角色（孩子叫你什么）── */
-function JoinRoleStep({ value, onChange, onEnter, loading }) {
+function JoinRoleStep({ value, onChange, onEnter, loading, takenRoles = [] as string[] }) {
   const { theme } = useTheme();
   const t = useT();
   return (
@@ -432,20 +432,32 @@ function JoinRoleStep({ value, onChange, onEnter, loading }) {
         </Text>
         <View style={{ marginTop: 26, flexDirection: 'row', flexWrap: 'wrap', gap: 11 }}>
           {ROLES.map(r => {
+            const taken = takenRoles.includes(r);
             const on = value === r;
             return (
               <TouchableOpacity
                 key={r}
                 onPress={() => onChange(r)}
+                disabled={taken}
                 activeOpacity={0.7}
                 style={{
                   width: (SCREEN_W - 48 - 11) / 2,
                   paddingVertical: 20, borderRadius: 20, alignItems: 'center',
                   backgroundColor: on ? theme.accent : theme.paper,
                   borderWidth: 1.5, borderColor: on ? theme.accent : theme.line,
+                  opacity: taken ? 0.5 : 1,
                 }}
               >
                 <Text style={{ fontFamily: theme.fonts.head, fontSize: 19, color: on ? '#FFFDF7' : theme.ink }}>{roleLabel(r)}</Text>
+                {/* 「已加入」放右上角小角标：不占文档流，卡片保持单行等高、底部不空 */}
+                {taken && (
+                  <Text style={{
+                    position: 'absolute', top: 7, right: 9,
+                    fontFamily: theme.fonts.body, fontSize: 10, color: theme.inkSoft,
+                  }}>
+                    {t('joinFamily.roleTaken')}
+                  </Text>
+                )}
               </TouchableOpacity>
             );
           })}
@@ -468,6 +480,8 @@ export default function OnboardingScreen({ navigation }) {
   const [joinStep, setJoinStep] = useState<'code' | 'role'>('code');
   const [me, setMe] = useState('');
   const [code, setCode] = useState('');
+  const [takenRoles, setTakenRoles] = useState<string[]>([]);
+  const [peeking, setPeeking] = useState(false);
   const [child, setChild] = useState({ name: '', y: 2021, m: 3 });
   const [saving, setSaving] = useState(false);
   const [qrScanning, setQrScanning] = useState(false);
@@ -506,6 +520,25 @@ export default function OnboardingScreen({ navigation }) {
     }
   };
 
+  // 进角色选择前先 peek 邀请码：既校验有效性，也拿到已被占用的角色用于置灰
+  const goToRole = async (rawCode?: string) => {
+    const c = (rawCode ?? code).trim();
+    if (!c || peeking) return;
+    setPeeking(true);
+    try {
+      const result = await peekInvite(c);
+      setCode(c);
+      setTakenRoles(result.roles);
+      setJoinStep('role');
+    } catch (e: any) {
+      const msg = e?.message || '';
+      const hint = msg.includes('invalid_code') ? t('onboarding.invalidCode') : t('onboarding.networkRetry');
+      Alert.alert(t('onboarding.joinFailTitle'), hint);
+    } finally {
+      setPeeking(false);
+    }
+  };
+
   // 加入路径：redeem → 镜像角色 → 进首页（孩子和宠物已属于这个家，加入者不选宠物）
   const doJoin = async () => {
     if (saving) return;
@@ -539,8 +572,8 @@ export default function OnboardingScreen({ navigation }) {
 
   const body = (() => {
     if (mode === 'join') {
-      if (joinStep === 'code') return <JoinCodeStep code={code} onChange={setCode} onNext={() => setJoinStep('role')} onScanningChange={setQrScanning} />;
-      return <JoinRoleStep value={me} onChange={setMe} onEnter={doJoin} loading={saving} />;
+      if (joinStep === 'code') return <JoinCodeStep code={code} onChange={setCode} onNext={goToRole} busy={peeking} onScanningChange={setQrScanning} />;
+      return <JoinRoleStep value={me} onChange={setMe} onEnter={doJoin} loading={saving} takenRoles={takenRoles} />;
     }
     switch (page) {
       case 'welcome': return <WelcomeStep onNext={next} onJoin={startJoin} />;

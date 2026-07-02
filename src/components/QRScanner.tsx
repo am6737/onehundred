@@ -40,6 +40,8 @@ export default function QRScanner({ onClose, onScanned }: Props) {
   const t = useT();
   const insets = useSafeAreaInsets();
   const [permission, requestPermission] = useCameraPermissions();
+  const [asking, setAsking] = useState(false);
+  const askedRef = useRef(false);
   const [handled, setHandled] = useState(false);
   const [ok, setOk] = useState(false);
   const fade = useRef(new Animated.Value(1)).current;
@@ -52,12 +54,18 @@ export default function QRScanner({ onClose, onScanned }: Props) {
     });
   };
 
-  // 挂载时若权限未决定，主动申请一次
+  // 申请相机权限：期间标记 asking，让界面只显示 loading，避免和系统弹窗撞在一起
+  const ask = useCallback(() => {
+    setAsking(true);
+    requestPermission().finally(() => setAsking(false));
+  }, [requestPermission]);
+
+  // 挂载时若权限未决定，主动申请一次（只自动申请一次，交给系统弹窗去问）
   useEffect(() => {
-    if (permission && !permission.granted && permission.canAskAgain) {
-      requestPermission();
-    }
-  }, [permission]);
+    if (!permission || permission.granted || askedRef.current || !permission.canAskAgain) return;
+    askedRef.current = true;
+    ask();
+  }, [permission, ask]);
 
   const handleScan = useCallback((result: BarcodeScanningResult) => {
     if (handled) return;
@@ -97,15 +105,17 @@ export default function QRScanner({ onClose, onScanned }: Props) {
         />
       ) : (
         <View style={styles.center}>
-          {!permission ? (
+          {(!permission || asking) ? (
+            // 权限还没读到 / 系统弹窗正在询问：只显示 loading，别叠自家的申请界面
             <ActivityIndicator color="#FFFDF7" />
           ) : (
+            // 系统弹窗已给出结果仍未授权（拒绝 / 不能再问）：才显示自家的提示与按钮
             <>
               <Text style={[styles.permText, { fontFamily: theme.fonts.body }]}>
                 {t('scan.permTitle')}
               </Text>
               <TouchableOpacity
-                onPress={() => (permission.canAskAgain ? requestPermission() : RNLinking.openSettings())}
+                onPress={() => (permission.canAskAgain ? ask() : RNLinking.openSettings())}
                 activeOpacity={0.85}
                 style={[styles.permBtn, { backgroundColor: theme.accent }]}
               >

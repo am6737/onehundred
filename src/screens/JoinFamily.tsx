@@ -27,7 +27,6 @@ export default function JoinFamily({ navigation, route }) {
   const autoTriggered = useRef(false);
 
   const isSolo = family && family.members?.length === 1;
-  const availableRoles = ROLES.filter(r => !takenRoles.includes(r));
 
   const handleNext = async (rawCode?: string) => {
     const c = (rawCode ?? code).trim();
@@ -162,18 +161,21 @@ export default function JoinFamily({ navigation, route }) {
           </Text>
 
           <View style={{ marginTop: 20, gap: 10 }}>
-            {availableRoles.map(r => {
+            {ROLES.map(r => {
+              const taken = takenRoles.includes(r);
               const on = role === r;
               return (
                 <TouchableOpacity
                   key={r}
                   onPress={() => setRole(r)}
+                  disabled={taken}
                   activeOpacity={0.7}
                   style={{
                     flexDirection: 'row', alignItems: 'center', gap: 14,
                     paddingVertical: 16, paddingHorizontal: 18,
                     borderRadius: 18, backgroundColor: theme.paper,
                     borderWidth: 1.5, borderColor: on ? theme.accent : theme.line,
+                    opacity: taken ? 0.45 : 1,
                   }}
                 >
                   <View style={{
@@ -190,20 +192,15 @@ export default function JoinFamily({ navigation, route }) {
                     flex: 1, fontFamily: theme.fonts.body, fontSize: 16,
                     color: on ? theme.accent : theme.ink,
                   }}>{roleLabel(r)}</Text>
-                  {on ? Icon.check(theme.accent, 18) : null}
+                  {taken ? (
+                    <Text style={{
+                      fontFamily: theme.fonts.body, fontSize: 12.5, color: theme.inkSoft,
+                    }}>{t('joinFamily.roleTaken')}</Text>
+                  ) : on ? Icon.check(theme.accent, 18) : null}
                 </TouchableOpacity>
               );
             })}
           </View>
-
-          {takenRoles.length > 0 && (
-            <Text style={{
-              marginTop: 20, paddingHorizontal: 4,
-              fontFamily: theme.fonts.body, fontSize: 13, lineHeight: 21, color: theme.inkSoft,
-            }}>
-              {t('joinFamily.takenHint', { roles: takenRoles.map(r => roleLabel(r)).join('、') })}
-            </Text>
-          )}
 
           <Text style={{
             marginTop: 20, textAlign: 'center',

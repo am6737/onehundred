@@ -122,7 +122,7 @@ function Row({ icon = null, title, sub = null, value = null, onPress = null, las
           includeFontPadding: false,
         }}>{title}</Text>
         {sub ? (
-          <Text style={{
+          <Text numberOfLines={1} ellipsizeMode="middle" style={{
             marginTop: 2, fontFamily: theme.fonts.body,
             fontSize: 12.5, color: theme.inkSoft, lineHeight: 19,
             includeFontPadding: false,
@@ -131,7 +131,8 @@ function Row({ icon = null, title, sub = null, value = null, onPress = null, las
       </View>
       {children}
       {value != null ? (
-        <Text style={{
+        <Text numberOfLines={1} ellipsizeMode="middle" style={{
+          flexShrink: 1, maxWidth: '60%', textAlign: 'right',
           fontFamily: theme.fonts.body, fontSize: 14, color: theme.inkSoft,
           includeFontPadding: false,
         }}>{value}</Text>
@@ -1783,6 +1784,7 @@ function AccountSecuritySheet({ anon, onAnonChanged, onClose }: any) {
   const [generatedEmail, setGeneratedEmail] = useState('');
   const [emailCopied, setEmailCopied] = useState(false);
   const [currentPhone, setCurrentPhone] = useState('');
+  const [currentEmail, setCurrentEmail] = useState(''); // 真实绑定的登录邮箱（auth.users.email）
   const [providers, setProviders] = useState<string[]>([]);
   const [appleAvail, setAppleAvail] = useState(false);
 
@@ -1794,6 +1796,7 @@ function AccountSecuritySheet({ anon, onAnonChanged, onClose }: any) {
     supabase.auth.getUser().then(({ data }) => {
       if (data?.user?.id) setUid(data.user.id.slice(0, 8));
       setCurrentPhone(data?.user?.phone || '');
+      setCurrentEmail(data?.user?.email || '');
     });
     fetchProfile().then(p => { if (p?.generated_email) setGeneratedEmail(p.generated_email); });
     refreshProviders();
@@ -1845,27 +1848,28 @@ function AccountSecuritySheet({ anon, onAnonChanged, onClose }: any) {
       <View style={{ flex: 1, backgroundColor: theme.cream }}>
         <LayerHeader title={t('settings.accountSecurity')} onBack={onClose} />
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 22, paddingBottom: 48 + insets.bottom }}>
-          {uid ? (
-            <SettingGroup label={t('settings.userId')}>
-              <Row
-                icon={Icon.shieldCheck(theme.accent, 19)}
-                title={uid}
-                value={uidCopied ? t('settings.userIdCopied') : t('settings.copyId')}
-                onPress={copyUid}
-                last
-              />
-            </SettingGroup>
-          ) : null}
-
-          {generatedEmail ? (
-            <SettingGroup label={t('settings.email')}>
-              <Row
-                icon={Icon.mail(theme.accent, 19)}
-                title={generatedEmail}
-                value={emailCopied ? t('settings.userIdCopied') : t('settings.copyId')}
-                onPress={copyEmail}
-                last
-              />
+          {(uid || generatedEmail) ? (
+            <SettingGroup label={t('settings.accountInfo')}>
+              {uid ? (
+                <Row
+                  icon={Icon.shieldCheck(theme.accent, 19)}
+                  title={t('settings.userId')}
+                  sub={uid}
+                  value={uidCopied ? t('settings.userIdCopied') : t('settings.copyId')}
+                  onPress={copyUid}
+                  last={!generatedEmail}
+                />
+              ) : null}
+              {generatedEmail ? (
+                <Row
+                  icon={Icon.mail(theme.accent, 19)}
+                  title={t('settings.email')}
+                  sub={generatedEmail}
+                  value={emailCopied ? t('settings.userIdCopied') : t('settings.copyId')}
+                  onPress={copyEmail}
+                  last
+                />
+              ) : null}
             </SettingGroup>
           ) : null}
 
@@ -1889,18 +1893,17 @@ function AccountSecuritySheet({ anon, onAnonChanged, onClose }: any) {
                 title={t('settings.apple')}
                 value={appleBound ? t('settings.bound') : t('settings.notBound')}
                 onPress={() => appleBound ? setShowUnbind('apple') : handleBindApple()}
-                last={anon ? false : true}
               />
             ) : null}
-            {anon ? (
-              <Row
-                icon={Icon.mail(theme.accent, 19)}
-                title={t('settings.email')}
-                value={t('settings.notBound')}
-                onPress={() => setSubSheet('bindEmail')}
-                last
-              />
-            ) : null}
+            {/* 邮箱既是登录方式也是账户标识：绑了真实邮箱就显示真实的，否则显示自动生成的标识；
+                游客可点击去绑定真实邮箱，其余情况仅作展示。 */}
+            <Row
+              icon={Icon.mail(theme.accent, 19)}
+              title={t('settings.email')}
+              value={currentEmail || generatedEmail || t('settings.notBound')}
+              onPress={anon ? () => setSubSheet('bindEmail') : undefined}
+              last
+            />
           </SettingGroup>
 
           {/* Login status */}
