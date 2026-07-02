@@ -220,7 +220,7 @@ GRANT EXECUTE ON FUNCTION public.delete_kid(text) TO authenticated;
 CREATE TABLE IF NOT EXISTS public.kids (
   id          TEXT PRIMARY KEY,
   family_id   UUID NOT NULL REFERENCES public.families(id) ON DELETE CASCADE,
-  user_id     UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,  -- 是谁记的
+  user_id     UUID REFERENCES auth.users(id) ON DELETE SET NULL,  -- 是谁记的；记录归家庭，作者注销后置空
   name        TEXT NOT NULL,
   birth_year  INT NOT NULL,
   birth_month INT NOT NULL,
@@ -240,7 +240,7 @@ CREATE POLICY "kids_creator_delete" ON public.kids FOR DELETE USING (public.is_f
 CREATE TABLE IF NOT EXISTS public.memories (
   id          TEXT PRIMARY KEY,
   family_id   UUID NOT NULL REFERENCES public.families(id) ON DELETE CASCADE,
-  user_id     UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,  -- 是谁记的
+  user_id     UUID REFERENCES auth.users(id) ON DELETE SET NULL,  -- 是谁记的；记录归家庭，作者注销后置空
   kid_id      TEXT NOT NULL,
   level_num   TEXT NOT NULL,
   perspective TEXT NOT NULL,
@@ -383,7 +383,7 @@ GRANT  EXECUTE ON FUNCTION public.register_push_device(text, text, text, text, i
 CREATE TABLE IF NOT EXISTS public.custom_levels (
   id          SERIAL PRIMARY KEY,
   family_id   UUID NOT NULL REFERENCES public.families(id) ON DELETE CASCADE,
-  user_id     UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,  -- 是谁建的
+  user_id     UUID REFERENCES auth.users(id) ON DELETE SET NULL,  -- 是谁建的；记录归家庭，作者注销后置空
   num         TEXT NOT NULL,
   title       TEXT NOT NULL,
   why         TEXT NOT NULL DEFAULT '',
@@ -464,7 +464,10 @@ CREATE POLICY "illustrations_family_write" ON storage.objects FOR ALL TO authent
   WITH CHECK (bucket_id = 'illustrations' AND (storage.foldername(name))[1] = public.my_family_id()::text);
 
 -- 10. Account deletion: 用户删自己账号。
---     注意：若删的是家庭创建者，families.created_by ON DELETE CASCADE 会连带删掉整个家的数据。
+--     创建者注销前先把「还有其他成员」的家移交给最早加入的成员，否则 families.created_by
+--     ON DELETE CASCADE 会连带删掉整个家；只有唯一成员的家才随 CASCADE 删空。
+--     成员记过的内容归家庭所有：kids/memories/custom_levels.user_id 为 ON DELETE SET NULL，
+--     作者注销后内容保留、署名置空。
 CREATE OR REPLACE FUNCTION public.delete_own_account()
 RETURNS void
 LANGUAGE plpgsql
@@ -477,6 +480,23 @@ BEGIN
   IF uid IS NULL THEN
     RAISE EXCEPTION 'not_authenticated' USING errcode = '28000';
   END IF;
+
+  -- 把「我创建、但还有其他成员」的家移交给最早加入的另一位成员；
+  -- 我是唯一成员的家不动，随下面的 DELETE 一并 CASCADE 删掉空家。
+  UPDATE public.families f
+  SET created_by = (
+    SELECT fm.user_id
+    FROM public.family_members fm
+    WHERE fm.family_id = f.id AND fm.user_id <> uid
+    ORDER BY fm.joined_at ASC
+    LIMIT 1
+  )
+  WHERE f.created_by = uid
+    AND EXISTS (
+      SELECT 1 FROM public.family_members fm
+      WHERE fm.family_id = f.id AND fm.user_id <> uid
+    );
+
   DELETE FROM auth.users WHERE id = uid;
 END;
 $$;
