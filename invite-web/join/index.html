@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>加入家庭 · 一百件事</title>
+<meta name="robots" content="noindex" />
+<style>
+  :root{
+    --cream:#FFF5EE; --paper:#FFFDF7; --ink:#2A2723; --soft:#7A736B;
+    --line:#EADFD3; --accent:#E08A4B; --accent-ink:#B4632C; --sand:#F5EADF;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--cream); color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Segoe UI",Roboto,sans-serif;
+    min-height:100dvh; display:flex; align-items:center; justify-content:center;
+    padding:24px calc(24px + env(safe-area-inset-right)) calc(24px + env(safe-area-inset-bottom)) calc(24px + env(safe-area-inset-left));
+  }
+  .card{
+    width:100%; max-width:420px; background:var(--paper);
+    border:1px solid var(--line); border-radius:26px; padding:30px 24px 26px;
+    box-shadow:0 18px 44px rgba(120,90,55,.10); text-align:center;
+  }
+  .badge{
+    width:56px;height:56px;border-radius:18px;margin:0 auto 16px;
+    background:var(--sand);display:flex;align-items:center;justify-content:center;font-size:28px;
+  }
+  h1{font-size:21px;line-height:1.4;margin:0 0 6px;font-weight:700}
+  .sub{font-size:14.5px;line-height:1.6;color:var(--soft);margin:0 auto 20px;max-width:320px}
+  .code-wrap{
+    background:var(--sand);border:1px dashed var(--line);border-radius:16px;
+    padding:14px 16px;margin:0 0 20px;cursor:pointer;user-select:all;
+    display:flex;align-items:center;justify-content:center;gap:10px;
+  }
+  .code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:23px;letter-spacing:4px;font-weight:700}
+  .code-hint{font-size:12px;color:var(--soft);margin-top:8px}
+  .btn{
+    display:block;width:100%;border:none;border-radius:15px;padding:15px;
+    font-size:16px;font-weight:600;cursor:pointer;text-decoration:none;
+    margin:0 0 12px;transition:opacity .15s;
+  }
+  .btn:active{opacity:.8}
+  .btn-primary{background:var(--accent);color:#fff;box-shadow:0 8px 18px rgba(224,138,75,.28)}
+  .btn-store{background:var(--paper);color:var(--ink);border:1.5px solid var(--line);font-weight:600}
+  .btn-store.disabled{color:var(--soft);cursor:default;background:var(--cream)}
+  .section-label{font-size:12.5px;color:var(--soft);margin:18px 0 12px;position:relative}
+  .section-label::before,.section-label::after{
+    content:"";position:absolute;top:50%;width:26%;height:1px;background:var(--line);
+  }
+  .section-label::before{left:0}.section-label::after{right:0}
+  #dl{margin-top:2px}
+  .hidden{display:none}
+  .toast{
+    position:fixed;left:50%;bottom:calc(30px + env(safe-area-inset-bottom));transform:translateX(-50%);
+    background:var(--ink);color:#fff;font-size:13px;padding:9px 16px;border-radius:20px;
+    opacity:0;transition:opacity .2s;pointer-events:none;
+  }
+  .toast.show{opacity:.94}
+  .foot{font-size:11.5px;color:var(--soft);margin-top:18px;line-height:1.6}
+</style>
+</head>
+<body>
+  <main class="card" id="card">
+    <div class="badge">🏠</div>
+    <h1 id="title">邀请你加入家庭</h1>
+    <p class="sub" id="sub">有人邀请你一起在「一百件事」记录孩子的成长。</p>
+
+    <div id="valid">
+      <div class="code-wrap" id="codeWrap" title="点击复制">
+        <span class="code" id="code">--------</span>
+        <span style="font-size:15px">📋</span>
+      </div>
+
+      <a class="btn btn-primary" id="openBtn" href="#">打开 App 加入</a>
+
+      <div class="section-label" id="dlLabel">还没有 App？</div>
+      <div id="dl">
+        <a class="btn btn-store" id="iosBtn" href="#" target="_blank" rel="noopener">App Store 下载</a>
+        <a class="btn btn-store" id="androidBtn" href="#" target="_blank" rel="noopener">Google Play 下载</a>
+      </div>
+
+      <p class="code-hint" id="manual">已装 App？打开后在「加入家庭」输入上面的邀请码即可。</p>
+    </div>
+
+    <div id="invalid" class="hidden">
+      <p class="sub">这个邀请链接看起来不完整或已失效，请向邀请你的家人重新索取。</p>
+    </div>
+
+    <p class="foot" id="foot">一百件事 · 陪孩子完成 100 件小事</p>
+  </main>
+  <div class="toast" id="toast">已复制邀请码</div>
+
+<script>
+(function(){
+  /* ── 待填占位（后续补） ───────────────────────────────
+     APP_SCHEME：正式包自定义 scheme，与 app.config.ts 的 scheme 一致。
+     *_STORE_URL：App 上架后填真实商店链接；留空则按钮显示“即将上线”。 */
+  var APP_SCHEME     = 'moments100';
+  var IOS_STORE_URL  = '';   // TODO 上架后填 App Store 链接
+  var ANDROID_STORE_URL = ''; // TODO 上架后填 Google Play 链接
+  /* ──────────────────────────────────────────────────── */
+
+  var zh = (navigator.language || 'zh').toLowerCase().indexOf('zh') === 0;
+  var T = zh ? {
+    title:'邀请你加入家庭', sub:'有人邀请你一起在「一百件事」记录孩子的成长。',
+    open:'打开 App 加入', dlLabel:'还没有 App？', ios:'App Store 下载', android:'Google Play 下载',
+    soon:'即将上线', manual:'已装 App？打开后在「加入家庭」输入上面的邀请码即可。',
+    copied:'已复制邀请码', invalid:'这个邀请链接看起来不完整或已失效，请向邀请你的家人重新索取。',
+    foot:'一百件事 · 陪孩子完成 100 件小事'
+  } : {
+    title:'You’re invited to a family', sub:'Someone invited you to record your child’s growth together on 100 Things.',
+    open:'Open the app to join', dlLabel:'Don’t have the app?', ios:'Download on the App Store', android:'Get it on Google Play',
+    soon:'Coming soon', manual:'Already have the app? Open it and enter the code above on “Join family”.',
+    copied:'Invite code copied', invalid:'This invite link looks incomplete or expired — please ask your family for a new one.',
+    foot:'100 Things · 100 little moments with your child'
+  };
+
+  document.documentElement.lang = zh ? 'zh' : 'en';
+  function set(id,txt){ var el=document.getElementById(id); if(el) el.textContent = txt; }
+  set('title',T.title); set('sub',T.sub); set('openBtn',T.open); set('dlLabel',T.dlLabel);
+  set('manual',T.manual); set('foot',T.foot); set('toast',T.copied);
+  document.getElementById('invalid').firstElementChild.textContent = T.invalid;
+
+  // 从 /join/<code> 抠邀请码，兼容 ?code=
+  var m = location.pathname.replace(/\/+$/,'').match(/\/join\/([A-Za-z0-9]+)/i);
+  var code = (m ? m[1] : (new URLSearchParams(location.search).get('code') || '')).toUpperCase();
+
+  if(!code){
+    document.getElementById('valid').classList.add('hidden');
+    document.getElementById('invalid').classList.remove('hidden');
+    return;
+  }
+  set('code', code);
+
+  // 复制邀请码
+  var toast = document.getElementById('toast');
+  function showToast(){ toast.classList.add('show'); setTimeout(function(){ toast.classList.remove('show'); }, 1600); }
+  document.getElementById('codeWrap').addEventListener('click', function(){
+    if(navigator.clipboard){ navigator.clipboard.writeText(code).then(showToast, function(){}); }
+  });
+
+  // 商店按钮：有链接→跳转；没链接（未上架）→显示“即将上线”并禁用
+  function wireStore(id, url){
+    var el = document.getElementById(id);
+    if(url){ el.href = url; }
+    else { el.textContent = el.textContent + ' · ' + T.soon; el.classList.add('disabled');
+           el.addEventListener('click', function(e){ e.preventDefault(); }); }
+  }
+  set('iosBtn', T.ios); set('androidBtn', T.android);
+  wireStore('iosBtn', IOS_STORE_URL);
+  wireStore('androidBtn', ANDROID_STORE_URL);
+
+  // 打开 App：尝试自定义 scheme；若未拉起（app 未装 / UL 未激活），停留后引导下载。
+  // 注：UL/App Link 激活后，已装 App 的用户点原始 https 链接会被系统直接拉起 App，根本到不了本页；
+  //     本页主要服务“未装 App”和“UL 尚未激活”两种情况，这个按钮是它们的兜底。
+  document.getElementById('openBtn').addEventListener('click', function(e){
+    e.preventDefault();
+    var deep = APP_SCHEME + '://join/' + encodeURIComponent(code);
+    var start = Date.now();
+    var cleared = false;
+    function cancel(){ cleared = true; }
+    window.addEventListener('pagehide', cancel, {once:true});
+    window.addEventListener('blur', cancel, {once:true});
+    document.addEventListener('visibilitychange', function(){ if(document.hidden) cancel(); }, {once:true});
+    setTimeout(function(){
+      if(!cleared && Date.now() - start < 2500){
+        document.getElementById('dl').scrollIntoView({behavior:'smooth', block:'center'});
+      }
+    }, 1400);
+    window.location.href = deep;
+  });
+})();
+</script>
+</body>
+</html>

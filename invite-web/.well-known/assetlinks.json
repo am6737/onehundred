@@ -1,0 +1,18 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.hitosea.moments100",
+      "sha256_cert_fingerprints": ["<ANDROID_SHA256>"]
+    }
+  },
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.hitosea.moments100.dev",
+      "sha256_cert_fingerprints": ["<ANDROID_SHA256_DEV>"]
+    }
+  }
+]

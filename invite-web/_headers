@@ -1,0 +1,5 @@
+# Netlify / Cloudflare Pages：AASA 必须以 application/json 直出、走 https、不能有跳转。
+/.well-known/apple-app-site-association
+  Content-Type: application/json
+/.well-known/assetlinks.json
+  Content-Type: application/json

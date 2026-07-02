@@ -27,6 +27,11 @@ const config: ExpoConfig = {
     supportsTablet: true,
     bundleIdentifier: IS_DEV ? "com.hitosea.moments100.dev" : "com.hitosea.moments100",
     usesAppleSignIn: true,
+    // Universal Link：让 https://yibaijianshi.app/join/<code> 直接拉起 App 到「加入家庭」。
+    // 生效三条件：(1) 关联文件 apple-app-site-association 已部署到该域名 /.well-known/
+    //           （见 invite-web/，把 <TEAM_ID> 换成真实 Apple Team ID）；
+    //           (2) 本条配置已在包里；(3) 重新出原生包。未齐时链接优雅降级为打开网页版邀请页。
+    associatedDomains: ["applinks:yibaijianshi.app"],
   },
   android: {
     // DooPush Android SDK 声明 allowBackup=false；这里跟它保持一致，
@@ -52,6 +57,17 @@ const config: ExpoConfig = {
       "com.oppo.launcher.permission.WRITE_SETTINGS",
     ],
     package: IS_DEV ? "com.hitosea.moments100.dev" : "com.hitosea.moments100",
+    // App Link：让 https://yibaijianshi.app/join/<code> 直接拉起 App 到「加入家庭」。
+    // 生效条件同 iOS：assetlinks.json 需部署到该域名 /.well-known/（见 invite-web/，
+    // 把 <ANDROID_SHA256> 换成签名证书指纹，autoVerify 才会通过）+ 重新出原生包。
+    intentFilters: [
+      {
+        action: "VIEW",
+        autoVerify: true,
+        data: [{ scheme: "https", host: "yibaijianshi.app", pathPrefix: "/join" }],
+        category: ["BROWSABLE", "DEFAULT"],
+      },
+    ],
   },
   web: {
     favicon: "./assets/favicon.png",
