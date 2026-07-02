@@ -800,6 +800,11 @@ export const zh = {
     deletePermanent: '永久注销账户',
     deleteAccountConfirmTitle: '永久注销账户？',
     deleteAccountConfirmBody: '所有回忆、照片与录音都会被永久清除，且无法找回。确定要注销吗？',
+    // 家里还有其他成员时：注销只是自己退出，家庭记录（含你记的）都会保留给家人
+    deleteConfirmTextShared: '注销我的账号',
+    deleteWarningShared: '注销后，你会退出这个家，账号将被永久删除，之后无法再访问家里的共享记录。你此前记下的回忆会保留给其他家人。',
+    deleteCheckShared: '我明白注销后，我将退出这个家、无法再访问共享记录，且账号无法恢复。',
+    deleteAccountConfirmBodyShared: '你将退出这个家并永久删除账号，之后无法再访问家里的记录。你记过的内容会保留给其他家人。确定要注销吗？',
     bindFailTitle: '绑定失败',
     tryAgain: '请重试',
     bindEmail: '绑定邮箱',

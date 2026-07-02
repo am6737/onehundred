@@ -1528,7 +1528,10 @@ function DeleteAccountSheet({ onClose }: any) {
   const { theme } = useTheme();
   const t = useT();
   const insets = useSafeAreaInsets();
-  const CONFIRM_TEXT = t('settings.deleteConfirmText');
+  const { family } = useData();
+  // 家里还有别人时，注销只是自己退出，家庭记录（含我记的）都会留给家人 —— 文案要说实话
+  const shared = (family?.members?.length ?? 1) > 1;
+  const CONFIRM_TEXT = t(shared ? 'settings.deleteConfirmTextShared' : 'settings.deleteConfirmText');
   const [input, setInput] = useState('');
   const [checked, setChecked] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -1539,7 +1542,7 @@ function DeleteAccountSheet({ onClose }: any) {
     // 最后的对话框：即便过了输入 + 勾选门槛，注销前仍再确认一次
     Alert.alert(
       t('settings.deleteAccountConfirmTitle'),
-      t('settings.deleteAccountConfirmBody'),
+      t(shared ? 'settings.deleteAccountConfirmBodyShared' : 'settings.deleteAccountConfirmBody'),
       [
         { text: t('common.cancel'), style: 'cancel' },
         {
@@ -1588,7 +1591,7 @@ function DeleteAccountSheet({ onClose }: any) {
               marginTop: 14, fontFamily: theme.fonts.body, fontSize: 14.5,
               lineHeight: 26, color: theme.ink,
             }}>
-              {t('settings.deleteWarning')}
+              {t(shared ? 'settings.deleteWarningShared' : 'settings.deleteWarning')}
             </Text>
           </View>
 
@@ -1634,7 +1637,7 @@ function DeleteAccountSheet({ onClose }: any) {
             <Text style={{
               flex: 1, fontFamily: theme.fonts.body, fontSize: 14,
               lineHeight: 23, color: theme.ink,
-            }}>{t('settings.deleteCheck')}</Text>
+            }}>{t(shared ? 'settings.deleteCheckShared' : 'settings.deleteCheck')}</Text>
           </TouchableOpacity>
 
           {/* Button */}

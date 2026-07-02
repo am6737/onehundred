@@ -810,6 +810,11 @@ export const en = {
     deletePermanent: 'Permanently delete account',
     deleteAccountConfirmTitle: 'Permanently delete account?',
     deleteAccountConfirmBody: 'All memories, photos and recordings will be permanently erased with no way to recover them. Delete anyway?',
+    // When the family has other members: deleting only removes you; the family's records (incl. yours) stay
+    deleteConfirmTextShared: 'Delete my account',
+    deleteWarningShared: "After deletion you'll leave this family and your account will be permanently removed — you'll no longer be able to access the family's shared records. The memories you recorded will stay with the rest of your family.",
+    deleteCheckShared: "I understand that after deletion I'll leave this family, lose access to the shared records, and my account cannot be recovered.",
+    deleteAccountConfirmBodyShared: "You'll leave this family and permanently delete your account, losing access to the family's records. The entries you recorded will stay with your family. Delete anyway?",
     bindFailTitle: 'Binding failed',
     tryAgain: 'Please try again',
     bindEmail: 'Bind email',
