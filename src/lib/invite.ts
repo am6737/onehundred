@@ -34,3 +34,14 @@ export function parseInviteCode(input?: string | null): string | null {
   if (/^[A-Za-z0-9]{4,16}$/.test(s)) return s.toUpperCase();
   return null;
 }
+
+/**
+ * 剪贴板「口令」识别：只认分享文案里的 join/<code> 链接形态，不认裸邀请码——
+ * 因为读剪贴板会命中任意文本，裸码规则（4~16 位字母数字）太宽松，容易把随便一段
+ * 短文本误判成邀请。分享文案一定带完整链接，所以要求链接形态足够可靠。
+ */
+export function parseInviteFromClipboard(text?: string | null): string | null {
+  if (!text) return null;
+  const m = text.match(/join\/([A-Za-z0-9]+)/i);
+  return m ? m[1].toUpperCase() : null;
+}

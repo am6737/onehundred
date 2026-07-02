@@ -433,6 +433,9 @@ export const en = {
     leaveWarnConfirm: 'Join anyway',
     scanButton: 'Scan QR code',
     orManual: 'Or enter the invite code manually',
+    clipboardTitle: 'Family invite found',
+    clipboardBody: 'We found a family invite (code {{code}}). Join this family?',
+    clipboardJoin: 'Join',
   },
 
   scan: {

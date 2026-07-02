@@ -428,6 +428,9 @@ export const zh = {
     leaveWarnConfirm: '继续加入',
     scanButton: '扫描二维码',
     orManual: '或手动输入邀请码',
+    clipboardTitle: '发现家庭邀请',
+    clipboardBody: '检测到一条家庭邀请（邀请码 {{code}}），是否加入这个家庭？',
+    clipboardJoin: '去加入',
   },
   scan: {
     title: '扫描邀请二维码',
