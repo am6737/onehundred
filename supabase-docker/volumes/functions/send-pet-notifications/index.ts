@@ -40,11 +40,32 @@ interface SceneMatch {
   species: string
   kidId: string
   vars: Record<string, string | number>
+  who?: string // family_activity：记录者角色/称呼的「原始值」，发送时按接收者语言本地化
   excludeUserId?: string // family_activity：不发给记录者本人
 }
 
 function interpolate(s: string, vars: Record<string, string | number>): string {
   return s.replace(/\{\{(\w+)\}\}/g, (_, k) => (vars[k] != null ? String(vars[k]) : ''))
+}
+
+// 家庭成员角色在 DB 里以中文规范标识符存储（'爸爸'/'妈妈'…，见 src/data ROLES 与 src/i18n role.*）。
+// 通知按「接收者设备语言」渲染，所以 {{who}} 也必须翻到接收者语言，否则会出现「爸爸 just recorded…」这种混排。
+// 自定义称呼（custom_role / 邀记自填）是自由文本，无法翻译，原样透传。
+const ROLE_LABELS: Record<string, Record<Lang, string>> = {
+  '爸爸': { zh: '爸爸', en: 'Dad' },
+  '妈妈': { zh: '妈妈', en: 'Mom' },
+  '爷爷': { zh: '爷爷', en: 'Grandpa' },
+  '奶奶': { zh: '奶奶', en: 'Grandma' },
+  '外公': { zh: '外公', en: 'Grandpa' },
+  '外婆': { zh: '外婆', en: 'Grandma' },
+  '其他': { zh: '家人', en: 'Family' },
+}
+
+// 把发送者角色（可能是规范角色，也可能是自定义称呼）本地化到接收者语言。
+function localizeWho(who: string, lang: Lang): string {
+  const w = (who || '').trim()
+  if (!w) return ''
+  return ROLE_LABELS[w]?.[lang] ?? w // 命中规范角色→按语言翻译；自定义称呼→原样
 }
 
 function daysBetween(a: number, b: number): number {
@@ -138,13 +159,13 @@ async function processFamily(
     return { kid: k, done, remain, capDays }
   })
 
-  // 家人 24h 内的新记录
+  // 家人 24h 内的新记录（who 保留原始值，发送时按接收者设备语言翻译）
   const recent = memories.find((m) => now.getTime() - new Date(m.created_at).getTime() < DAY_MS)
-  let who = ''
+  let whoRaw = ''
   if (recent) {
     const { data: prof } = await admin
       .from('profiles').select('role, custom_role').eq('id', recent.user_id).maybeSingle()
-    who = prof?.custom_role || prof?.role || ''
+    whoRaw = (prof?.custom_role || '').trim() || prof?.role || ''
   }
 
   // ── 场景匹配（优先级从高到低，每次只发一条）──
@@ -157,7 +178,7 @@ async function processFamily(
     const cap = perKid.filter((p) => p.capDays <= 30).sort((a, b) => a.capDays - b.capDays)[0]
     if (cap) return { scene: 'capsule', species: sp(cap.kid.id), kidId: cap.kid.id, vars: { days: cap.capDays } }
     if (streak >= 3) return { scene: 'streak', species: sp(primary.id), kidId: primary.id, vars: { days: streak } }
-    if (recent && who && pref.notify_family !== false) return { scene: 'family_activity', species: sp(recent.kid_id), kidId: recent.kid_id, vars: { who }, excludeUserId: recent.user_id }
+    if (recent && whoRaw && pref.notify_family !== false) return { scene: 'family_activity', species: sp(recent.kid_id), kidId: recent.kid_id, vars: {}, who: whoRaw, excludeUserId: recent.user_id }
     return null
   })()
   if (!match) return 'no_scene'
@@ -199,8 +220,10 @@ async function processFamily(
     const tpl = tplFor(lang)
     if (!tpl) continue
     usedTemplateId = tpl.id
-    const title = interpolate(tpl.title, match.vars)
-    const content = interpolate(tpl.body, match.vars)
+    // {{who}} 按本设备语言翻译；其余变量（done/remain/days）与语言无关
+    const vars = match.who != null ? { ...match.vars, who: localizeWho(match.who, lang) } : match.vars
+    const title = interpolate(tpl.title, vars)
+    const content = interpolate(tpl.body, vars)
     const ok = await sendDooPush(dev.token, title, content, { scene: match.scene, kidId: match.kidId })
     if (ok) sent++
   }
@@ -399,14 +422,15 @@ async function notifyMemoryCreated(body: any, templates: Template[]): Promise<Re
   const kidId = rawKidId !== 'all' && kids.some((k) => k.id === rawKidId) ? rawKidId : kids[0].id
   const species = 'squirrel' // 单一吉祥物：果果
 
-  // who：优先入参，否则按记录者 profile 角色推导
-  let who: string = typeof body.who === 'string' ? body.who.trim() : ''
-  if (!who && body.actor_user_id) {
+  // who：优先入参（邀记路径传被邀请人角色/自定义称呼），否则按记录者 profile 角色推导。
+  // 这里保留「原始值」，发送时按每台接收设备的语言翻译（规范角色→接收者语言，自定义称呼原样）。
+  let whoRaw: string = typeof body.who === 'string' ? body.who.trim() : ''
+  if (!whoRaw && body.actor_user_id) {
     const { data: prof } = await admin
       .from('profiles').select('role, custom_role').eq('id', body.actor_user_id).maybeSingle()
-    who = prof?.custom_role || prof?.role || ''
+    whoRaw = (prof?.custom_role || '').trim() || prof?.role || ''
   }
-  if (!who) return jsonResp({ ok: true, skipped: 'no_who' })
+  if (!whoRaw) return jsonResp({ ok: true, skipped: 'no_who' })
 
   const excludeUserId: string | null = body.exclude_user_id ?? body.actor_user_id ?? null
 
@@ -423,7 +447,6 @@ async function notifyMemoryCreated(body: any, templates: Template[]): Promise<Re
     templates.find((t) => t.scene === 'family_activity' && t.species === species && t.lang === lang) ??
     templates.find((t) => t.scene === 'family_activity' && t.species === species && t.lang === 'zh') ?? null
 
-  const vars = { who }
   let sent = 0
   let usedTemplateId: number | null = null
   for (const dev of devices) {
@@ -435,6 +458,7 @@ async function notifyMemoryCreated(body: any, templates: Template[]): Promise<Re
     const tpl = tplFor(lang)
     if (!tpl) continue
     usedTemplateId = tpl.id
+    const vars = { who: localizeWho(whoRaw, lang) } // 按本设备语言翻译 {{who}}
     const ok = await sendDooPush(
       dev.token, interpolate(tpl.title, vars), interpolate(tpl.body, vars),
       { scene: 'family_activity', kidId },
