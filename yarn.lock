@@ -2502,10 +2502,10 @@ domutils@^3.0.1:
     domelementtype "^2.3.0"
     domhandler "^5.0.3"
 
-doopush-react-native-sdk@^0.5.1:
-  version "0.5.1"
-  resolved "https://registry.yarnpkg.com/doopush-react-native-sdk/-/doopush-react-native-sdk-0.5.1.tgz#8ee7568252d6a9c5f93aa1402a6760db2e535fdb"
-  integrity sha512-I1GFAJsTKJRzsMAMQlEMrvx6JIVYoDj81H4g6JXGEjyR8lAjbfFb27io1P9OhcSx+mHXY6k8GnLOwOWQMl9t+g==
+doopush-react-native-sdk@^0.5.2:
+  version "0.5.2"
+  resolved "https://registry.yarnpkg.com/doopush-react-native-sdk/-/doopush-react-native-sdk-0.5.2.tgz#e03a3937c6deb495db63d761ae73cc4ccae842ff"
+  integrity sha512-0cQLT6+pZmo0R9E1ffQjE8LSgCfA3XT4Up+ecUsxUkiENoeAnjUzPYTgl+Z3ObBkLUrNtNNl5lro37EEBUqDfQ==
   dependencies:
     zod "^3.22.0"
 
