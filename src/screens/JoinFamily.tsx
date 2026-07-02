@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  View, Text, TextInput, ScrollView, TouchableOpacity, Alert, ActivityIndicator,
+  View, Text, TextInput, ScrollView, TouchableOpacity, Alert, ActivityIndicator, Keyboard,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/tokens';
@@ -214,9 +214,27 @@ export default function JoinFamily({ navigation, route }) {
     );
   }
 
+  // 「扫一扫加入」或点扫码按钮时，整屏就是相机——不渲染下面的手动输入那屏，
+  // 既让扫码成为独立的一页，也避免底下的输入框抢焦点弹出键盘。
+  if (scanning) {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#000' }}>
+        <QRScanner
+          onScanned={handleScanned}
+          onClose={() => {
+            // 从「扫一扫加入」直接进来的：关掉就退回上一页；
+            // 是在手动那屏点扫码进来的：关掉回到手动输入。
+            if (route?.params?.autoScan) navigation.goBack();
+            else setScanning(false);
+          }}
+        />
+      </View>
+    );
+  }
+
   return (
     <View style={{ flex: 1, backgroundColor: theme.cream }}>
-      {!scanning && <LayerHeader title={t('joinFamily.title')} onBack={handleBack} />}
+      <LayerHeader title={t('joinFamily.title')} onBack={handleBack} />
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{ paddingHorizontal: 22, paddingBottom: 48 + insets.bottom }}
@@ -231,7 +249,7 @@ export default function JoinFamily({ navigation, route }) {
 
         {/* Scan QR — 主推的加入方式 */}
         <TouchableOpacity
-          onPress={() => setScanning(true)}
+          onPress={() => { Keyboard.dismiss(); setScanning(true); }}
           activeOpacity={0.85}
           style={{
             marginTop: 28, paddingVertical: 18, borderRadius: 18,
@@ -297,10 +315,6 @@ export default function JoinFamily({ navigation, route }) {
           fontFamily: theme.fonts.body, fontSize: 13, lineHeight: 21, color: theme.inkSoft,
         }}>{t('joinFamily.codeHint')}</Text>
       </ScrollView>
-
-      {scanning && (
-        <QRScanner onClose={() => setScanning(false)} onScanned={handleScanned} />
-      )}
     </View>
   );
 }

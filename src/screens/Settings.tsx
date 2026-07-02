@@ -817,44 +817,39 @@ function InviteSheet({ kids, me, onClose, onJoinFamily }: any) {
               marginTop: 18, fontFamily: theme.fonts.body, fontSize: 12.5,
               color: theme.inkSoft, textAlign: 'center',
             }}>{t('invite.orManualCode')}</Text>
-            <View style={{
-              marginTop: 8, padding: 14, borderRadius: 16,
-              backgroundColor: theme.sand, width: '100%', alignItems: 'center',
-            }}>
-              <Text style={{
-                fontFamily: 'monospace', fontSize: 20, letterSpacing: 3, color: theme.ink,
-              }}>{code}</Text>
-            </View>
+            {/* 邀请码本身即复制按钮：轻点整块即可复制，省去一枚独立按钮 */}
             <TouchableOpacity
               onPress={copy}
               activeOpacity={0.7}
+              disabled={code === '——'}
               style={{
-                marginTop: 14, width: '100%', minHeight: 52, paddingVertical: 14, borderRadius: 999,
-                backgroundColor: copied ? theme.sand : theme.accent,
-                flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+                marginTop: 8, padding: 14, borderRadius: 16,
+                backgroundColor: theme.sand, width: '100%',
+                flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
               }}
             >
-              {copied ? (
-                <View style={{ width: 18, height: 18, alignItems: 'center', justifyContent: 'center' }}>
-                  {Icon.check(theme.accent, 18)}
-                </View>
-              ) : null}
               <Text style={{
-                fontFamily: theme.fonts.head, fontSize: 16,
-                color: copied ? theme.accent : '#FFFDF7',
-              }}>{copied ? t('settings.codeCopied') : t('settings.copyCode')}</Text>
+                fontFamily: 'monospace', fontSize: 20, letterSpacing: 3, color: theme.ink,
+              }}>{code}</Text>
+              <View style={{ width: 18, height: 18, alignItems: 'center', justifyContent: 'center' }}>
+                {copied ? Icon.check(theme.accent, 16) : Icon.copy(theme.inkSoft, 16)}
+              </View>
             </TouchableOpacity>
+            <Text style={{
+              marginTop: 7, fontFamily: theme.fonts.body, fontSize: 11.5,
+              color: copied ? theme.accent : theme.inkSoft, textAlign: 'center',
+            }}>{copied ? t('settings.codeCopied') : t('invite.tapToCopy')}</Text>
             <TouchableOpacity
               onPress={shareLink}
-              activeOpacity={0.7}
+              activeOpacity={0.85}
               style={{
-                marginTop: 10, width: '100%', minHeight: 52, paddingVertical: 14, borderRadius: 999,
-                borderWidth: 1.5, borderColor: theme.line,
+                marginTop: 16, width: '100%', minHeight: 52, paddingVertical: 14, borderRadius: 999,
+                backgroundColor: theme.accent,
                 flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
               }}
             >
-              {Icon.share(theme.accent, 18)}
-              <Text style={{ fontFamily: theme.fonts.head, fontSize: 16, color: theme.ink }}>
+              {Icon.share('#FFFDF7', 18)}
+              <Text style={{ fontFamily: theme.fonts.head, fontSize: 16, color: '#FFFDF7' }}>
                 {t('invite.shareLink')}
               </Text>
             </TouchableOpacity>
@@ -886,14 +881,14 @@ function InviteSheet({ kids, me, onClose, onJoinFamily }: any) {
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => onJoinFamily(false)}
-                activeOpacity={0.7}
-                style={{
-                  marginTop: 10, paddingVertical: 15, borderRadius: 999,
-                  borderWidth: 1.5, borderColor: theme.line,
-                  alignItems: 'center', justifyContent: 'center',
-                }}
+                activeOpacity={0.6}
+                hitSlop={{ top: 12, bottom: 12, left: 16, right: 16 }}
+                style={{ marginTop: 14, alignSelf: 'center' }}
               >
-                <Text style={{ fontFamily: theme.fonts.head, fontSize: 16, color: theme.ink }}>
+                <Text style={{
+                  fontFamily: theme.fonts.body, fontSize: 13.5, color: theme.accent,
+                  textDecorationLine: 'underline',
+                }}>
                   {t('invite.enterCodeToJoin')}
                 </Text>
               </TouchableOpacity>
