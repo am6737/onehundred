@@ -21,6 +21,15 @@ const DOOPUSH_BASE_URL = Deno.env.get('DOOPUSH_BASE_URL') || 'https://doopush.co
 
 const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY)
 
+// 共享密钥存 DB app_config（非容器 env，改代码热加载即可、无需重启）。首次读后按 isolate 缓存。
+let _sharedSecret: string | null = null
+async function getSharedSecret(): Promise<string> {
+  if (_sharedSecret !== null) return _sharedSecret
+  const { data } = await admin.from('app_config').select('value').eq('key', 'notify_secret').maybeSingle()
+  _sharedSecret = data?.value ?? ''
+  return _sharedSecret
+}
+
 const DAY_MS = 24 * 60 * 60 * 1000
 
 // 频率 → 天数阈值（见通知方案 5.3）
@@ -404,41 +413,47 @@ async function sendDooPushVerbose(
   }
 }
 
-async function notifyMemoryCreated(body: any, templates: Template[]): Promise<Response> {
-  const familyId: string | undefined = body.family_id
-  if (!familyId) return jsonResp({ ok: false, error: 'family_id required' }, 400)
+// 核心投递：给定一条 outbox 任务，向「其它家人」发 family_activity。返回实际发出的设备数。
+// 语义：良性跳过（关通知 / 无 kid / 无 who / 无收件人 / 免打扰）→ 返回 0，视为已完成、不重试；
+//       只有「发送前」的意外错误（DB 查询失败等）才抛出，交给 drain 退避重试
+//       —— 因 sendDooPush 自身吞错返回 bool、从不抛，故抛错时必然一台都没发，重试不会重复推送。
+async function runMemoryNotification(
+  job: { family_id: string; kid_id: string | null; actor_user_id: string | null; who: string | null },
+  templates: Template[],
+): Promise<number> {
+  const familyId = job.family_id
 
   const { data: prefRow } = await admin
     .from('notification_preferences').select('*').eq('family_id', familyId).maybeSingle()
   const pref = prefRow ?? { enabled: true, notify_family: true, quiet_start: '22:00:00', quiet_end: '08:00:00' }
-  if (!pref.enabled || pref.notify_family === false) return jsonResp({ ok: true, skipped: 'disabled' })
+  if (!pref.enabled || pref.notify_family === false) return 0
 
   const now = new Date()
 
   // 解析真实 kid（notification_log.kid_id 有 NOT NULL+FK，不能写 'all'）
   const { data: kids } = await admin.from('kids').select('id').eq('family_id', familyId)
-  if (!kids || kids.length === 0) return jsonResp({ ok: true, skipped: 'no_kids' })
-  const rawKidId: string = body.kid_id || 'all'
+  if (!kids || kids.length === 0) return 0
+  const rawKidId: string = job.kid_id || 'all'
   const kidId = rawKidId !== 'all' && kids.some((k) => k.id === rawKidId) ? rawKidId : kids[0].id
   const species = 'squirrel' // 单一吉祥物：果果
 
-  // who：优先入参（邀记路径传被邀请人角色/自定义称呼），否则按记录者 profile 角色推导。
-  // 这里保留「原始值」，发送时按每台接收设备的语言翻译（规范角色→接收者语言，自定义称呼原样）。
-  let whoRaw: string = typeof body.who === 'string' ? body.who.trim() : ''
-  if (!whoRaw && body.actor_user_id) {
+  // who：邀记路径带被邀请人角色/自定义称呼；否则按记录者 profile 推导。
+  // 保留原始值，发送时按每台接收设备语言翻译（规范角色→接收者语言，自定义称呼原样）。
+  let whoRaw = (job.who ?? '').trim()
+  if (!whoRaw && job.actor_user_id) {
     const { data: prof } = await admin
-      .from('profiles').select('role, custom_role').eq('id', body.actor_user_id).maybeSingle()
+      .from('profiles').select('role, custom_role').eq('id', job.actor_user_id).maybeSingle()
     whoRaw = (prof?.custom_role || '').trim() || prof?.role || ''
   }
-  if (!whoRaw) return jsonResp({ ok: true, skipped: 'no_who' })
+  if (!whoRaw) return 0
 
-  const excludeUserId: string | null = body.exclude_user_id ?? body.actor_user_id ?? null
+  const excludeUserId = job.actor_user_id
 
   // 收件设备：family_members → push_devices
   const { data: members } = await admin
     .from('family_members').select('user_id').eq('family_id', familyId)
   const userIds = (members ?? []).map((m) => m.user_id)
-  if (userIds.length === 0) return jsonResp({ ok: true, skipped: 'no_members' })
+  if (userIds.length === 0) return 0
   const { data: devicesRaw } = await admin
     .from('push_devices').select('device_id, token, lang, user_id, tz_offset').in('user_id', userIds)
   const devices = (devicesRaw ?? []) as Device[]
@@ -471,11 +486,43 @@ async function notifyMemoryCreated(body: any, templates: Template[]): Promise<Re
       kid_id: kidId, family_id: familyId, scene: 'family_activity', template_id: usedTemplateId,
     })
   }
-  return jsonResp({ ok: true, sent })
+  return sent
+}
+
+// drain：由 DB 触发器即时 kick（~1-3s）+ 每分钟 cron 兜底 调用。
+// 原子领取一批 outbox 任务（SKIP LOCKED + 卡死重领），逐条投递并回写状态（done / 退避重试 / dead）。
+async function drainOutbox(templates: Template[]): Promise<Response> {
+  const { data: jobs, error } = await admin.rpc('claim_notification_jobs', { p_limit: 20 })
+  if (error) return jsonResp({ ok: false, error: error.message }, 500)
+  let done = 0
+  for (const job of (jobs ?? []) as any[]) {
+    try {
+      const sent = await runMemoryNotification(
+        { family_id: job.family_id, kid_id: job.kid_id, actor_user_id: job.actor_user_id, who: job.who },
+        templates,
+      )
+      await admin.rpc('complete_notification_job', { p_id: job.id, p_ok: true, p_sent: sent, p_error: null })
+      done++
+    } catch (e) {
+      await admin.rpc('complete_notification_job', {
+        p_id: job.id, p_ok: false, p_sent: 0, p_error: String((e as Error)?.message ?? e).slice(0, 500),
+      })
+    }
+  }
+  return jsonResp({ ok: true, claimed: (jobs ?? []).length, done })
 }
 
 Deno.serve(async (req: Request) => {
   try {
+    // 顶层共享密钥校验：cron / yaoji / 客户端 必须带正确的 X-Notify-Secret 头。
+    // 覆盖全部分支（memory_created / test / preview / 定时扫描）。密钥未配置则一律拒绝（fail-closed）。
+    const secret = await getSharedSecret()
+    const provided = req.headers.get('x-notify-secret') ?? ''
+    if (!secret || provided !== secret) {
+      return new Response(JSON.stringify({ ok: false, error: 'unauthorized' }), {
+        status: 401, headers: { 'Content-Type': 'application/json' },
+      })
+    }
     const body = await req.json().catch(() => ({} as any))
     const { data: templates } = await admin.from('notification_templates').select('*')
 
@@ -487,8 +534,15 @@ Deno.serve(async (req: Request) => {
       return await sendTest(body, (templates ?? []) as Template[])
     }
 
+    if (body?.event === 'drain') {
+      return await drainOutbox((templates ?? []) as Template[])
+    }
+
     if (body?.event === 'memory_created') {
-      return await notifyMemoryCreated(body, (templates ?? []) as Template[])
+      // 已改为 DB 触发器 + outbox 投递（见 migrations/20260702_notification_outbox.sql）。
+      // 保留为 no-op：兼容尚未重建、仍会直发 memory_created 的旧客户端，避免与触发器重复推送。
+      // 新客户端已不再调用本事件。
+      return jsonResp({ ok: true, skipped: 'handled_by_trigger' })
     }
 
     const { data: wardrobe } = await admin.from('wardrobe').select('at').order('at')

@@ -286,20 +286,8 @@ export async function insertMemory({ id: givenId, kid, levelNum, perspective, ty
     seal_label: sealLabel || null,
   }).select().single();
   if (error) throw error;
-  // 记完即时触发：通知其他家人「刚刚记了一件新的事」。best-effort，不阻塞、不抛错。
-  void fetch(`${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/send-pet-notifications`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${session.access_token}`,
-    },
-    body: JSON.stringify({
-      event: 'memory_created',
-      family_id: familyId,
-      kid_id: kid,
-      actor_user_id: session.user.id,
-    }),
-  }).catch(() => {});
+  // 记完即时通知家人：已改由 memories 的 DB 触发器 + outbox 服务端投递（~1-3s，含重试兜底）。
+  // 客户端不再直接调 send-pet-notifications——更可靠，且从源头杜绝伪造（归属由 memories RLS 保证）。
   return mapMemory(data);
 }
 
@@ -443,6 +431,7 @@ export async function sendTestNotification(opts: {
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${session.access_token}`,
+      'X-Notify-Secret': process.env.EXPO_PUBLIC_NOTIFY_SECRET ?? '',
     },
     body: JSON.stringify({
       event: 'test',

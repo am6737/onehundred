@@ -23,20 +23,37 @@ SELECT cron.unschedule(jobid)
 FROM cron.job
 WHERE jobname = 'check-notification-triggers';
 
--- 每小时 :23 分触发（非整点，模拟真人感；设计文档 §4.2）。
--- URL 用 compose 网络内的 Kong 网关地址
--- （与 functions 服务的 SUPABASE_URL=http://kong:8000 一致）；
+-- 每小时触发一次，但落点分钟每小时都不同（模拟真人感；设计文档 §4.2）。
+-- 做法：cron 每分钟跑一次，仅当「当前分钟 == 本小时用 hash 派生的分钟(1..59)」才真正触发。
+--   • hash 输入是「距 1970 的小时序号」→ 每小时不同 → 触发分钟每小时都变、不可预测；
+--     不再像固定 :23 那样一眼看出规律。
+--   • 值域 1..59 → 永不落在整点（沿用「推送不能整点发送」的规则）。
+--   • hash 在同一小时内恒定 → 该小时 60 个 tick 恰好命中 1 个 → 每小时精确触发一次、不重复，
+--     无需额外状态表。
+-- URL 用 compose 网络内的 Kong 网关地址（与 functions 的 SUPABASE_URL=http://kong:8000 一致）；
 -- functions-v1 路由无 key-auth 且 FUNCTIONS_VERIFY_JWT=false，故无需鉴权头。
--- timeout 放宽到 180s：含随机 jitter（最长 ~120s）+ 顺序发多台设备的 DooPush。
+-- timeout 放宽到 180s：Edge Function 内含随机 jitter（最长 ~120s）+ 顺序发多台设备的 DooPush。
 SELECT cron.schedule(
   'check-notification-triggers',
-  '23 * * * *',
+  '* * * * *',
   $cmd$
-    SELECT net.http_post(
-      url     := 'http://kong:8000/functions/v1/send-pet-notifications',
-      body    := '{}'::jsonb,
-      headers := '{"Content-Type": "application/json"}'::jsonb,
-      timeout_milliseconds := 180000
-    );
+    DO $inner$
+    BEGIN
+      IF extract(minute FROM now())::int
+         = (mod(abs(hashtextextended((floor(extract(epoch FROM now()) / 3600))::bigint::text, 0)), 59) + 1)
+      THEN
+        PERFORM net.http_post(
+          url     := 'http://kong:8000/functions/v1/send-pet-notifications',
+          body    := '{}'::jsonb,
+          -- 共享密钥头：值从 app_config 读取（不写死在迁移文件里，避免进 git）。
+          headers := jsonb_build_object(
+            'Content-Type', 'application/json',
+            'X-Notify-Secret', (SELECT value FROM public.app_config WHERE key = 'notify_secret')
+          ),
+          timeout_milliseconds := 180000
+        );
+      END IF;
+    END
+    $inner$;
   $cmd$
 );
