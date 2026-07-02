@@ -360,6 +360,12 @@ export async function updateKid(id: string, fields: { name?: string; y?: number;
   if (error) throw error;
 }
 
+// 删孩子：走 delete_kid RPC，原子清掉这个孩子的 memories/mascot/邀记再删本人（仅创建者）。
+export async function deleteKid(id: string) {
+  const { error } = await supabase.rpc('delete_kid', { p_kid_id: id });
+  if (error) throw error;
+}
+
 export async function fetchProfile() {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) return null;
@@ -487,17 +493,15 @@ export async function fetchMyFamily() {
     .select('id, invite_code, created_by')
     .eq('id', mem.family_id)
     .maybeSingle();
-  const { data: members } = await supabase
-    .from('family_members')
-    .select('user_id, role, custom_role, joined_at')
-    .eq('family_id', mem.family_id)
-    .order('joined_at');
+  // 名册走 family_roster RPC：手机号在 auth.users，普通查询读不到他人，SECURITY DEFINER 里脱敏后返回。
+  const { data: members } = await supabase.rpc('family_roster');
   return {
     id: mem.family_id,
     inviteCode: fam?.invite_code || '',
     isCreator: fam?.created_by === session.user.id,
     members: (members || []).map(m => ({
       userId: m.user_id, role: m.role, customRole: m.custom_role,
+      phone: m.phone_masked || '',
       isMe: m.user_id === session.user.id,
     })),
   };

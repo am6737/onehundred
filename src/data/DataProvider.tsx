@@ -1,10 +1,10 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { View, Text, Pressable, StyleSheet, AppState } from 'react-native';
 import {
   fetchLevels, fetchKids, fetchMemories,
   fetchCustomLevels, fetchProfile, insertCustomLevel,
   updateCustomLevel, deleteCustomLevel,
-  insertMemory, insertKid, updateKid, updateProfile, deleteMemory,
+  insertMemory, insertKid, updateKid, deleteKid, updateProfile, deleteMemory,
   getKidFrom, kidLabelFrom, kidDoneFrom, memoriesForKidFrom, memoriesForLevelFrom,
   allLevelsFrom,
   throwbackFrom, yearReviewFrom, levelWeightFrom, weightedShuffleFrom,
@@ -14,6 +14,7 @@ import {
   removeFamilyMember, leaveFamily as apiLeaveFamily, clearFamilyCache,
 } from './index';
 import { t } from '../i18n';
+import { supabase } from '../lib/supabase';
 
 const MAX_RETRIES = 3;
 const RETRY_DELAYS = [1000, 2000, 4000];
@@ -82,6 +83,65 @@ export function DataProvider({ children, userId }) {
 
   useEffect(() => { loadAll(); }, [loadAll]);
 
+  // 静默刷新：重拉全部共享数据但不切 loading（避免闪屏），用于前台回归 / 实时兜底。
+  // 若被移除，family/kids 会变空，HomeWithDrawer 的守卫会自然把用户导回引导页。
+  const refreshQuiet = useCallback(async () => {
+    if (!userId) return;
+    try {
+      const [lv, ki, me, cl, pr, fam] = await Promise.all([
+        fetchLevels(), fetchKids(), fetchMemories(),
+        fetchCustomLevels(), fetchProfile(), fetchMyFamily(),
+      ]);
+      setLevels(lv); setKids(ki); setMemories(me);
+      setCustomLevels(cl); setProfile(pr); setFamily(fam);
+    } catch {
+      // 前台/实时的静默刷新失败就保持现状，不打扰用户
+    }
+  }, [userId]);
+
+  // App 回到前台就整体软刷新：家人在别的设备改了内容，回到 App 即最新（也兜住错过的实时事件）
+  useEffect(() => {
+    let prev = AppState.currentState;
+    const sub = AppState.addEventListener('change', next => {
+      const wasBackground = prev === 'background' || prev === 'inactive';
+      prev = next;
+      if (wasBackground && next === 'active') refreshQuiet();
+    });
+    return () => sub.remove();
+  }, [refreshQuiet]);
+
+  // 实时同步：订阅本家庭共享表的行变更，收到就防抖重拉对应那一块，让在线成员的页面自动更新。
+  // 注意：被移除者删掉自己那行后 my_family_id() 变 null，RLS 会挡掉自己那条 DELETE，
+  // 所以「被移除」靠上面的前台刷新兜底，不依赖这里。
+  const familyId = family?.id;
+  useEffect(() => {
+    if (!familyId) return;
+    const timers: Record<string, any> = {};
+    const bump = (key: string, fn: () => Promise<any>) => {
+      clearTimeout(timers[key]);
+      timers[key] = setTimeout(() => { fn().catch(() => {}); }, 400);
+    };
+    const slice: Record<string, () => Promise<any>> = {
+      memories: () => fetchMemories().then(setMemories),
+      kids: () => fetchKids().then(setKids),
+      custom_levels: () => fetchCustomLevels().then(setCustomLevels),
+      family_members: () => fetchMyFamily().then(setFamily),
+    };
+    const ch = supabase.channel('family-sync:' + familyId);
+    (Object.keys(slice)).forEach(table => {
+      ch.on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table, filter: `family_id=eq.${familyId}` },
+        () => bump(table, slice[table]),
+      );
+    });
+    ch.subscribe();
+    return () => {
+      Object.values(timers).forEach(clearTimeout);
+      supabase.removeChannel(ch);
+    };
+  }, [familyId]);
+
   const getKid = useCallback((id) => getKidFrom(kids, id), [kids]);
   const kidLabel = useCallback((id) => kidLabelFrom(kids, id), [kids]);
   const kidDone = useCallback((id) => kidDoneFrom(memories, id), [memories]);
@@ -133,6 +193,12 @@ export function DataProvider({ children, userId }) {
     setKids(prev => prev.map(k => k.id === id ? { ...k, ...fields } : k));
   }, []);
 
+  const removeKid = useCallback(async (id) => {
+    await deleteKid(id);           // 服务端原子删孩子 + 其记忆/小熊/邀记
+    setKids(prev => prev.filter(k => k.id !== id));
+    setMemories(prev => prev.filter(m => m.kid !== id));  // 本地同步清掉该孩子的记忆
+  }, []);
+
   const updateMe = useCallback(async (fields) => {
     await updateProfile(fields);
     setProfile(prev => prev ? { ...prev, ...fields } : prev);
@@ -167,7 +233,7 @@ export function DataProvider({ children, userId }) {
     getKid, kidLabel, kidDone, memoriesForKid, memoriesForLevel, allLevels,
     throwback, yearReview,
     frameLabel, levelWeight, weightedShuffle,
-    addMemory, removeMemory, addKid, editKid, addCustomLevel, editCustomLevel, removeCustomLevel, updateMe,
+    addMemory, removeMemory, addKid, editKid, removeKid, addCustomLevel, editCustomLevel, removeCustomLevel, updateMe,
     createFamily, joinFamily, leaveFamily, removeMember,
     FAMILY,
   };

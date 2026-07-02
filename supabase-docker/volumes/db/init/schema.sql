@@ -36,12 +36,14 @@ CREATE POLICY "wardrobe_public_read" ON public.wardrobe FOR SELECT USING (true);
 -- 3. profiles (1:1 with auth.users)
 --    role/custom_role 现在是 family_members 的「冗余镜像」，供现有 UI 直接读「我」。
 CREATE TABLE IF NOT EXISTS public.profiles (
-  id            UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  role          TEXT NOT NULL DEFAULT '爸爸',
-  custom_role   TEXT NOT NULL DEFAULT '',
-  appearance    JSONB,
-  family_extras JSONB NOT NULL DEFAULT '[]',
-  created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+  id              UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  username        TEXT UNIQUE,
+  generated_email TEXT UNIQUE,
+  role            TEXT NOT NULL DEFAULT '爸爸',
+  custom_role     TEXT NOT NULL DEFAULT '',
+  appearance      JSONB,
+  family_extras   JSONB NOT NULL DEFAULT '[]',
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "profiles_own" ON public.profiles
@@ -162,6 +164,57 @@ $$;
 REVOKE ALL ON FUNCTION public.peek_invite(text) FROM public;
 REVOKE EXECUTE ON FUNCTION public.peek_invite(text) FROM anon;
 GRANT EXECUTE ON FUNCTION public.peek_invite(text) TO authenticated;
+
+-- 3.12 family_roster：成员管理页名册（含脱敏手机号，用于区分同角色成员）。
+-- 手机号在 auth.users（他人不可见），故用 SECURITY DEFINER 只返回「我的家」成员；
+-- 先剥离 +86 前缀再取前 3 后 4，真实号码不出库；无手机号返回空串，前端回退 user_id 短号。
+CREATE OR REPLACE FUNCTION public.family_roster()
+RETURNS TABLE (user_id uuid, role text, custom_role text, joined_at timestamptz, phone_masked text)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = '' AS $$
+  SELECT
+    fm.user_id, fm.role, fm.custom_role, fm.joined_at,
+    CASE
+      WHEN length(d.digits) >= 7 THEN left(d.digits, 3) || ' **** ' || right(d.digits, 4)
+      ELSE ''
+    END AS phone_masked
+  FROM public.family_members fm
+  JOIN auth.users u ON u.id = fm.user_id
+  CROSS JOIN LATERAL (
+    SELECT regexp_replace(regexp_replace(coalesce(u.phone, ''), '^\+86', ''), '\D', '', 'g') AS digits
+  ) d
+  WHERE fm.family_id = public.my_family_id()
+  ORDER BY fm.joined_at;
+$$;
+REVOKE ALL ON FUNCTION public.family_roster() FROM public;
+REVOKE EXECUTE ON FUNCTION public.family_roster() FROM anon;
+GRANT EXECUTE ON FUNCTION public.family_roster() TO authenticated;
+
+-- 3.13 delete_kid：原子删除一个孩子及其全部记录。memories/mascots/invite_tokens 的 kid_id
+-- 无外键，直接删 kids 会留孤儿数据，故在事务里手动清；notification_log 有 CASCADE 随 kids 自动删。仅创建者。
+CREATE OR REPLACE FUNCTION public.delete_kid(p_kid_id text)
+RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
+DECLARE
+  fid uuid := public.my_family_id();
+BEGIN
+  IF fid IS NULL THEN RAISE EXCEPTION 'no_family'; END IF;
+  IF NOT public.is_family_creator(fid) THEN RAISE EXCEPTION 'not_creator'; END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.kids WHERE id = p_kid_id AND family_id = fid) THEN
+    RAISE EXCEPTION 'kid_not_found';
+  END IF;
+  -- 每个家至少保留一个孩子：App 的路由假设「有家 ⟹ 有孩子」，删空会把用户弹回创建引导页并卡死。
+  IF (SELECT count(*) FROM public.kids WHERE family_id = fid) <= 1 THEN
+    RAISE EXCEPTION 'last_kid';
+  END IF;
+  DELETE FROM public.memories      WHERE kid_id = p_kid_id AND family_id = fid;
+  DELETE FROM public.mascots       WHERE kid_id = p_kid_id AND family_id = fid;
+  DELETE FROM public.invite_tokens WHERE kid_id = p_kid_id AND family_id = fid;
+  DELETE FROM public.kids          WHERE id     = p_kid_id AND family_id = fid;
+END;
+$$;
+REVOKE ALL ON FUNCTION public.delete_kid(text) FROM public;
+REVOKE EXECUTE ON FUNCTION public.delete_kid(text) FROM anon;
+GRANT EXECUTE ON FUNCTION public.delete_kid(text) TO authenticated;
 
 -- 4. kids（family 共享；只有创建者能删）
 CREATE TABLE IF NOT EXISTS public.kids (
@@ -351,10 +404,42 @@ CREATE POLICY "custom_levels_family" ON public.custom_levels
   WITH CHECK (family_id = public.my_family_id());
 
 -- 8. Trigger: auto-create profile on user sign-up（不建家）
+--    自动按登录方式生成 username / generated_email，参考多邻国。
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
+DECLARE
+  _prefix TEXT;
+  _short  TEXT;
+  _uname  TEXT;
+  _email  TEXT;
 BEGIN
-  INSERT INTO public.profiles (id) VALUES (NEW.id);
+  _short := replace(NEW.id::text, '-', '');
+  _short := left(_short, 10);
+
+  IF NEW.is_anonymous THEN
+    _prefix := 'guest';
+  ELSIF NEW.email IS NOT NULL AND (NEW.raw_app_meta_data->>'provider') = 'email' THEN
+    _prefix := NULL;
+  ELSIF (NEW.raw_app_meta_data->>'provider') = 'apple' THEN
+    _prefix := 'apple';
+  ELSIF (NEW.raw_app_meta_data->>'provider') = 'wechat' THEN
+    _prefix := 'wx';
+  ELSIF NEW.phone IS NOT NULL THEN
+    _prefix := 'phone';
+  ELSE
+    _prefix := 'user';
+  END IF;
+
+  IF _prefix IS NULL THEN
+    _uname := split_part(NEW.email, '@', 1);
+    _email := NEW.email;
+  ELSE
+    _uname := _prefix || '.' || _short;
+    _email := _uname || '@' || _prefix || '.100moments.app';
+  END IF;
+
+  INSERT INTO public.profiles (id, username, generated_email)
+  VALUES (NEW.id, _uname, _email);
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -437,3 +522,27 @@ ALTER TABLE public.invite_tokens
 ALTER TABLE public.memories
   ADD COLUMN IF NOT EXISTS invite_token_id TEXT REFERENCES public.invite_tokens(id) ON DELETE SET NULL,
   ADD COLUMN IF NOT EXISTS invited_role TEXT;
+
+-- 12. 家庭内容实时同步：把家庭共享表加入 supabase_realtime 发布，让家人在别的设备的改动
+-- 实时推送到其他在线成员（客户端在 DataProvider 里订阅 postgres_changes，按 family_id 过滤）。
+-- REPLICA IDENTITY FULL：memories/kids/custom_levels 的 family_id 不在主键里，默认 DELETE 事件
+-- 只带主键、按 family_id 过滤会漏掉删除，改 FULL 让旧行带上 family_id。这几张表低频写，开销可忽略。
+ALTER TABLE public.memories       REPLICA IDENTITY FULL;
+ALTER TABLE public.kids           REPLICA IDENTITY FULL;
+ALTER TABLE public.custom_levels  REPLICA IDENTITY FULL;
+ALTER TABLE public.family_members REPLICA IDENTITY FULL;
+
+DO $$
+DECLARE t text;
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
+    FOREACH t IN ARRAY ARRAY['memories','kids','custom_levels','family_members'] LOOP
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_publication_tables
+        WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = t
+      ) THEN
+        EXECUTE format('ALTER PUBLICATION supabase_realtime ADD TABLE public.%I', t);
+      END IF;
+    END LOOP;
+  END IF;
+END $$;

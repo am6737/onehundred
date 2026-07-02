@@ -481,6 +481,10 @@ function ChildProfileSheet({ kid, onChange, onClose }: any) {
   const canSave = trimmed.length > 0;
   const save = () => { if (canSave) { onChange({ name: trimmed, y, m }); onClose(); } };
 
+  const { family, kids: rosterKids } = useData();
+  const [confirming, setConfirming] = useState(false);
+  const onlyChild = (rosterKids?.length ?? 0) <= 1;  // 家里唯一的孩子不能删——删空会把用户弹回创建引导页并卡死
+
   return (
     <Modal visible animationType="slide" onRequestClose={onClose}>
       <View style={{ flex: 1, backgroundColor: theme.cream }}>
@@ -550,6 +554,187 @@ function ChildProfileSheet({ kid, onChange, onClose }: any) {
               {t('settings.toEighteen', { years: toEighteen })}
             </Text>
           </View>
+
+          {/* 危险区：删除孩子（仅创建者）——会连带清空 TA 的全部记录，不可逆 */}
+          {family?.isCreator ? (
+            <View style={{ marginTop: 28 }}>
+              {onlyChild ? (
+                <Text style={{
+                  fontFamily: theme.fonts.body, fontSize: 12.5,
+                  lineHeight: 20, color: theme.inkSoft, textAlign: 'center',
+                }}>
+                  {t('settings.deleteKidOnly')}
+                </Text>
+              ) : (
+                <>
+                  <TouchableOpacity
+                    onPress={() => setConfirming(true)}
+                    activeOpacity={0.7}
+                    style={{
+                      paddingVertical: 15, borderRadius: 999,
+                      borderWidth: 1.5, borderColor: theme.danger || '#C2553D',
+                      alignItems: 'center', justifyContent: 'center',
+                    }}
+                  >
+                    <Text style={{ fontFamily: theme.fonts.head, fontSize: 15.5, color: theme.danger || '#C2553D' }}>
+                      {t('settings.deleteKid')}
+                    </Text>
+                  </TouchableOpacity>
+                  <Text style={{
+                    marginTop: 10, fontFamily: theme.fonts.body, fontSize: 12.5,
+                    lineHeight: 20, color: theme.inkSoft, textAlign: 'center',
+                  }}>
+                    {t('settings.deleteKidHint')}
+                  </Text>
+                </>
+              )}
+            </View>
+          ) : null}
+        </ScrollView>
+        {confirming ? (
+          <DeleteKidSheet kid={kid} onClose={() => setConfirming(false)} onDone={onClose} />
+        ) : null}
+      </View>
+    </Modal>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════
+   DeleteKidSheet — type-to-confirm 删除孩子（仅创建者），照注销账号那套
+   ══════════════════════════════════════════════════════════ */
+
+function DeleteKidSheet({ kid, onClose, onDone }: any) {
+  const { theme } = useTheme();
+  const t = useT();
+  const insets = useSafeAreaInsets();
+  const { removeKid } = useData();
+  const [input, setInput] = useState('');
+  const [checked, setChecked] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const canDelete = input.trim() === kid.name && checked && !deleting;
+
+  const handleDelete = () => {
+    if (!canDelete) return;
+    // 最后的对话框：即便过了输入 + 勾选门槛，删除前仍再确认一次
+    Alert.alert(
+      t('settings.deleteKidTitle', { name: kid.name }),
+      t('settings.deleteKidBody', { name: kid.name }),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('settings.deleteKidConfirm'), style: 'destructive',
+          onPress: async () => {
+            setDeleting(true);
+            try {
+              await removeKid(kid.id);
+              onClose();      // 关确认页
+              onDone?.();     // 关编辑页
+            } catch (e: any) {
+              setDeleting(false);
+              Alert.alert(t('settings.deleteKidFailed'), String(e?.message || e));
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  return (
+    <Modal visible animationType="slide" onRequestClose={onClose}>
+      <View style={{ flex: 1, backgroundColor: theme.cream }}>
+        <LayerHeader title={t('settings.deleteKid')} onBack={onClose} />
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 22, paddingBottom: 48 + insets.bottom }}>
+          {/* Warning card */}
+          <View style={{
+            marginTop: 16, padding: 20, borderRadius: 22,
+            backgroundColor: theme.isDark ? 'rgba(192,97,107,0.12)' : '#FDF5F5',
+            borderWidth: 1.5, borderColor: theme.isDark ? 'rgba(192,97,107,0.25)' : '#F0D6D6',
+          }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <View style={{
+                width: 34, height: 34, borderRadius: 12,
+                backgroundColor: theme.isDark ? 'rgba(192,97,107,0.2)' : '#F0D6D6',
+                justifyContent: 'center', alignItems: 'center',
+              }}>
+                {Icon.lock('#C0616B', 18)}
+              </View>
+              <Text style={{ fontFamily: theme.fonts.head, fontSize: 17, color: '#C0616B' }}>
+                {t('settings.irreversible')}
+              </Text>
+            </View>
+            <Text style={{
+              marginTop: 14, fontFamily: theme.fonts.body, fontSize: 14.5,
+              lineHeight: 26, color: theme.ink,
+            }}>
+              {t('settings.deleteKidWarning', { name: kid.name })}
+            </Text>
+          </View>
+
+          {/* Confirmation input — 输入孩子的名字以激活删除 */}
+          <View style={{ marginTop: 24 }}>
+            <Text style={{
+              paddingHorizontal: 4, paddingBottom: 10,
+              fontFamily: theme.fonts.body, fontSize: 13.5, color: theme.inkSoft,
+            }}>
+              {t('settings.deletePromptPre')}<Text style={{ fontFamily: theme.fonts.head, color: '#C0616B' }}>"{kid.name}"</Text>{t('settings.deletePromptPost')}
+            </Text>
+            <TextInput
+              value={input}
+              onChangeText={setInput}
+              placeholder={kid.name}
+              placeholderTextColor={theme.inkSoft}
+              style={{
+                width: '100%', borderWidth: 1, borderColor: theme.line,
+                borderRadius: 18, paddingVertical: 15, paddingHorizontal: 16,
+                backgroundColor: theme.paper, color: theme.ink,
+                fontFamily: theme.fonts.body, fontSize: 16,
+              }}
+            />
+          </View>
+
+          {/* Checkbox */}
+          <TouchableOpacity
+            onPress={() => setChecked(!checked)}
+            activeOpacity={0.7}
+            style={{
+              flexDirection: 'row', alignItems: 'flex-start', gap: 12,
+              marginTop: 22, paddingHorizontal: 4,
+            }}
+          >
+            <View style={{
+              width: 22, height: 22, borderRadius: 6, marginTop: 1,
+              borderWidth: 2, borderColor: checked ? theme.accent : theme.line,
+              backgroundColor: checked ? theme.accent : 'transparent',
+              justifyContent: 'center', alignItems: 'center',
+            }}>
+              {checked ? Icon.check('#FFFDF7', 14) : null}
+            </View>
+            <Text style={{
+              flex: 1, fontFamily: theme.fonts.body, fontSize: 14,
+              lineHeight: 23, color: theme.ink,
+            }}>{t('settings.deleteKidCheck', { name: kid.name })}</Text>
+          </TouchableOpacity>
+
+          {/* Button */}
+          <TouchableOpacity
+            onPress={handleDelete}
+            disabled={!canDelete}
+            activeOpacity={0.7}
+            style={{
+              marginTop: 32, width: '100%', paddingVertical: 16, borderRadius: 999,
+              backgroundColor: canDelete ? '#C0616B' : theme.sand,
+              alignItems: 'center',
+            }}
+          >
+            {deleting ? (
+              <ActivityIndicator color="#FFFDF7" size="small" />
+            ) : (
+              <Text style={{
+                fontFamily: theme.fonts.head, fontSize: 16,
+                color: canDelete ? '#FFFDF7' : theme.inkSoft,
+              }}>{t('settings.deleteKidPermanent')}</Text>
+            )}
+          </TouchableOpacity>
         </ScrollView>
       </View>
     </Modal>
@@ -718,8 +903,9 @@ function ParentAvatar({ ch }: any) {
   );
 }
 
-function MemberRow({ avatar, name, role, last = false }: any) {
+function MemberRow({ avatar, name, sub, role, onRemove, removing = false, last = false }: any) {
   const { theme } = useTheme();
+  const t = useT();
   return (
     <View style={{
       flexDirection: 'row', alignItems: 'center', gap: 13,
@@ -728,8 +914,33 @@ function MemberRow({ avatar, name, role, last = false }: any) {
       borderBottomWidth: last ? 0 : 1, borderBottomColor: theme.line,
     }}>
       {avatar}
-      <Text style={{ flex: 1, fontFamily: theme.fonts.body, fontSize: 15.5, color: theme.ink, includeFontPadding: false }}>{name}</Text>
-      <Text style={{ fontFamily: theme.fonts.body, fontSize: 13, color: theme.inkSoft }}>{role}</Text>
+      <View style={{ flex: 1 }}>
+        <Text style={{ fontFamily: theme.fonts.body, fontSize: 15.5, color: theme.ink, includeFontPadding: false }}>{name}</Text>
+        {sub ? (
+          <Text style={{ marginTop: 2, fontFamily: theme.fonts.body, fontSize: 12, color: theme.inkSoft, includeFontPadding: false }}>{sub}</Text>
+        ) : null}
+      </View>
+      {onRemove ? (
+        <TouchableOpacity
+          onPress={onRemove}
+          disabled={removing}
+          activeOpacity={0.7}
+          hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
+          style={{
+            paddingVertical: 6, paddingHorizontal: 12, borderRadius: 999,
+            borderWidth: 1, borderColor: theme.line,
+            opacity: removing ? 0.6 : 1,
+          }}
+        >
+          {removing ? (
+            <ActivityIndicator size="small" color={theme.danger || '#C2553D'} />
+          ) : (
+            <Text style={{ fontFamily: theme.fonts.body, fontSize: 13, color: theme.danger || '#C2553D' }}>{t('invite.remove')}</Text>
+          )}
+        </TouchableOpacity>
+      ) : (
+        <Text style={{ fontFamily: theme.fonts.body, fontSize: 13, color: theme.inkSoft }}>{role}</Text>
+      )}
     </View>
   );
 }
@@ -739,7 +950,8 @@ function InviteSheet({ kids, me, onClose, onJoinFamily }: any) {
   const t = useT();
   const insets = useSafeAreaInsets();
   const [copied, setCopied] = useState(false);
-  const { family } = useData();
+  const [removingId, setRemovingId] = useState<string | null>(null);
+  const { family, removeMember } = useData();
   const code = family?.inviteCode || '——';
 
   const myName = meName(me);
@@ -747,12 +959,35 @@ function InviteSheet({ kids, me, onClose, onJoinFamily }: any) {
   const isParent = me.role === '爸爸' || me.role === '妈妈';
   const adults = (family?.members || []).map(m => {
     const nm = m.role === '其他' ? (m.customRole || t('role.familyMember')) : roleLabel(m.role);
+    // 标识：优先脱敏手机号；无手机号（Apple/匿名）回退 user_id 短号，保证同角色也能区分。
+    const idTag = m.phone || (m.userId ? 'ID · ' + String(m.userId).replace(/-/g, '').slice(0, 6) : '');
     return {
+      key: m.userId,
       ch: nm.slice(0, 1),
       name: nm,
+      sub: idTag,
       role: m.isMe ? t('settings.you') + (family?.isCreator ? t('settings.admin') : '') : t('settings.parentRole'),
+      canRemove: !!family?.isCreator && !m.isMe,
+      member: m,
     };
   });
+
+  const confirmRemove = (m: any) => {
+    const label = m.role === '其他' ? (m.customRole || t('role.familyMember')) : roleLabel(m.role);
+    const who = m.phone ? `${label}（${m.phone}）` : label;
+    Alert.alert(t('invite.removeTitle'), t('invite.removeBody', { role: who }), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('invite.remove'), style: 'destructive',
+        onPress: async () => {
+          setRemovingId(m.userId);   // 那一行显示转圈，网络慢时也有反馈
+          try { await removeMember(m.userId); }
+          catch (e: any) { Alert.alert(t('invite.removeFailed'), String(e?.message || e)); }
+          finally { setRemovingId(null); }
+        },
+      },
+    ]);
+  };
   const copy = async () => {
     await Clipboard.setStringAsync(code);
     setCopied(true);
@@ -776,7 +1011,14 @@ function InviteSheet({ kids, me, onClose, onJoinFamily }: any) {
             borderWidth: 1, borderColor: theme.line, borderRadius: 22, overflow: 'hidden',
           }}>
             {adults.map((a, i) => (
-              <MemberRow key={a.name + i} avatar={<ParentAvatar ch={a.ch} />} name={a.name} role={a.role} />
+              <MemberRow
+                key={a.key || a.name + i}
+                avatar={<ParentAvatar ch={a.ch} />}
+                name={a.name} sub={a.sub} role={a.role}
+                onRemove={a.canRemove ? () => confirmRemove(a.member) : null}
+                removing={removingId === a.key}
+                last={kids.length === 0 && i === adults.length - 1}
+              />
             ))}
             {kids.map((k, i) => (
               <MemberRow
@@ -1292,18 +1534,31 @@ function DeleteAccountSheet({ onClose }: any) {
   const [deleting, setDeleting] = useState(false);
   const canDelete = input.trim() === CONFIRM_TEXT && checked && !deleting;
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
     if (!canDelete) return;
-    setDeleting(true);
-    try {
-      await deleteAccount();
-      // 成功后会触发 SIGNED_OUT，App 根导航会重置回登录页，
-      // 本组件随 Settings 一起卸载，这里不用再做收尾。
-    } catch (e) {
-      console.error('Delete account failed:', e);
-      setDeleting(false);
-      Alert.alert(t('settings.deleteFailTitle'), t('settings.deleteFailBody'));
-    }
+    // 最后的对话框：即便过了输入 + 勾选门槛，注销前仍再确认一次
+    Alert.alert(
+      t('settings.deleteAccountConfirmTitle'),
+      t('settings.deleteAccountConfirmBody'),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('settings.deletePermanent'), style: 'destructive',
+          onPress: async () => {
+            setDeleting(true);
+            try {
+              await deleteAccount();
+              // 成功后会触发 SIGNED_OUT，App 根导航会重置回登录页，
+              // 本组件随 Settings 一起卸载，这里不用再做收尾。
+            } catch (e) {
+              console.error('Delete account failed:', e);
+              setDeleting(false);
+              Alert.alert(t('settings.deleteFailTitle'), t('settings.deleteFailBody'));
+            }
+          },
+        },
+      ],
+    );
   };
 
   return (

@@ -485,12 +485,22 @@ export default function OnboardingScreen({ navigation }) {
       await addKid({ name: child.name.trim(), y: child.y, m: child.m, tone: 'orange' });
       navigation.replace('Home');
     } catch (e: any) {
-      console.error('Onboarding create error:', e);
       const msg = e?.message || '';
       if (msg.includes('already_in_family')) {
-        navigation.replace('Home');
+        // 已在家庭里（例如把最后一个孩子删光后被路由弹回引导页）：不重复建家，
+        // 补上资料 + 孩子再回家，避免 Home ⟷ Onboarding 空转卡死。
+        try {
+          await updateMe({ role: me, custom_role: '' });
+          await addKid({ name: child.name.trim(), y: child.y, m: child.m, tone: 'orange' });
+          navigation.replace('Home');
+        } catch (e2) {
+          console.error('Onboarding recover error:', e2);
+          Alert.alert(t('onboarding.saveFailTitle'), t('onboarding.networkRetry'));
+          setSaving(false);
+        }
         return;
       }
+      console.error('Onboarding create error:', e);
       Alert.alert(t('onboarding.saveFailTitle'), t('onboarding.networkRetry'));
       setSaving(false);
     }
