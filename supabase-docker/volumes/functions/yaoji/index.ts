@@ -526,6 +526,13 @@ textarea{min-height:110px}
   cursor:pointer;transition:all 0.15s;-webkit-tap-highlight-color:transparent}
 .place-chip.active{background:var(--accent);border-color:var(--accent);color:#FFFDF7}
 .place-chip:active{transform:scale(0.95)}
+/* Text starter chips — matches app RecordFlow starter chips */
+.starter-hint{font-family:var(--body);font-size:13px;color:var(--ink-soft);margin-bottom:9px;padding-left:2px}
+.starter-chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.starter-chip{padding:9px 13px;border-radius:14px;border:1px solid var(--line);
+  background:var(--paper);font-family:var(--body);font-size:13.5px;line-height:18px;color:var(--ink);
+  cursor:pointer;transition:transform 0.15s;-webkit-tap-highlight-color:transparent}
+.starter-chip:active{transform:scale(0.97)}
 
 .capture-alt{display:inline-block;font-family:var(--body);font-size:13px;color:var(--ink-soft);
   text-align:center;padding:10px 0;cursor:pointer;-webkit-tap-highlight-color:transparent;
@@ -767,6 +774,10 @@ textarea{min-height:110px}
       </div>
     </div>
     <div id="captureText" class="hidden">
+      <div id="textStarters" class="hidden">
+        <div class="starter-hint">不知从哪写起？轻点一句，帮你起个头</div>
+        <div class="starter-chips" id="starterChips"></div>
+      </div>
       <textarea id="textContent" placeholder="写下你想说的..." maxlength="10000" style="min-height:180px"></textarea>
     </div>
     <div id="capturePreview" class="preview-wrap hidden"></div>
@@ -1132,8 +1143,11 @@ function showCapturePanel() {
   const panel = 'capture' + state.type.charAt(0).toUpperCase() + state.type.slice(1)
   document.getElementById(panel).classList.remove('hidden')
 
-  // Text input updates submit button
-  document.getElementById('textContent').oninput = updateSubmitBtn
+  // Text input updates submit button + toggles starter chips
+  document.getElementById('textContent').oninput = function() { updateSubmitBtn(); toggleStarters() }
+
+  // Text starter chips (normal memory only — web invites are never sealed)
+  setupTextStarters()
 
   // Show caption section for photo/video, hide for audio/text
   const cs = document.getElementById('captionSection')
@@ -1203,6 +1217,31 @@ function animateBars(active) {
 
 // Place chips
 const PLACES = ['家里','小区楼下','公园','幼儿园','路上']
+// App RecordFlow normalStarter1..4 — tap to seed the opening line
+const NORMAL_STARTERS = ['今天，我们一起','我永远会记得那一刻——','TA 听完之后，','最让我心头一软的是']
+function setupTextStarters() {
+  const container = document.getElementById('starterChips')
+  const input = document.getElementById('textContent')
+  container.innerHTML = ''
+  NORMAL_STARTERS.forEach(s => {
+    const chip = document.createElement('div')
+    chip.className = 'starter-chip'
+    chip.textContent = s
+    chip.onclick = () => {
+      input.value = s
+      input.focus()
+      updateSubmitBtn()
+      toggleStarters()
+    }
+    container.appendChild(chip)
+  })
+  toggleStarters()
+}
+function toggleStarters() {
+  const wrap = document.getElementById('textStarters')
+  const input = document.getElementById('textContent')
+  wrap.classList.toggle('hidden', input.value.trim().length > 0)
+}
 function setupPlaceChips() {
   const container = document.getElementById('placeChips')
   const input = document.getElementById('placeInput')
