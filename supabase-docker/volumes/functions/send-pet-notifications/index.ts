@@ -413,13 +413,16 @@ async function sendDooPushVerbose(
   }
 }
 
-// 核心投递：给定一条 outbox 任务，向「其它家人」发 family_activity。返回实际发出的设备数。
+// 核心投递：给定一条 outbox 任务，用指定 scene 的模板向「其它家人」推送。返回实际发出的设备数。
+// scene = 'family_activity'（记录回忆）或 'custom_level_added'（新增家庭事项）等；extraVars 供 {{title}} 之类。
 // 语义：良性跳过（关通知 / 无 kid / 无 who / 无收件人 / 免打扰）→ 返回 0，视为已完成、不重试；
 //       只有「发送前」的意外错误（DB 查询失败等）才抛出，交给 drain 退避重试
 //       —— 因 sendDooPush 自身吞错返回 bool、从不抛，故抛错时必然一台都没发，重试不会重复推送。
-async function runMemoryNotification(
-  job: { family_id: string; kid_id: string | null; actor_user_id: string | null; who: string | null },
+async function runFamilyNotification(
+  job: { family_id: string; kid_id: string | null; actor_user_id: string | null; who: string | null; payload?: any },
+  scene: string,
   templates: Template[],
+  extraVars: Record<string, string> = {},
 ): Promise<number> {
   const familyId = job.family_id
 
@@ -459,8 +462,8 @@ async function runMemoryNotification(
   const devices = (devicesRaw ?? []) as Device[]
 
   const tplFor = (lang: Lang): Template | null =>
-    templates.find((t) => t.scene === 'family_activity' && t.species === species && t.lang === lang) ??
-    templates.find((t) => t.scene === 'family_activity' && t.species === species && t.lang === 'zh') ?? null
+    templates.find((t) => t.scene === scene && t.species === species && t.lang === lang) ??
+    templates.find((t) => t.scene === scene && t.species === species && t.lang === 'zh') ?? null
 
   let sent = 0
   let usedTemplateId: number | null = null
@@ -473,17 +476,17 @@ async function runMemoryNotification(
     const tpl = tplFor(lang)
     if (!tpl) continue
     usedTemplateId = tpl.id
-    const vars = { who: localizeWho(whoRaw, lang) } // 按本设备语言翻译 {{who}}
+    const vars = { who: localizeWho(whoRaw, lang), ...extraVars } // {{who}} 按设备语言翻译；extraVars（如 title）原样
     const ok = await sendDooPush(
       dev.token, interpolate(tpl.title, vars), interpolate(tpl.body, vars),
-      { scene: 'family_activity', kidId },
+      { scene, kidId },
     )
     if (ok) sent++
   }
 
   if (sent > 0) {
     await admin.from('notification_log').insert({
-      kid_id: kidId, family_id: familyId, scene: 'family_activity', template_id: usedTemplateId,
+      kid_id: kidId, family_id: familyId, scene, template_id: usedTemplateId,
     })
   }
   return sent
@@ -497,10 +500,10 @@ async function drainOutbox(templates: Template[]): Promise<Response> {
   let done = 0
   for (const job of (jobs ?? []) as any[]) {
     try {
-      const sent = await runMemoryNotification(
-        { family_id: job.family_id, kid_id: job.kid_id, actor_user_id: job.actor_user_id, who: job.who },
-        templates,
-      )
+      // 按事件分派场景：新增家庭事项 vs 记录回忆
+      const sent = job.event === 'custom_level_added'
+        ? await runFamilyNotification(job, 'custom_level_added', templates, { title: String(job.payload?.title ?? '') })
+        : await runFamilyNotification(job, 'family_activity', templates)
       await admin.rpc('complete_notification_job', { p_id: job.id, p_ok: true, p_sent: sent, p_error: null })
       done++
     } catch (e) {
