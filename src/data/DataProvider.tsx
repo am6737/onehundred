@@ -12,9 +12,11 @@ import {
   FAMILY,
   fetchMyFamily, createFamily as apiCreateFamily, joinFamily as apiJoinFamily,
   removeFamilyMember, leaveFamily as apiLeaveFamily, clearFamilyCache,
+  setSealTestUnlockAll, SEAL_TEST_UNLOCK_KEY,
 } from './index';
 import { t } from '../i18n';
 import { supabase } from '../lib/supabase';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const MAX_RETRIES = 3;
 const RETRY_DELAYS = [1000, 2000, 4000];
@@ -82,6 +84,14 @@ export function DataProvider({ children, userId }) {
   }, [userId]);
 
   useEffect(() => { loadAll(); }, [loadAll]);
+
+  // 开发者工具的「封存·忽略解封时间」开关：启动时从本地恢复，让重启后仍生效（仅 dev）。
+  useEffect(() => {
+    if (!__DEV__) return;
+    AsyncStorage.getItem(SEAL_TEST_UNLOCK_KEY)
+      .then(v => setSealTestUnlockAll(v === '1'))
+      .catch(() => {});
+  }, []);
 
   // 静默刷新：重拉全部共享数据但不切 loading（避免闪屏），用于前台回归 / 实时兜底。
   // 若被移除，family/kids 会变空，HomeWithDrawer 的守卫会自然把用户导回引导页。

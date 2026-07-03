@@ -1,9 +1,11 @@
-import React, { useRef, useEffect, useState, useMemo } from 'react';
+import React, { useRef, useEffect, useState, useMemo, useImperativeHandle } from 'react';
 import {
   View, Text, TouchableOpacity, Animated, Dimensions,
   Modal, Pressable, ScrollView, StyleSheet,
 } from 'react-native';
 import { GestureHandlerRootView, GestureDetector, Gesture } from 'react-native-gesture-handler';
+import WheelPicker from '@quidone/react-native-wheel-picker';
+import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/tokens';
 import { useT } from '../i18n';
@@ -283,6 +285,103 @@ export function Card({ children, style = undefined, onPress = null }: any) {
     return <TouchableOpacity onPress={onPress} activeOpacity={0.8}>{content}</TouchableOpacity>;
   }
   return content;
+}
+
+/* ── WheelColumn ─────────────────────────────────────────────
+   单列滚轮选择器，与「设置 · 免打扰时段」同款手感：@quidone 的 WheelPicker，
+   但把内部 renderList 换成套了 RNGH Gesture.Native() 的 Animated.ScrollView。
+   因为新架构下没登记进 RNGH 的普通 ScrollView（尤其 Modal / Sheet 里）收不到触摸，
+   套上 Native 手势后滚轮才滚得动。data 传 [{ value, label }]。
+   注意：GestureDetector 需要 GestureHandlerRootView 作祖先——Modal 里要自己套一层。 */
+
+function wheelTick() {
+  // 滚轮每跨过一格触发一次「选择」轻震；原生模块缺失时静默降级。
+  try { Haptics.selectionAsync().catch(() => {}); } catch {}
+}
+
+function WheelScrollList({
+  listMethodsRef, data, keyExtractor, renderItem, itemHeight, pickerHeight,
+  readOnly, scrollOffset, initialIndex, contentContainerStyle,
+  onTouchStart, onTouchEnd, onTouchCancel, onScrollStart, onScrollEnd,
+}: any) {
+  const scrollRef = useRef<any>(null);
+  const activeRef = useRef(false);
+  const endTimer = useRef<any>(null);
+  const native = useMemo(() => Gesture.Native(), []);
+
+  useImperativeHandle(listMethodsRef, () => ({
+    scrollToIndex: ({ index, animated }: any) =>
+      scrollRef.current?.scrollTo({ x: 0, y: index * itemHeight, animated }),
+  }), [itemHeight]);
+
+  const snapToOffsets = useMemo(() => data.map((_: any, i: number) => i * itemHeight), [data, itemHeight]);
+  const onScroll = useMemo(() => Animated.event(
+    [{ nativeEvent: { contentOffset: { y: scrollOffset } } }],
+    { useNativeDriver: true },
+  ), [scrollOffset]);
+  const ccStyle = useMemo(
+    () => [{ paddingVertical: (pickerHeight - itemHeight) / 2 }, contentContainerStyle],
+    [pickerHeight, itemHeight, contentContainerStyle],
+  );
+
+  // quidone 用 onValueChanged 依赖 onScrollEnd 收尾：滚动开始触发一次 start，
+  // 停下（含甩动惯性结束、慢放无惯性）后触发 end。
+  const start = () => {
+    if (endTimer.current) { clearTimeout(endTimer.current); endTimer.current = null; }
+    if (!activeRef.current) { activeRef.current = true; onScrollStart?.(); }
+  };
+  const end = () => {
+    if (activeRef.current) { activeRef.current = false; onScrollEnd?.(); }
+  };
+
+  return (
+    <GestureDetector gesture={native}>
+      <Animated.ScrollView
+        ref={scrollRef}
+        showsHorizontalScrollIndicator={false}
+        showsVerticalScrollIndicator={false}
+        scrollEventThrottle={16}
+        scrollEnabled={!readOnly}
+        contentOffset={{ x: 0, y: initialIndex * itemHeight }}
+        onScroll={onScroll}
+        snapToOffsets={snapToOffsets}
+        nestedScrollEnabled
+        removeClippedSubviews={false}
+        style={{ width: '100%', overflow: 'visible' }}
+        contentContainerStyle={ccStyle}
+        onTouchStart={onTouchStart}
+        onTouchEnd={onTouchEnd}
+        onTouchCancel={onTouchCancel}
+        onScrollBeginDrag={start}
+        onMomentumScrollBegin={start}
+        onScrollEndDrag={() => {
+          if (endTimer.current) clearTimeout(endTimer.current);
+          endTimer.current = setTimeout(end, 60); // 无惯性时的收尾兜底
+        }}
+        onMomentumScrollEnd={end}
+      >
+        {data.map((item: any, index: number) => renderItem({ key: keyExtractor(item, index), item, index }))}
+      </Animated.ScrollView>
+    </GestureDetector>
+  );
+}
+
+export function WheelColumn({ data, value, onChange, itemHeight, visibleCount, textStyle, style }: any) {
+  const { theme } = useTheme();
+  return (
+    <WheelPicker
+      data={data}
+      value={value}
+      onValueChanged={({ item }: any) => onChange(item.value)}
+      onValueChanging={wheelTick}
+      itemHeight={itemHeight}
+      visibleItemCount={visibleCount}
+      style={{ flex: 1, ...(style || {}) }}
+      itemTextStyle={{ fontFamily: theme.fonts.head, fontSize: 22, color: theme.ink, ...(textStyle || {}) }}
+      renderOverlay={null}
+      renderList={({ ref, ...listProps }: any) => <WheelScrollList listMethodsRef={ref} {...listProps} />}
+    />
+  );
 }
 
 const styles = StyleSheet.create({

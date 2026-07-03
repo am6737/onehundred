@@ -1181,8 +1181,10 @@ function MemoryThreadItem({ m, onOpen, showWho, showDate = true }) {
 
         {/* Right text content */}
         <View style={{ flex: 1, padding: 11, paddingHorizontal: 13 }}>
+          {/* 徽章行固定单行高度：切换「全部/孩子」时孩子标识出现/消失不会撑大或坍塌卡片 */}
           <View style={{
-            flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap',
+            flexDirection: 'row', alignItems: 'center', gap: 6,
+            height: 20, overflow: 'hidden',
           }}>
             <View style={{
               backgroundColor: tn.soft,

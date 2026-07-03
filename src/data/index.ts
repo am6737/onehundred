@@ -608,14 +608,25 @@ export function kidAgeAtYear(kid, year) {
 
 /* ── 封存 ── */
 
+// 开发者工具的「忽略解封时间」开关：开启后所有已封存记录都视为可开启——仅 __DEV__ 生效、
+// 不改数据、可逆。由 DevToolsSheet 切换、DataProvider 启动时从 AsyncStorage 恢复；键名共享给两处。
+export const SEAL_TEST_UNLOCK_KEY = '100m.dev_seal_unlock_all';
+let __sealTestUnlockAll = false;
+export function setSealTestUnlockAll(on: boolean) { __sealTestUnlockAll = !!on; }
+export function getSealTestUnlockAll() { return __sealTestUnlockAll; }
+
 // 这条记录此刻是否处于"封存锁定"（封存了且还没到约定日期）
 export function isMemoryLocked(mem) {
-  return !!(mem && mem.sealed && mem.sealUntil && Date.now() < new Date(mem.sealUntil).getTime());
+  if (!(mem && mem.sealed && mem.sealUntil)) return false;
+  if (__DEV__ && __sealTestUnlockAll) return false; // 开发者工具：忽略解封时间，全部视为可开启
+  return Date.now() < new Date(mem.sealUntil).getTime();
 }
 
 // 封存了且已到期（可以打开了）
 export function isMemoryUnsealed(mem) {
-  return !!(mem && mem.sealed && mem.sealUntil && Date.now() >= new Date(mem.sealUntil).getTime());
+  if (!(mem && mem.sealed && mem.sealUntil)) return false;
+  if (__DEV__ && __sealTestUnlockAll) return true; // 开发者工具：忽略解封时间
+  return Date.now() >= new Date(mem.sealUntil).getTime();
 }
 
 // 某个孩子（或全家）当前仍锁定的封存记录

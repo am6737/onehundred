@@ -249,12 +249,13 @@ const styles = StyleSheet.create({
   },
   coverImg: { width: '100%', height: '100%' },
   cardText: { flex: 1, padding: 11, paddingHorizontal: 13 },
-  pillRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
+  // 徽章行锁死单行高度、描述锁死两行高度：卡片总高恒定，描述长短/徽章多少都不会撑大或坍塌
+  pillRow: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 20, overflow: 'hidden' },
   pill: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999 },
   pillStrong: { fontSize: 11 },
   pillSoft: { fontSize: 10.5 },
   cardTitle: { marginTop: 6, fontSize: 15, lineHeight: 21 },
-  cardDesc: { marginTop: 4, fontSize: 12.5, lineHeight: 19 },
+  cardDesc: { marginTop: 4, fontSize: 12.5, lineHeight: 19, height: 38 },
 
   /* ── 左滑删除按钮 ── */
   swipeDelete: {

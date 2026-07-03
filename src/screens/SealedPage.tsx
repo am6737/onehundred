@@ -61,13 +61,13 @@ function SealedCard({ mem, theme, onPress }) {
         </View>
       </View>
 
-      <Text style={{
-        marginTop: 14, marginHorizontal: 2,
-        fontFamily: theme.fonts.body, fontSize: 13.5, lineHeight: 23,
-        color: openable ? tn.deep : theme.inkSoft,
-      }}>{openable
-        ? t('sealedPage.openableHint')
-        : t('sealedPage.lockedHint')}</Text>
+      {openable && (
+        <Text style={{
+          marginTop: 14, marginHorizontal: 2,
+          fontFamily: theme.fonts.body, fontSize: 13.5, lineHeight: 23,
+          color: tn.deep,
+        }}>{t('sealedPage.openableHint')}</Text>
+      )}
 
       <View style={{
         marginTop: 16, paddingTop: 14, borderTopWidth: 1, borderTopColor: theme.line,

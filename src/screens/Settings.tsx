@@ -1,15 +1,12 @@
 // screens/Settings.js — React Native implementation of the Settings screen.
 // Faithfully converted from the web prototype at screens_settings.jsx.
 
-import React, { useState, useCallback, useRef, useEffect, useMemo, useImperativeHandle } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import {
   View, Text, TouchableOpacity, ScrollView, Switch,
   Modal, Pressable, TextInput, StyleSheet, Dimensions,
   Alert, ActivityIndicator, Image, Platform, ToastAndroid, Animated, Share, PermissionsAndroid, Linking,
 } from 'react-native';
-import { GestureDetector, Gesture } from 'react-native-gesture-handler';
-import WheelPicker from '@quidone/react-native-wheel-picker';
-import * as Haptics from 'expo-haptics';
 import * as Clipboard from 'expo-clipboard';
 import * as Device from 'expo-device';
 import * as Application from 'expo-application';
@@ -21,14 +18,14 @@ import { DooPush } from 'doopush-react-native-sdk';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme, COLORS } from '../theme/tokens';
 import { useI18n, useT } from '../i18n';
-import { ROLES, DEFAULT_ME, meName, meChar, roleLabel, NOW_YM, fetchNotificationPrefs, updateNotificationPrefs, fetchNotificationTemplates, sendTestNotification, fetchProfile } from '../data';
+import { ROLES, DEFAULT_ME, meName, meChar, roleLabel, NOW_YM, fetchNotificationPrefs, updateNotificationPrefs, fetchNotificationTemplates, sendTestNotification, fetchProfile, setSealTestUnlockAll, getSealTestUnlockAll, SEAL_TEST_UNLOCK_KEY } from '../data';
 import { useData } from '../data/DataProvider';
 import { signOut, isAnonymous, bindEmail, deleteAccount, getCurrentUserPhone, maskPhone, updatePhone, verifyPhoneChange, signInWithApple, bindApple, isAppleSignInAvailable, getLinkedProviders, unbindProvider } from '../lib/auth';
 import { getInviteExpiryHours, setInviteExpiryHours, INVITE_EXPIRY_OPTIONS, DEFAULT_INVITE_EXPIRY } from '../lib/yaoji';
 import { safeDooPushRegister } from '../lib/doopushRegister';
 import { supabase } from '../lib/supabase';
 import { Icon, KidAvatar } from '../components/Icons';
-import { LayerHeader, Sheet, Chip, PrimaryButton, SecondaryButton, Section } from '../components/common';
+import { LayerHeader, Sheet, Chip, PrimaryButton, SecondaryButton, Section, WheelColumn } from '../components/common';
 import { familyInviteUrl } from '../lib/invite';
 import QRCode from 'react-native-qrcode-svg';
 
@@ -2020,98 +2017,16 @@ const DND_PAD = DND_ITEM_H * Math.floor(DND_VISIBLE / 2);
 const DND_WHEEL_H = DND_ITEM_H * DND_VISIBLE;
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
-function tickHaptic() {
-  // 滚轮每跨过一格触发一次「选择」轻震；原生模块缺失时静默降级。
-  try { Haptics.selectionAsync().catch(() => {}); } catch {}
-}
-
 const HOUR_DATA = HOURS.map(h => ({ value: h, label: `${String(h).padStart(2, '0')}:00` }));
 
-// 自定义 renderList：完全复刻 quidone 内部的 Animated.ScrollView（snapToOffsets + 原生驱动
-// 的 scrollOffset + scrollToIndex），唯一区别是外面套了 RNGH 的 Gesture.Native()。
-// 因为本弹窗是 Modal+GestureHandlerRootView，新架构下没登记进 RNGH 的普通 ScrollView 收不到
-// 触摸（这也是 Sheet 必须走原生手势的原因），套上 Native 手势后滚轮才滚得动。
-function WheelScrollList({
-  listMethodsRef, data, keyExtractor, renderItem, itemHeight, pickerHeight,
-  readOnly, scrollOffset, initialIndex, contentContainerStyle,
-  onTouchStart, onTouchEnd, onTouchCancel, onScrollStart, onScrollEnd,
-}: any) {
-  const scrollRef = useRef<any>(null);
-  const activeRef = useRef(false);
-  const endTimer = useRef<any>(null);
-  const native = useMemo(() => Gesture.Native(), []);
-
-  useImperativeHandle(listMethodsRef, () => ({
-    scrollToIndex: ({ index, animated }: any) =>
-      scrollRef.current?.scrollTo({ x: 0, y: index * itemHeight, animated }),
-  }), [itemHeight]);
-
-  const snapToOffsets = useMemo(() => data.map((_: any, i: number) => i * itemHeight), [data, itemHeight]);
-  const onScroll = useMemo(() => Animated.event(
-    [{ nativeEvent: { contentOffset: { y: scrollOffset } } }],
-    { useNativeDriver: true },
-  ), [scrollOffset]);
-  const ccStyle = useMemo(
-    () => [{ paddingVertical: (pickerHeight - itemHeight) / 2 }, contentContainerStyle],
-    [pickerHeight, itemHeight, contentContainerStyle],
-  );
-
-  // quidone 用 onValueChanged 依赖 onScrollEnd 收尾：滚动开始触发一次 start，
-  // 停下（含甩动惯性结束、慢放无惯性）后触发 end。
-  const start = () => {
-    if (endTimer.current) { clearTimeout(endTimer.current); endTimer.current = null; }
-    if (!activeRef.current) { activeRef.current = true; onScrollStart?.(); }
-  };
-  const end = () => {
-    if (activeRef.current) { activeRef.current = false; onScrollEnd?.(); }
-  };
-
-  return (
-    <GestureDetector gesture={native}>
-      <Animated.ScrollView
-        ref={scrollRef}
-        showsHorizontalScrollIndicator={false}
-        showsVerticalScrollIndicator={false}
-        scrollEventThrottle={16}
-        scrollEnabled={!readOnly}
-        contentOffset={{ x: 0, y: initialIndex * itemHeight }}
-        onScroll={onScroll}
-        snapToOffsets={snapToOffsets}
-        nestedScrollEnabled
-        removeClippedSubviews={false}
-        style={{ width: '100%', overflow: 'visible' }}
-        contentContainerStyle={ccStyle}
-        onTouchStart={onTouchStart}
-        onTouchEnd={onTouchEnd}
-        onTouchCancel={onTouchCancel}
-        onScrollBeginDrag={start}
-        onMomentumScrollBegin={start}
-        onScrollEndDrag={() => {
-          if (endTimer.current) clearTimeout(endTimer.current);
-          endTimer.current = setTimeout(end, 60); // 无惯性时的收尾兜底
-        }}
-        onMomentumScrollEnd={end}
-      >
-        {data.map((item: any, index: number) => renderItem({ key: keyExtractor(item, index), item, index }))}
-      </Animated.ScrollView>
-    </GestureDetector>
-  );
-}
-
 function HourWheel({ value, onChange }: { value: number; onChange: (v: number) => void }) {
-  const { theme } = useTheme();
   return (
-    <WheelPicker
+    <WheelColumn
       data={HOUR_DATA}
       value={value}
-      onValueChanged={({ item }) => onChange(item.value)}
-      onValueChanging={tickHaptic}
+      onChange={onChange}
       itemHeight={DND_ITEM_H}
-      visibleItemCount={DND_VISIBLE}
-      style={{ flex: 1 }}
-      itemTextStyle={{ fontFamily: theme.fonts.head, fontSize: 22, color: theme.ink }}
-      renderOverlay={null}
-      renderList={({ ref, ...listProps }: any) => <WheelScrollList listMethodsRef={ref} {...listProps} />}
+      visibleCount={DND_VISIBLE}
     />
   );
 }
@@ -2200,6 +2115,14 @@ function DevToolsSheet({ onClose, onLock }: any) {
   const [tplMap, setTplMap] = useState<Record<string, { title: string; body: string }>>({});
   const [testing, setTesting] = useState<string | null>(null);
   const [tested, setTested] = useState<{ scene: string; ok: boolean; sent?: number; targets?: number } | null>(null);
+  const [sealUnlockAll, setSealUnlockAll] = useState(getSealTestUnlockAll());
+
+  // 封存·忽略解封时间：立即生效（内存 flag）+ 落 AsyncStorage 供重启恢复。翻到封存相关页会按新状态重算。
+  const toggleSealUnlockAll = (on: boolean) => {
+    setSealUnlockAll(on);
+    setSealTestUnlockAll(on);
+    AsyncStorage.setItem(SEAL_TEST_UNLOCK_KEY, on ? '1' : '0').catch(() => {});
+  };
 
   const refresh = useCallback(async () => {
     try {
@@ -2688,6 +2611,16 @@ function DevToolsSheet({ onClose, onLock }: any) {
             row({ id: 'tz', label: t('settings.devTimezone'), value: tz }),
             row({ id: 'supa', label: t('settings.devSupabase'), value: supaHost, block: true, last: true }),
           ])}
+
+          {card(t('settings.devSecSeal'), (
+            <ToggleRow
+              title={t('settings.devSealUnlockAll')}
+              sub={t('settings.devSealUnlockAllHint')}
+              value={sealUnlockAll}
+              onValueChange={toggleSealUnlockAll}
+              last
+            />
+          ))}
 
           <View style={{ marginTop: 22, gap: 12 }}>
             <PrimaryButton
