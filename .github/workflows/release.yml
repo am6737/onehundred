@@ -9,6 +9,7 @@ run-name: "${{ inputs.version && format('[Manual] Submit iOS {0}', inputs.versio
 #    EXPO_TOKEN               Expo 机器人 token（需 build + submit 权限）
 #    ENV_FILE_BASE64          `base64 -w0 .env` 的结果（Supabase / DooPush / OPPO / vivo / 推送密钥）
 #    AGCONNECT_SERVICES_JSON_BASE64  `base64 -w0 agconnect-services.json`（华为 HMS 通道，Android 打包用；缺省则包内不含华为通道）
+#    MCS_SERVICES_JSON_BASE64  `base64 -w0 mcs-services.json`（荣耀 Honor 通道，Android 打包用；缺省则包内不含荣耀通道）
 #    ASC_API_KEY_P8_BASE64    App Store Connect API Key（.p8）base64（仅提交上架用）
 #    ASC_API_KEY_ID           ASC API Key ID
 #    ASC_ISSUER_ID            ASC Issuer ID
@@ -83,6 +84,17 @@ jobs:
             echo "华为 HMS 通道已启用（agconnect-services.json 就绪）"
           else
             echo "::warning::未配置 AGCONNECT_SERVICES_JSON_BASE64，本次 Android 包不含华为 HMS 通道"
+          fi
+
+      - name: Restore mcs-services.json（荣耀 Honor，可选）
+        run: |
+          if [ -n "${{ secrets.MCS_SERVICES_JSON_BASE64 }}" ]; then
+            echo "${{ secrets.MCS_SERVICES_JSON_BASE64 }}" | base64 -d > mcs-services.json
+            grep -q '"package_name"' mcs-services.json \
+              || { echo "::error::MCS_SERVICES_JSON_BASE64 解出的 JSON 里找不到 package_name（secret 无效）"; exit 1; }
+            echo "荣耀 Honor 通道已启用（mcs-services.json 就绪）"
+          else
+            echo "::warning::未配置 MCS_SERVICES_JSON_BASE64，本次 Android 包不含荣耀 Honor 通道"
           fi
 
       - name: Disable lint for CI

@@ -30,6 +30,14 @@ yarn-error.*
 .DS_Store
 *.pem
 
+# Design source files (keep png/svg/riv, drop heavy editor sources)
+*.psd
+*.ai
+*.fig
+*.sketch
+*.procreate
+*.xcf
+
 # local env files
 .env
 .env*.local
@@ -37,6 +45,10 @@ yarn-error.*
 # 华为 HMS 推送配置（AGC 控制台下载，含 app 标识/公开 API key）——不入库，CI 用 base64 secret 还原
 /agconnect-services.json
 /agconnect-services.dev.json
+
+# 荣耀 Honor 推送配置（荣耀开发者后台下载，含 app 标识/证书指纹）——不入库，CI 用 base64 secret 还原
+/mcs-services.json
+/mcs-services.dev.json
 
 # typescript
 *.tsbuildinfo

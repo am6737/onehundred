@@ -36,6 +36,15 @@ const DOOPUSH_HMS_AGCONNECT_FILE = IS_DEV
   ? "./agconnect-services.dev.json"
   : "./agconnect-services.json";
 const HAS_HMS_AGCONNECT = fs.existsSync(path.resolve(DOOPUSH_HMS_AGCONNECT_FILE));
+// 荣耀 Honor：与华为同构——客户端只需 mcs-services.json（荣耀开发者后台「下载配置文件」得到，
+// 含 app_id / 包名 / 证书指纹，不含服务端密钥）。荣耀服务端凭据（OAuth Client ID/Secret、App ID）
+// 在 DooPush 后台的 Honor 通道里配置，不进客户端包。Honor 无内联凭证文件之外的可靠模式，
+// 只能靠文件是否存在来决定是否启用——文件缺失时跳过，避免 prebuild 因找不到文件而抛错。
+// dev / prod 各对应一个荣耀应用与配置文件（包名不同：.dev vs 正式）。
+const DOOPUSH_HONOR_MCS_FILE = IS_DEV
+  ? "./mcs-services.dev.json"
+  : "./mcs-services.json";
+const HAS_HONOR_MCS = fs.existsSync(path.resolve(DOOPUSH_HONOR_MCS_FILE));
 
 const config: ExpoConfig = {
   name: IS_DEV ? "一百件事(Dev)" : "一百件事",
@@ -216,6 +225,15 @@ if (DOOPUSH_APP_ID && DOOPUSH_API_KEY) {
     };
   }
 
+  // 荣耀 Honor：同华为，无内联凭证模式，必须提供 mcs-services.json 文件。plugin 在 prebuild 时
+  // 把它复制到 android/app/ 与 assets/，并注入荣耀 asplugin（com.hihonor.mcs.asplugin）、荣耀 Maven
+  // 仓库、com.hihonor.mcs:push 依赖。文件不存在则不启用（见上方 HAS_HONOR_MCS），本地/CI 缺文件时打包不含荣耀通道。
+  if (HAS_HONOR_MCS) {
+    androidVendors.honor = {
+      mcsServicesFile: DOOPUSH_HONOR_MCS_FILE,
+    };
+  }
+
   config.plugins!.push([
     "doopush-react-native-sdk",
     {
@@ -234,6 +252,12 @@ if (DOOPUSH_APP_ID && DOOPUSH_API_KEY) {
         : {}),
     },
   ]);
+
+  // 启用荣耀通道时，荣耀 asplugin 需要根 build.gradle 里带显式版本的 AGP classpath，
+  // 否则配置期报错（详见 plugins/withHonorAgpClasspath.js）。仅在 Honor 启用时补，避免无谓改动。
+  if (HAS_HONOR_MCS) {
+    config.plugins!.push("./plugins/withHonorAgpClasspath");
+  }
 }
 
 export default config;
