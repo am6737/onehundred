@@ -1,0 +1,244 @@
+name: Release
+run-name: "${{ inputs.version && format('[Manual] Submit iOS {0}', inputs.version) || format('[Auto] Release {0}', github.ref_name) }}"
+
+# ── 触发方式 ─────────────────────────────────────────────────────────────
+#  1) push tag v*            → 本地打包 APK + AAB + IPA，产物挂到 GitHub Release
+#  2) 手动运行 (workflow_dispatch，填版本号) → 打 IPA 并提交到 App Store / TestFlight
+#
+#  所需 GitHub Secrets（Settings → Secrets and variables → Actions）：
+#    EXPO_TOKEN               Expo 机器人 token（需 build + submit 权限）
+#    ENV_FILE_BASE64          `base64 -w0 .env` 的结果（Supabase / DooPush / OPPO / vivo / 推送密钥）
+#    AGCONNECT_SERVICES_JSON_BASE64  `base64 -w0 agconnect-services.json`（华为 HMS 通道，Android 打包用；缺省则包内不含华为通道）
+#    ASC_API_KEY_P8_BASE64    App Store Connect API Key（.p8）base64（仅提交上架用）
+#    ASC_API_KEY_ID           ASC API Key ID
+#    ASC_ISSUER_ID            ASC Issuer ID
+#    ASC_APP_ID               App Store Connect 里本 App 的数字 ID（ascAppId）
+#  另需在 EAS 上预先配置签名凭据：`eas credentials`（iOS 证书/描述文件、Android keystore）。
+# ─────────────────────────────────────────────────────────────────────────
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '[iOS App Store] 要提交的版本号（如 1.2.3）'
+        required: true
+        type: string
+
+jobs:
+  # ── tag 推送：打包 Android（APK + AAB）────────────────────────────────
+  build-android:
+    name: Build Android ${{ matrix.type }}
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - type: APK
+            buildType: apk
+            ext: apk
+          - type: AAB
+            buildType: app-bundle
+            ext: aab
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: yarn
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Setup EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Restore .env
+        run: |
+          echo "${{ secrets.ENV_FILE_BASE64 }}" | base64 -d > .env
+          grep -q EXPO_PUBLIC_SUPABASE_URL .env \
+            || { echo "::error::ENV_FILE_BASE64 secret 缺失或无效（.env 里找不到 EXPO_PUBLIC_SUPABASE_URL）"; exit 1; }
+
+      - name: Restore agconnect-services.json（华为 HMS，可选）
+        run: |
+          if [ -n "${{ secrets.AGCONNECT_SERVICES_JSON_BASE64 }}" ]; then
+            echo "${{ secrets.AGCONNECT_SERVICES_JSON_BASE64 }}" | base64 -d > agconnect-services.json
+            grep -q '"package_name"' agconnect-services.json \
+              || { echo "::error::AGCONNECT_SERVICES_JSON_BASE64 解出的 JSON 里找不到 package_name（secret 无效）"; exit 1; }
+            echo "华为 HMS 通道已启用（agconnect-services.json 就绪）"
+          else
+            echo "::warning::未配置 AGCONNECT_SERVICES_JSON_BASE64，本次 Android 包不含华为 HMS 通道"
+          fi
+
+      - name: Disable lint for CI
+        run: |
+          mkdir -p ~/.gradle/init.d
+          cat > ~/.gradle/init.d/disable-lint.gradle << 'GRADLE'
+          allprojects {
+              afterEvaluate {
+                  tasks.matching { it.name.startsWith("lintVital") }.configureEach {
+                      enabled = false
+                  }
+              }
+          }
+          GRADLE
+
+      - name: Override buildType to ${{ matrix.buildType }}
+        run: |
+          jq '.build.production.android.buildType = "${{ matrix.buildType }}"' eas.json > eas.tmp.json && mv eas.tmp.json eas.json
+
+      - name: Build ${{ matrix.type }}
+        env:
+          APP_VERSION: ${{ github.ref_name }}
+        run: eas build --local -p android --profile production --non-interactive --output ./yibai-${{ github.ref_name }}.${{ matrix.ext }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-${{ matrix.ext }}
+          path: yibai-${{ github.ref_name }}.${{ matrix.ext }}
+
+  # ── tag 推送：打包 iOS IPA ──────────────────────────────────────────────
+  build-ios:
+    name: Build iOS IPA
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: yarn
+
+      - name: Select Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '26.4.1'
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Setup EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Restore .env
+        run: |
+          echo "${{ secrets.ENV_FILE_BASE64 }}" | base64 -d > .env
+          grep -q EXPO_PUBLIC_SUPABASE_URL .env \
+            || { echo "::error::ENV_FILE_BASE64 secret 缺失或无效（.env 里找不到 EXPO_PUBLIC_SUPABASE_URL）"; exit 1; }
+
+      - name: Install CocoaPods
+        run: gem install cocoapods
+
+      - name: Build IPA
+        env:
+          APP_VERSION: ${{ github.ref_name }}
+        run: eas build --local -p ios --profile production --non-interactive --output ./yibai-${{ github.ref_name }}.ipa
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ios-ipa
+          path: yibai-${{ github.ref_name }}.ipa
+
+  # ── tag 推送：把三个产物汇总成一个 GitHub Release ───────────────────────
+  create-release:
+    name: Create GitHub Release
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    needs: [build-android, build-ios]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Create Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ github.ref_name }}" \
+            --title "Release ${{ github.ref_name }}" \
+            --generate-notes \
+            artifacts/*
+
+  # ── 手动触发：iOS 打包并提交到 App Store / TestFlight ───────────────────
+  submit-ios:
+    name: iOS → App Store
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: yarn
+
+      - name: Select Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '26.4.1'
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Setup EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Restore .env
+        run: |
+          echo "${{ secrets.ENV_FILE_BASE64 }}" | base64 -d > .env
+          grep -q EXPO_PUBLIC_SUPABASE_URL .env \
+            || { echo "::error::ENV_FILE_BASE64 secret 缺失或无效（.env 里找不到 EXPO_PUBLIC_SUPABASE_URL）"; exit 1; }
+
+      - name: Install CocoaPods
+        run: gem install cocoapods
+
+      - name: Build iOS
+        env:
+          APP_VERSION: ${{ inputs.version }}
+        run: eas build --local -p ios --profile production --non-interactive --output ./yibai.ipa
+
+      - name: Prepare ASC API Key
+        run: echo "${{ secrets.ASC_API_KEY_P8_BASE64 }}" | base64 -d > /tmp/AuthKey.p8
+
+      - name: Submit to App Store
+        env:
+          ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_APP_ID: ${{ secrets.ASC_APP_ID }}
+        run: |
+          jq --arg keyId "$ASC_API_KEY_ID" --arg issuerId "$ASC_ISSUER_ID" --arg ascAppId "$ASC_APP_ID" \
+            '.submit.production.ios += {
+              "ascAppId": $ascAppId,
+              "ascApiKeyPath": "/tmp/AuthKey.p8",
+              "ascApiKeyId": $keyId,
+              "ascApiKeyIssuerId": $issuerId
+            }' eas.json > eas.tmp.json && mv eas.tmp.json eas.json
+
+          eas submit -p ios --profile production --path ./yibai.ipa --non-interactive

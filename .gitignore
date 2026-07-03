@@ -34,6 +34,10 @@ yarn-error.*
 .env
 .env*.local
 
+# 华为 HMS 推送配置（AGC 控制台下载，含 app 标识/公开 API key）——不入库，CI 用 base64 secret 还原
+/agconnect-services.json
+/agconnect-services.dev.json
+
 # typescript
 *.tsbuildinfo
 

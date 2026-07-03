@@ -1,6 +1,12 @@
 import { ExpoConfig, ConfigContext } from "expo/config";
+import fs from "fs";
+import path from "path";
 
 const IS_DEV = process.env.APP_VARIANT === "development";
+
+// CI 打包时由 GitHub Actions 传入 APP_VERSION（取自 git tag，如 v1.2.3）。
+// 去掉前缀 v 作为 App 的营销版本号；本地/无 tag 构建回落到 1.0.0。
+const APP_VERSION = (process.env.APP_VERSION || "1.0.0").replace(/^v/, "");
 
 const DOOPUSH_APP_ID = IS_DEV
   ? process.env.EXPO_PUBLIC_DOOPUSH_APP_ID_DEV
@@ -14,11 +20,27 @@ const DOOPUSH_OPPO_APP_KEY = IS_DEV
 const DOOPUSH_OPPO_APP_SECRET = IS_DEV
   ? process.env.DOOPUSH_OPPO_APP_SECRET_DEV
   : process.env.DOOPUSH_OPPO_APP_SECRET;
+// vivo 通道客户端只需 appId + apiKey（apiKey 即 vivo 控制台的 AppKey）；
+// AppSecret 仅服务端用（在 DooPush 后台的 vivo 通道里配置，不进客户端包）。
+const DOOPUSH_VIVO_APP_ID = IS_DEV
+  ? process.env.DOOPUSH_VIVO_APP_ID_DEV
+  : process.env.DOOPUSH_VIVO_APP_ID;
+const DOOPUSH_VIVO_API_KEY = IS_DEV
+  ? process.env.DOOPUSH_VIVO_API_KEY_DEV
+  : process.env.DOOPUSH_VIVO_API_KEY;
+// 华为 HMS：客户端只需 agconnect-services.json（AGC 控制台「SDK 配置 → 下载配置文件（不含密钥）」得到）。
+// 华为服务端凭据（OAuth Client ID/Secret、App ID）在 DooPush 后台的 HMS 通道里配置，不进客户端包。
+// dev / prod 各对应一个 Huawei 应用与配置文件（包名不同：.dev vs 正式）；HMS 无内联凭证模式，
+// 只能靠文件是否存在来决定是否启用——文件缺失时跳过，避免 prebuild 因找不到该文件而抛错。
+const DOOPUSH_HMS_AGCONNECT_FILE = IS_DEV
+  ? "./agconnect-services.dev.json"
+  : "./agconnect-services.json";
+const HAS_HMS_AGCONNECT = fs.existsSync(path.resolve(DOOPUSH_HMS_AGCONNECT_FILE));
 
 const config: ExpoConfig = {
   name: IS_DEV ? "一百件事(Dev)" : "一百件事",
   slug: "yibai",
-  version: "1.0.0",
+  version: APP_VERSION,
   orientation: "portrait",
   icon: "./assets/icon.png",
   userInterfaceStyle: "automatic",
@@ -142,12 +164,29 @@ const config: ExpoConfig = {
 if (DOOPUSH_APP_ID && DOOPUSH_API_KEY) {
   const androidVendors: Record<string, unknown> = {};
 
-  // Android 按 DooPush React Native 文档只接 OPPO vendor；不配置 FCM。
-  // OPPO 凭据由环境变量注入。缺失时跳过，避免 EAS 引导/本地 config 解析失败。
+  // Android 按 DooPush React Native 文档接 OEM 厂商通道；不配置 FCM。
+  // 各厂商凭据由环境变量注入。缺失时跳过，避免 EAS 引导/本地 config 解析失败。
   if (DOOPUSH_OPPO_APP_KEY && DOOPUSH_OPPO_APP_SECRET) {
     androidVendors.oppo = {
       appKey: DOOPUSH_OPPO_APP_KEY,
       appSecret: DOOPUSH_OPPO_APP_SECRET,
+    };
+  }
+
+  // vivo：内联凭证模式，plugin 会在 prebuild 时写成 assets/vivo-services.json。
+  if (DOOPUSH_VIVO_APP_ID && DOOPUSH_VIVO_API_KEY) {
+    androidVendors.vivo = {
+      appId: DOOPUSH_VIVO_APP_ID,
+      apiKey: DOOPUSH_VIVO_API_KEY,
+    };
+  }
+
+  // 华为 HMS：该厂商无内联凭证模式，必须提供 agconnect-services.json 文件。plugin 在 prebuild 时
+  // 把它复制到 android/app/ 与 assets/，并注入 AGC Gradle 插件、华为 Maven 仓库、com.huawei.hms:push
+  // 依赖。文件不存在则不启用（见上方 HAS_HMS_AGCONNECT），本地/CI 缺文件时打包不含华为通道。
+  if (HAS_HMS_AGCONNECT) {
+    androidVendors.hms = {
+      agconnectServicesFile: DOOPUSH_HMS_AGCONNECT_FILE,
     };
   }
 
