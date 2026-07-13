@@ -122,7 +122,8 @@ function localHour(utcMs: number, tzOffsetMin: number): number {
 // 从历史记录推断「习惯记录时段」（家庭本地小时的众数）。
 // 现状：所有家庭都在免打扰结束的首个小时（≈08:00）扎堆收到提醒，像统一定时器；
 // 改为在各家自己最活跃的时段附近推送，更贴近真人作息、天然错峰、更难被预测。
-// 数据不足（<5 条）或众数落在夜间（<8 或 >21，会被免打扰吞掉）→ 回退默认 19:00。
+// 数据不足（<5 条）或众数落在夜间（<8 或 >20）→ 回退默认 19:00。
+// 上界钳到 20：默认免打扰 22:00 前至少留 [sendHour..21] 两个可发小时，某小时 cron 失败也有补发机会。
 const DEFAULT_SEND_HOUR = 19
 function computeSendHour(memories: Memory[], tzOffsetMin: number): number {
   if (memories.length < 5) return DEFAULT_SEND_HOUR
@@ -133,7 +134,7 @@ function computeSendHour(memories: Memory[], tzOffsetMin: number): number {
   for (let h = 0; h < 24; h++) {
     if (hist[h] > best) { best = hist[h]; peak = h }
   }
-  if (peak < 8 || peak > 21) return DEFAULT_SEND_HOUR
+  if (peak < 8 || peak > 20) return DEFAULT_SEND_HOUR
   return peak
 }
 
@@ -232,12 +233,14 @@ async function processFamily(
   const devices = (devicesRaw ?? []) as Device[]
   if (devices.length === 0) return 'no_devices'
 
-  // 个性化发送时段：只在该家「习惯记录时段」的 2 小时窗口内评估发送，其余小时延后到下一轮 cron。
-  // 取任一设备时区为家庭代表（同家庭通常同城）。避免全员扎堆 08:00、消除「固定定时器」感。
+  // 个性化发送时段：只挡「太早」——不早于该家「习惯记录时段」才评估发送，消除全员扎堆免打扰结束
+  // 的 ≈08:00。到点后每个小时都是一次机会（免打扰由下方按设备再过滤），直到发出或当天结束。
+  // 用「不早于」而非「固定 2h 窗口」：窗口若因 cron 失败/自定义免打扰错过，仍能在后续非免打扰小时补发，
+  // 避免个性化门控把当天推送「静默饿死」。取任一设备时区为家庭代表（同家庭通常同城）。
   const repTz = devices.find((d) => d.tz_offset != null)?.tz_offset ?? 0
   const sendHour = computeSendHour(memories, repTz)
   const curHour = localHour(now.getTime(), repTz)
-  if (curHour < sendHour || curHour > sendHour + 1) return 'off_window'
+  if (curHour < sendHour) return 'off_window' // 太早：等到习惯时段再发
 
   // 单一吉祥物：果果（squirrel）。旧的 per-kid 宠物种类已废弃，统一用 squirrel。
   const sp = (_kidId: string) => 'squirrel'
