@@ -32,12 +32,18 @@ async function getSharedSecret(): Promise<string> {
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
-// 频率 → 天数阈值（见通知方案 5.3）
+// 频率 → 天数阈值。刻意调稀：家庭记忆是低频行为，不套 Duolingo 每日打卡那套催记录逻辑，
+// 否则用户一打开就有「欠账」负罪感。首次温和提醒最早也要到「约 2 周」（normal），
+// 升级阶梯（gentle→growth→loss）拉长到数周~数月，做「时不时陪伴」而非「经常性催促」。
 const FREQ_THRESHOLDS: Record<string, { gentle: number; growth: number; loss: number }> = {
-  gentle: { gentle: 5, growth: 10, loss: 21 },
-  normal: { gentle: 3, growth: 7, loss: 14 },
-  frequent: { gentle: 2, growth: 5, loss: 10 },
+  gentle: { gentle: 21, growth: 45, loss: 90 }, // 少：更克制
+  normal: { gentle: 14, growth: 30, loss: 60 }, // 适中（默认）：约每 2 周起
+  frequent: { gentle: 10, growth: 21, loss: 45 }, // 多：仍无每日打卡感
 }
+
+// 提醒类场景（「你还没记录」的催促）。与正向惊喜场景区别对待：
+// 这三类共享「提醒冷却」，保证偶发；正向场景（那年今天/里程碑/胶囊/连续/家人）不受此限。
+const REMINDER_SCENES = ['gentle_remind', 'growth_nudge', 'loss_hint']
 
 type Lang = 'zh' | 'en'
 
@@ -310,12 +316,22 @@ async function processFamily(
   })()
   if (!match) return 'no_scene'
 
-  // 同场景 48h 内不重复
-  const { data: sceneLog } = await admin
-    .from('notification_log').select('id')
-    .eq('family_id', familyId).eq('scene', match.scene)
-    .gte('sent_at', new Date(now.getTime() - 2 * DAY_MS).toISOString()).limit(1)
-  if (sceneLog && sceneLog.length > 0) return `dup_${match.scene}`
+  // 防重：提醒类（gentle/growth/loss）用「提醒冷却」——任一提醒场景在冷却期内发过就不再发提醒，
+  // 保证「时不时」而非连续念叨（冷却 = 该档首提醒间隔 th.gentle，约 2 周）。正向场景仍用同场景 48h 去重。
+  if (REMINDER_SCENES.includes(match.scene)) {
+    const cooldownMs = th.gentle * DAY_MS
+    const { data: recentReminder } = await admin
+      .from('notification_log').select('id')
+      .eq('family_id', familyId).in('scene', REMINDER_SCENES)
+      .gte('sent_at', new Date(now.getTime() - cooldownMs).toISOString()).limit(1)
+    if (recentReminder && recentReminder.length > 0) return 'reminder_cooldown'
+  } else {
+    const { data: sceneLog } = await admin
+      .from('notification_log').select('id')
+      .eq('family_id', familyId).eq('scene', match.scene)
+      .gte('sent_at', new Date(now.getTime() - 2 * DAY_MS).toISOString()).limit(1)
+    if (sceneLog && sceneLog.length > 0) return `dup_${match.scene}`
+  }
 
   // 组装可发送目标（过滤无 token / 记录者本人 / 免打扰），并按语言做轮播+CTR 选模板（同语言只选一次）。
   const chosen = new Map<Lang, Template | null>()
