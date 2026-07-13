@@ -245,3 +245,30 @@
 4. **动态 App 图标**：iOS `setAlternateIconName` 根据状态切换宠物表情
 5. **更多文案模板**：每个场景增加到 3-5 条，增加轮换丰富度
 6. **A/B 测试框架**：跟踪每条模板的点击率，用数据驱动文案优化
+
+---
+
+## 六、v2 已落地（2026-07 · 智能推送第一批）
+
+针对「文案发腻 + 像固定定时器」两大痛点，已实现（迁移 `migrations/20260713_smart_push.sql` +
+函数 `send-pet-notifications/index.ts`）：
+
+1. **文案扩容 + 最近不重复轮播** —— 每个场景补到 3 条果果文案；`pickTemplate()` 读
+   `notification_log.template_id` 历史，避开最近用过的 (候选数−1) 条并在剩余里随机 →
+   走完全部变体才可能重复，直接消除「反复同一句」。（落地上述方向 5、部分 2）
+2. **个性化发送时段** —— `computeSendHour()` 从 `memories.created_at` 按家庭本地时区取
+   习惯记录时段众数，只在其 2 小时窗口内评估发送（默认 19:00，夜间/数据不足回退）；
+   替代原先全员扎堆免打扰结束的 ≈08:00。（部分落地 §4.2「贴近上次活跃时间」）
+3. **新场景 `on_this_day`（那年今天）** —— 把 N 年前今天、当前可见（未被封存锁住）的旧记录
+   翻出来做正向回忆唤起，置于场景优先级最顶：用真实回忆再互动替代内疚 nag，
+   打破「全是催记录」的单调。周年天然稀疏 + 48h 去重，自限流。
+4. **点击回写 + CTR 闭环**（迁移 `migrations/20260713_push_ctr.sql`）—— 发送侧改为
+   「先落 `notification_log` 拿 id → 写进 push payload」；客户端点击/打开推送时调
+   `mark_notification_clicked(id)` 回写 `clicked/clicked_at`（`App.tsx` +
+   `src/data.markNotificationClicked`）。`pickTemplate()` 升级为 **RDSA-lite**：在「避重」候选里
+   按平滑点击率 `(clicks+1)/(sent+2)` 加权随机选取（视图 `notification_ctr` 汇总近 45 天），
+   高 CTR 文案更常被选、新文案仍被探索，数据积累后自动收敛。（落地上述方向 2、6）
+
+**尚未做（下一批）**：用 CTR/点击时刻进一步优化**发送时段**（当前时段仅由记录直方图推断，
+未纳入点击反馈）；接入 `smart-plan` LLM 代理生成**动态文案**（结合孩子名字/上次记录内容/季节）；
+`on_this_day` 客户端**深链到具体记录**（现降级到首页，payload 已带 `memId`）。

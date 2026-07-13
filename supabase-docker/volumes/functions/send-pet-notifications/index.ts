@@ -42,7 +42,7 @@ const FREQ_THRESHOLDS: Record<string, { gentle: number; growth: number; loss: nu
 type Lang = 'zh' | 'en'
 
 interface Template { id: number; scene: string; species: string; lang: string; title: string; body: string }
-interface Memory { created_at: string; kid_id: string; level_num: string; user_id: string; sealed: boolean; seal_until: string | null }
+interface Memory { id: string; created_at: string; kid_id: string; level_num: string; user_id: string; sealed: boolean; seal_until: string | null }
 interface Device { device_id: string; token: string | null; lang: string; user_id: string; tz_offset: number }
 interface SceneMatch {
   scene: string
@@ -51,6 +51,7 @@ interface SceneMatch {
   vars: Record<string, string | number>
   who?: string // family_activity：记录者角色/称呼的「原始值」，发送时按接收者语言本地化
   excludeUserId?: string // family_activity：不发给记录者本人
+  memId?: string // on_this_day：被翻出的旧记录 id，写入 payload 供点击深链
 }
 
 function interpolate(s: string, vars: Record<string, string | number>): string {
@@ -113,10 +114,90 @@ function inQuietHours(localMin: number, start: string, end: string): boolean {
   return s <= e ? localMin >= s && localMin < e : localMin >= s || localMin < e // 跨午夜
 }
 
+// 家庭本地小时（tzOffset = JS getTimezoneOffset，UTC−本地，分钟）。
+function localHour(utcMs: number, tzOffsetMin: number): number {
+  return new Date(utcMs - tzOffsetMin * 60000).getUTCHours()
+}
+
+// 从历史记录推断「习惯记录时段」（家庭本地小时的众数）。
+// 现状：所有家庭都在免打扰结束的首个小时（≈08:00）扎堆收到提醒，像统一定时器；
+// 改为在各家自己最活跃的时段附近推送，更贴近真人作息、天然错峰、更难被预测。
+// 数据不足（<5 条）或众数落在夜间（<8 或 >21，会被免打扰吞掉）→ 回退默认 19:00。
+const DEFAULT_SEND_HOUR = 19
+function computeSendHour(memories: Memory[], tzOffsetMin: number): number {
+  if (memories.length < 5) return DEFAULT_SEND_HOUR
+  const hist = new Array(24).fill(0)
+  for (const m of memories) hist[localHour(new Date(m.created_at).getTime(), tzOffsetMin)]++
+  let peak = -1
+  let best = -1
+  for (let h = 0; h < 24; h++) {
+    if (hist[h] > best) { best = hist[h]; peak = h }
+  }
+  if (peak < 8 || peak > 21) return DEFAULT_SEND_HOUR
+  return peak
+}
+
+// {{when}} 本地化：「一年前的今天」/「A year ago today」等，句首适配大写。
+const CN_NUM = ['零', '一', '两', '三', '四', '五', '六', '七', '八', '九']
+const EN_NUM = ['zero', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine']
+function formatWhen(years: number, lang: Lang): string {
+  if (lang === 'en') {
+    if (years === 1) return 'A year ago today'
+    const n = years < EN_NUM.length ? EN_NUM[years] : String(years)
+    return `${n} years ago today`
+  }
+  if (years === 1) return '一年前的今天'
+  const n = years < CN_NUM.length ? CN_NUM[years] : String(years)
+  return `${n}年前的今天`
+}
+
+type CtrMap = Map<number, { sent: number; clicks: number }>
+
+// 模板选取（RDSA-lite）：先「避开最近用过的 (候选数−1) 条」保证轮播不重复（治腻），
+// 再在剩余候选里按 CTR 加权随机 —— 分值 = 平滑点击率 (clicks+1)/(sent+2)（Beta(1,1) 先验，
+// 未观测≈0.5）。高点击率文案更可能被选（利用），低分/新文案仍有机会（探索），数据多了自动收敛。
+// 候选缺失当前语言 → 回退中文；仅 1 条 → 直接用。历史读 notification_log.template_id。
+async function pickTemplate(
+  familyId: string, scene: string, species: string, lang: Lang, templates: Template[], ctr: CtrMap,
+): Promise<Template | null> {
+  let candidates = templates.filter((t) => t.scene === scene && t.species === species && t.lang === lang)
+  if (candidates.length === 0) {
+    candidates = templates.filter((t) => t.scene === scene && t.species === species && t.lang === 'zh')
+  }
+  if (candidates.length === 0) return null
+  if (candidates.length === 1) return candidates[0]
+  const { data: recent } = await admin
+    .from('notification_log').select('template_id')
+    .eq('family_id', familyId).eq('scene', scene)
+    .order('sent_at', { ascending: false }).limit(candidates.length - 1)
+  const used = new Set((recent ?? []).map((r: any) => r.template_id).filter((x: any) => x != null))
+  const fresh = candidates.filter((c) => !used.has(c.id))
+  const pool = fresh.length > 0 ? fresh : candidates
+  const scored = pool.map((c) => {
+    const s = ctr.get(c.id)
+    return { c, w: ((s?.clicks ?? 0) + 1) / ((s?.sent ?? 0) + 2) }
+  })
+  let r = Math.random() * scored.reduce((a, b) => a + b.w, 0)
+  for (const s of scored) { r -= s.w; if (r <= 0) return s.c }
+  return scored[scored.length - 1].c
+}
+
+// 本次发送落一条 notification_log 时的 template_id：取多数派语言的模板
+// （混合语言家庭少见，取占多数者代表本次发送）。
+function majorityTemplateId(targets: { tpl: Template }[]): number {
+  const counts = new Map<number, number>()
+  for (const t of targets) counts.set(t.tpl.id, (counts.get(t.tpl.id) ?? 0) + 1)
+  let best = targets[0].tpl.id
+  let bestC = -1
+  for (const [id, c] of counts) { if (c > bestC) { bestC = c; best = id } }
+  return best
+}
+
 async function processFamily(
   familyId: string,
   wardrobe: { at: number }[],
   templates: Template[],
+  ctr: CtrMap,
 ): Promise<string> {
   const { data: prefRow } = await admin
     .from('notification_preferences').select('*').eq('family_id', familyId).maybeSingle()
@@ -137,9 +218,26 @@ async function processFamily(
   const primary = kids[0]
 
   const { data: mems } = await admin
-    .from('memories').select('created_at, kid_id, level_num, user_id, sealed, seal_until')
+    .from('memories').select('id, created_at, kid_id, level_num, user_id, sealed, seal_until')
     .eq('family_id', familyId).order('created_at', { ascending: false })
   const memories = (mems ?? []) as Memory[]
+
+  // 收件设备（提前取：既用于个性化发送时段判定，也用于最终投递）
+  const { data: members } = await admin
+    .from('family_members').select('user_id').eq('family_id', familyId)
+  const userIds = (members ?? []).map((m) => m.user_id)
+  if (userIds.length === 0) return 'no_members'
+  const { data: devicesRaw } = await admin
+    .from('push_devices').select('device_id, token, lang, user_id, tz_offset').in('user_id', userIds)
+  const devices = (devicesRaw ?? []) as Device[]
+  if (devices.length === 0) return 'no_devices'
+
+  // 个性化发送时段：只在该家「习惯记录时段」的 2 小时窗口内评估发送，其余小时延后到下一轮 cron。
+  // 取任一设备时区为家庭代表（同家庭通常同城）。避免全员扎堆 08:00、消除「固定定时器」感。
+  const repTz = devices.find((d) => d.tz_offset != null)?.tz_offset ?? 0
+  const sendHour = computeSendHour(memories, repTz)
+  const curHour = localHour(now.getTime(), repTz)
+  if (curHour < sendHour || curHour > sendHour + 1) return 'off_window'
 
   // 单一吉祥物：果果（squirrel）。旧的 per-kid 宠物种类已废弃，统一用 squirrel。
   const sp = (_kidId: string) => 'squirrel'
@@ -177,8 +275,25 @@ async function processFamily(
     whoRaw = (prof?.custom_role || '').trim() || prof?.role || ''
   }
 
+  // 那年今天：存在「N 年前的今天（365k±3 天）」且当前可见（未被封存锁住）的旧记录 → 正向回忆唤起。
+  // memories 已按 created_at 降序，取最年轻的满足周年者（≈1 年前，最有共鸣）。周年天然稀疏、自限流。
+  const anniversary = ((): { kidId: string; memId: string; years: number } | null => {
+    const nowMs = now.getTime()
+    for (const m of memories) {
+      const ageDays = daysBetween(nowMs, new Date(m.created_at).getTime())
+      if (ageDays < 362) continue
+      const years = Math.round(ageDays / 365)
+      if (years < 1 || Math.abs(ageDays - years * 365) > 3) continue
+      if (m.sealed && m.seal_until && new Date(m.seal_until).getTime() > nowMs) continue // 仍封存锁着，跳过
+      return { kidId: m.kid_id === 'all' ? primary.id : m.kid_id, memId: m.id, years }
+    }
+    return null
+  })()
+
   // ── 场景匹配（优先级从高到低，每次只发一条）──
   const match = ((): SceneMatch | null => {
+    // 那年今天优先：用真实回忆再互动，比内疚 nag 更温柔有效（有周年记录才触发，故不会喧宾夺主）
+    if (anniversary) return { scene: 'on_this_day', species: sp(anniversary.kidId), kidId: anniversary.kidId, vars: { years: anniversary.years }, memId: anniversary.memId }
     if (daysSince >= th.loss) return { scene: 'loss_hint', species: sp(primary.id), kidId: primary.id, vars: {} }
     if (daysSince >= th.growth) return { scene: 'growth_nudge', species: sp(primary.id), kidId: primary.id, vars: {} }
     if (daysSince >= th.gentle) return { scene: 'gentle_remind', species: sp(primary.id), kidId: primary.id, vars: {} }
@@ -199,51 +314,50 @@ async function processFamily(
     .gte('sent_at', new Date(now.getTime() - 2 * DAY_MS).toISOString()).limit(1)
   if (sceneLog && sceneLog.length > 0) return `dup_${match.scene}`
 
-  // 收件设备：family_members → push_devices
-  const { data: members } = await admin
-    .from('family_members').select('user_id').eq('family_id', familyId)
-  const userIds = (members ?? []).map((m) => m.user_id)
-  if (userIds.length === 0) return 'no_members'
-  const { data: devicesRaw } = await admin
-    .from('push_devices').select('device_id, token, lang, user_id, tz_offset').in('user_id', userIds)
-  const devices = (devicesRaw ?? []) as Device[]
-  if (devices.length === 0) return 'no_devices'
+  // 组装可发送目标（过滤无 token / 记录者本人 / 免打扰），并按语言做轮播+CTR 选模板（同语言只选一次）。
+  const chosen = new Map<Lang, Template | null>()
+  const getTpl = async (lang: Lang): Promise<Template | null> => {
+    if (!chosen.has(lang)) chosen.set(lang, await pickTemplate(familyId, match.scene, match.species, lang, templates, ctr))
+    return chosen.get(lang) ?? null
+  }
+  const targets: { token: string; lang: Lang; tpl: Template }[] = []
+  for (const dev of devices) {
+    if (!dev.token) continue // 无 token（如 SQL 造的测试假设备）无法推送
+    if (match.excludeUserId && dev.user_id === match.excludeUserId) continue // family_activity 不发给记录者本人
+    const localMin = deviceLocalMinutes(now.getTime(), dev.tz_offset ?? 0)
+    if (inQuietHours(localMin, pref.quiet_start, pref.quiet_end)) continue // 免打扰
+    const lang: Lang = dev.lang === 'en' ? 'en' : 'zh'
+    const tpl = await getTpl(lang)
+    if (!tpl) continue
+    targets.push({ token: dev.token, lang, tpl })
+  }
+  if (targets.length === 0) return `nosend_${match.scene}` // 全部免打扰/被排除/无模板 → 下一小时再试
 
-  const tplFor = (lang: Lang): Template | null =>
-    templates.find((t) => t.scene === match.scene && t.species === match.species && t.lang === lang) ??
-    templates.find((t) => t.scene === match.scene && t.species === match.species && t.lang === 'zh') ??
-    null
+  // 先落一条 notification_log（clicked=false）拿到 id → 写进 payload，供客户端点击回写闭环。
+  const { data: logRow } = await admin.from('notification_log')
+    .insert({ kid_id: match.kidId, family_id: familyId, scene: match.scene, template_id: majorityTemplateId(targets) })
+    .select('id').single()
+  const logId: number | null = logRow?.id ?? null
 
   let sent = 0
-  let usedTemplateId: number | null = null
-  for (const dev of devices) {
-    // 无 token 的设备（如 SQL 造的测试假设备）无法推送，跳过
-    if (!dev.token) continue
-    // family_activity 不发给记录者本人
-    if (match.excludeUserId && dev.user_id === match.excludeUserId) continue
-    // 按设备本地时区跳过免打扰时段
-    const localMin = deviceLocalMinutes(now.getTime(), dev.tz_offset ?? 0)
-    if (inQuietHours(localMin, pref.quiet_start, pref.quiet_end)) continue
-
-    const lang: Lang = dev.lang === 'en' ? 'en' : 'zh'
-    const tpl = tplFor(lang)
-    if (!tpl) continue
-    usedTemplateId = tpl.id
-    // {{who}} 按本设备语言翻译；其余变量（done/remain/days）与语言无关
-    const vars = match.who != null ? { ...match.vars, who: localizeWho(match.who, lang) } : match.vars
-    const title = interpolate(tpl.title, vars)
-    const content = interpolate(tpl.body, vars)
-    const ok = await sendDooPush(dev.token, title, content, { scene: match.scene, kidId: match.kidId })
+  for (const t of targets) {
+    // {{who}}/{{when}} 按本设备语言本地化；其余变量（done/remain/days）与语言无关
+    const vars: Record<string, string | number> = { ...match.vars }
+    if (match.who != null) vars.who = localizeWho(match.who, t.lang)
+    if (match.scene === 'on_this_day') vars.when = formatWhen(Number(match.vars.years ?? 1), t.lang)
+    const data: Record<string, string> = { scene: match.scene, kidId: match.kidId }
+    if (match.memId) data.memId = match.memId
+    if (logId != null) data.logId = String(logId)
+    const ok = await sendDooPush(t.token, interpolate(t.tpl.title, vars), interpolate(t.tpl.body, vars), data)
     if (ok) sent++
   }
 
-  if (sent > 0) {
-    await admin.from('notification_log').insert({
-      kid_id: match.kidId, family_id: familyId, scene: match.scene, template_id: usedTemplateId,
-    })
-    return `sent_${match.scene}_${sent}`
+  if (sent === 0 && logId != null) {
+    // 一台都没发出去（DooPush 全失败）→ 撤回日志，避免污染每日限流/CTR
+    await admin.from('notification_log').delete().eq('id', logId)
+    return `nosend_${match.scene}`
   }
-  return `nosend_${match.scene}` // 全部设备处于免打扰/被排除 → 下一小时再试
+  return `sent_${match.scene}_${sent}`
 }
 
 // 注意：DooPush 的 device_id 字段填的是设备 token（与控制台 /config/test 一致），
@@ -422,7 +536,8 @@ async function runFamilyNotification(
   job: { family_id: string; kid_id: string | null; actor_user_id: string | null; who: string | null; payload?: any },
   scene: string,
   templates: Template[],
-  extraVars: Record<string, string> = {},
+  extraVars: Record<string, string>,
+  ctr: CtrMap,
 ): Promise<number> {
   const familyId = job.family_id
 
@@ -461,40 +576,50 @@ async function runFamilyNotification(
     .from('push_devices').select('device_id, token, lang, user_id, tz_offset').in('user_id', userIds)
   const devices = (devicesRaw ?? []) as Device[]
 
-  const tplFor = (lang: Lang): Template | null =>
-    templates.find((t) => t.scene === scene && t.species === species && t.lang === lang) ??
-    templates.find((t) => t.scene === scene && t.species === species && t.lang === 'zh') ?? null
-
-  let sent = 0
-  let usedTemplateId: number | null = null
+  // 组装可发送目标（过滤无 token / 记录者本人 / 免打扰），并按语言做轮播+CTR 选模板。
+  const chosen = new Map<Lang, Template | null>()
+  const getTpl = async (lang: Lang): Promise<Template | null> => {
+    if (!chosen.has(lang)) chosen.set(lang, await pickTemplate(familyId, scene, species, lang, templates, ctr))
+    return chosen.get(lang) ?? null
+  }
+  const targets: { token: string; lang: Lang; tpl: Template }[] = []
   for (const dev of devices) {
     if (!dev.token) continue
     if (excludeUserId && dev.user_id === excludeUserId) continue
     const localMin = deviceLocalMinutes(now.getTime(), dev.tz_offset ?? 0)
     if (inQuietHours(localMin, pref.quiet_start, pref.quiet_end)) continue
     const lang: Lang = dev.lang === 'en' ? 'en' : 'zh'
-    const tpl = tplFor(lang)
+    const tpl = await getTpl(lang)
     if (!tpl) continue
-    usedTemplateId = tpl.id
-    const vars = { who: localizeWho(whoRaw, lang), ...extraVars } // {{who}} 按设备语言翻译；extraVars（如 title）原样
-    const ok = await sendDooPush(
-      dev.token, interpolate(tpl.title, vars), interpolate(tpl.body, vars),
-      { scene, kidId },
-    )
+    targets.push({ token: dev.token, lang, tpl })
+  }
+  if (targets.length === 0) return 0
+
+  // 先落一条 notification_log（clicked=false）拿到 id → 写进 payload，供客户端点击回写闭环。
+  const { data: logRow } = await admin.from('notification_log')
+    .insert({ kid_id: kidId, family_id: familyId, scene, template_id: majorityTemplateId(targets) })
+    .select('id').single()
+  const logId: number | null = logRow?.id ?? null
+
+  let sent = 0
+  for (const t of targets) {
+    const vars = { who: localizeWho(whoRaw, t.lang), ...extraVars } // {{who}} 按设备语言翻译；extraVars（如 title）原样
+    const data: Record<string, string> = { scene, kidId }
+    if (logId != null) data.logId = String(logId)
+    const ok = await sendDooPush(t.token, interpolate(t.tpl.title, vars), interpolate(t.tpl.body, vars), data)
     if (ok) sent++
   }
 
-  if (sent > 0) {
-    await admin.from('notification_log').insert({
-      kid_id: kidId, family_id: familyId, scene, template_id: usedTemplateId,
-    })
+  if (sent === 0 && logId != null) {
+    await admin.from('notification_log').delete().eq('id', logId)
+    return 0
   }
   return sent
 }
 
 // drain：由 DB 触发器即时 kick（~1-3s）+ 每分钟 cron 兜底 调用。
 // 原子领取一批 outbox 任务（SKIP LOCKED + 卡死重领），逐条投递并回写状态（done / 退避重试 / dead）。
-async function drainOutbox(templates: Template[]): Promise<Response> {
+async function drainOutbox(templates: Template[], ctr: CtrMap): Promise<Response> {
   const { data: jobs, error } = await admin.rpc('claim_notification_jobs', { p_limit: 20 })
   if (error) return jsonResp({ ok: false, error: error.message }, 500)
   let done = 0
@@ -502,8 +627,8 @@ async function drainOutbox(templates: Template[]): Promise<Response> {
     try {
       // 按事件分派场景：新增家庭事项 vs 记录回忆
       const sent = job.event === 'custom_level_added'
-        ? await runFamilyNotification(job, 'custom_level_added', templates, { title: String(job.payload?.title ?? '') })
-        : await runFamilyNotification(job, 'family_activity', templates)
+        ? await runFamilyNotification(job, 'custom_level_added', templates, { title: String(job.payload?.title ?? '') }, ctr)
+        : await runFamilyNotification(job, 'family_activity', templates, {}, ctr)
       await admin.rpc('complete_notification_job', { p_id: job.id, p_ok: true, p_sent: sent, p_error: null })
       done++
     } catch (e) {
@@ -537,8 +662,15 @@ Deno.serve(async (req: Request) => {
       return await sendTest(body, (templates ?? []) as Template[])
     }
 
+    // 每模板 CTR（近 45 天）：本次调用取一次，供 pickTemplate 加权选取（drain / 定时扫描共用）。
+    const { data: ctrRows } = await admin.from('notification_ctr').select('template_id, sent, clicks')
+    const ctr: CtrMap = new Map()
+    for (const r of (ctrRows ?? []) as any[]) {
+      ctr.set(Number(r.template_id), { sent: Number(r.sent), clicks: Number(r.clicks) })
+    }
+
     if (body?.event === 'drain') {
-      return await drainOutbox((templates ?? []) as Template[])
+      return await drainOutbox((templates ?? []) as Template[], ctr)
     }
 
     if (body?.event === 'memory_created') {
@@ -562,7 +694,7 @@ Deno.serve(async (req: Request) => {
       if (wait > 0) await new Promise((r) => setTimeout(r, wait))
       elapsed = fam.jitter
       try {
-        results[fam.id] = await processFamily(fam.id, wardrobe ?? [], (templates ?? []) as Template[])
+        results[fam.id] = await processFamily(fam.id, wardrobe ?? [], (templates ?? []) as Template[], ctr)
       } catch (e) {
         results[fam.id] = `error: ${(e as Error).message}`
       }

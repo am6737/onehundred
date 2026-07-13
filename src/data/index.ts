@@ -387,6 +387,19 @@ export async function upsertPushDevice(deviceId: string, token: string | null, p
   if (error) throw error;
 }
 
+// 点击/打开推送后回写 notification_log.clicked，打通 CTR 反馈闭环（RPC 见 20260713_push_ctr.sql）。
+// best-effort：失败静默——点击回写只是统计信号，绝不影响用户跳转流程。RPC 已授权 anon，
+// 冷启动（session 未就绪）时通常也能写入。
+export async function markNotificationClicked(logId: number | string) {
+  const id = Number(logId);
+  if (!Number.isFinite(id)) return;
+  try {
+    await supabase.rpc('mark_notification_clicked', { p_log_id: id });
+  } catch {
+    // 忽略
+  }
+}
+
 // 当前家庭的通知偏好（可能没有行 → 返回 null，调用方用默认值）。
 export async function fetchNotificationPrefs() {
   const familyId = await getMyFamilyId();

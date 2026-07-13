@@ -14,7 +14,7 @@ import { DooPush } from 'doopush-react-native-sdk';
 import { ThemeProvider, useTheme } from './src/theme/tokens';
 import { I18nProvider, loadSavedLang, useT, type Lang } from './src/i18n';
 import { DataProvider, useData } from './src/data/DataProvider';
-import { DEFAULT_ME, meName, upsertPushDevice } from './src/data';
+import { DEFAULT_ME, meName, upsertPushDevice, markNotificationClicked } from './src/data';
 import { getSession, getValidSession, onAuthStateChange } from './src/lib/auth';
 import { parseInviteCode, parseInviteFromClipboard } from './src/lib/invite';
 import { formatDooPushError, markDooPushConfigured, markDooPushUnconfigured, safeDooPushRegister } from './src/lib/doopushRegister';
@@ -192,18 +192,21 @@ function HomeWithDrawer({ navigation }) {
    后端在 DooPush payload.data 里带 { scene, kidId }；不同平台可能把它放在
    data.scene（已展平）或 data.data（JSON 字符串），两种都兼容。
    导航容器可能还没就绪（冷启动从通知点开），故带短重试。 */
-function extractPayload(data?: Record<string, string>): { scene?: string; kidId?: string } {
+function extractPayload(data?: Record<string, string>): { scene?: string; kidId?: string; logId?: string } {
   if (!data) return {};
   let scene = data.scene;
   let kidId = data.kidId;
-  if (!scene && typeof data.data === 'string') {
+  let logId = data.logId;
+  // DooPush 可能把业务字段塞在 payload.data 的 JSON 串里；顶层缺失时再解析补齐。
+  if ((!scene || !logId) && typeof data.data === 'string') {
     try {
       const p = JSON.parse(data.data);
-      scene = p.scene;
-      kidId = p.kidId;
+      scene = scene ?? p.scene;
+      kidId = kidId ?? p.kidId;
+      logId = logId ?? p.logId;
     } catch {}
   }
-  return { scene, kidId };
+  return { scene, kidId, logId };
 }
 
 function targetFromScene(scene: string | undefined, kidId: string | undefined): { name: string; params?: any } {
@@ -220,7 +223,9 @@ function targetFromScene(scene: string | undefined, kidId: string | undefined): 
 }
 
 function routeFromNotification(data?: Record<string, string>) {
-  const { scene, kidId } = extractPayload(data);
+  const { scene, kidId, logId } = extractPayload(data);
+  // 点击回写（best-effort，不阻塞跳转）→ 打通 CTR 反馈闭环
+  if (logId) markNotificationClicked(logId);
   if (!scene) return;
   const target = targetFromScene(scene, kidId);
   let tries = 0;
