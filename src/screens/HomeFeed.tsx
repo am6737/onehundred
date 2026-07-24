@@ -413,7 +413,7 @@ function LevelCard({ level, onOpen, onSkip, kidId, meLabel, cardHeight }: any) {
             }}
           >
             {Icon.chevDown(theme.accent, 20)}
-            <Text style={{
+            <Text numberOfLines={1} style={{
               fontFamily: theme.fonts.head, fontSize: 13, color: theme.inkSoft,
             }}>{t('home.swapOne')}</Text>
           </TouchableOpacity>
@@ -428,7 +428,7 @@ function LevelCard({ level, onOpen, onSkip, kidId, meLabel, cardHeight }: any) {
               flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
             }}
           >
-            <Text style={{
+            <Text numberOfLines={1} style={{
               fontFamily: theme.fonts.head, fontSize: 17, color: '#FFFDF7',
             }}>{t('home.doThis')}</Text>
           </TouchableOpacity>
@@ -465,12 +465,12 @@ function EndCard({ onBook, onReshuffle, onAddOwn, cardHeight, allDone }: any) {
         fontFamily: theme.fonts.hand, fontSize: 21, lineHeight: 38,
         color: theme.ink, textAlign: 'center',
       }}>
-        {allDone ? t('home.endAllDone') : t('home.endRound')}
+        {allDone ? t('home.endAllDone') : t('home.endDaily')}
       </Text>
 
       <View style={{ marginTop: 24, width: '100%', maxWidth: 300, gap: 12 }}>
         {/* Reshuffle — 全做完时池子为空，重洗无意义，隐藏 */}
-        {!allDone && (
+        {!allDone && onReshuffle && (
           <TouchableOpacity
             onPress={onReshuffle}
             activeOpacity={0.8}
@@ -480,7 +480,7 @@ function EndCard({ onBook, onReshuffle, onAddOwn, cardHeight, allDone }: any) {
               backgroundColor: theme.accent,
             }}
           >
-            <Text style={{
+            <Text numberOfLines={1} style={{
               fontFamily: theme.fonts.head, fontSize: 16, color: '#FFFDF7',
             }}>{t('home.reshuffle')}</Text>
           </TouchableOpacity>
@@ -497,7 +497,7 @@ function EndCard({ onBook, onReshuffle, onAddOwn, cardHeight, allDone }: any) {
             borderWidth: 1, borderColor: theme.line,
           }}
         >
-          <Text style={{
+          <Text numberOfLines={1} style={{
             fontFamily: theme.fonts.head, fontSize: 16, color: theme.ink,
           }}>{t('home.addOwn')}</Text>
         </TouchableOpacity>
@@ -511,7 +511,7 @@ function EndCard({ onBook, onReshuffle, onAddOwn, cardHeight, allDone }: any) {
             gap: 8, paddingVertical: 14, paddingHorizontal: 22, borderRadius: 999,
           }}
         >
-          <Text style={{
+          <Text numberOfLines={1} style={{
             fontFamily: theme.fonts.head, fontSize: 15, color: theme.inkSoft,
           }}>{t('home.openBook')}</Text>
         </TouchableOpacity>
@@ -528,17 +528,30 @@ export default function HomeFeed({ navigation, onOpenDrawer, perspective, setPer
   const { theme } = useTheme();
   const t = useT();
   const insets = useSafeAreaInsets();
-  const { kidDone, memoriesForKid, allLevels, weightedShuffle, refresh } = useData();
+  const {
+    kidDone, memoriesForKid, customLevels, recommendedLevelsForKid,
+    loadRecommendations, markRecommendationFeedback, weightedShuffle, refresh,
+  } = useData();
 
   const cardHeight = SCREEN_H;
   const meLabel = meName(me);
 
-  const empty = kidDone(kidId) === 0 && memoriesForKid(kidId).length === 0;
+  const completedCount = kidDone(kidId);
+  const empty = completedCount === 0 && memoriesForKid(kidId).length === 0;
 
   const [shuffleKey, setShuffleKey] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const [readyToRefresh, setReadyToRefresh] = useState(false);
   const refreshingRef = useRef(false);
+
+  useEffect(() => {
+    loadRecommendations(kidId).catch(() => {});
+  }, [kidId, loadRecommendations]);
+
+  const feedLevels = useMemo(
+    () => [...customLevels, ...recommendedLevelsForKid(kidId)],
+    [customLevels, recommendedLevelsForKid, kidId],
+  );
 
   // 只按 levelNum 判定「做过」：num 是全局唯一的事项标识（levels.num 是主键，自定义事用「★n」），
   // perspective 冗余且不可靠——邀记（yaoji）流程写回的记忆 perspective 被服务端硬编码成 together，
@@ -556,8 +569,8 @@ export default function HomeFeed({ navigation, onOpenDrawer, perspective, setPer
   // 每个视角各自预构建一份 feed（横滑要能预览相邻视角，故全部构建；不依赖 perspective，切 tab 不重排）
   const columns = useMemo(() => {
     return psOrder.map((p) => {
-      let pool = allLevels().filter((l) => l.perspective === p);
-      if (!pool.length) pool = allLevels();
+      let pool = feedLevels.filter((l) => l.perspective === p);
+      if (!pool.length) pool = feedLevels;
       // 用 shuffleKey 当 seed：refresh 静默重载不会重排，只有「换一批」才换顺序
       const shuf = weightedShuffle(pool, kidId, shuffleKey + 1);
       // 当前孩子做过的活动不再出现（kid='all' 的记录对每个孩子都算做过）
@@ -566,11 +579,11 @@ export default function HomeFeed({ navigation, onOpenDrawer, perspective, setPer
       lv.forEach((l, i) => {
         items.push({ type: 'level', key: `${l.num}-${p}-${shuffleKey}`, level: l, index: i });
       });
-      items.push({ type: 'end', key: `end-${p}`, allDone: !empty && lv.length === 0 });
+      items.push({ type: 'end', key: `end-${p}`, allDone: completedCount >= 100 });
       return { perspective: p, data: items };
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [psKey, shuffleKey, kidId, doneSet, empty, allLevels, weightedShuffle]);
+  }, [psKey, shuffleKey, kidId, doneSet, empty, completedCount, feedLevels, weightedShuffle]);
 
   const activeData = columns[activeIdx]?.data || columns[0]?.data || [];
 
@@ -628,6 +641,7 @@ export default function HomeFeed({ navigation, onOpenDrawer, perspective, setPer
       // 重拉服务端数据；同时保底 650ms，避免刷新头一闪而过
       await Promise.all([
         Promise.resolve(refresh && refresh()).catch(() => {}),
+        Promise.resolve(loadRecommendations(kidId)).catch(() => {}),
         new Promise((res) => setTimeout(res, 650)),
       ]);
     } finally {
@@ -636,7 +650,7 @@ export default function HomeFeed({ navigation, onOpenDrawer, perspective, setPer
       setRefreshing(false);
       refreshingRef.current = false;
     }
-  }, [refresh]);
+  }, [refresh, loadRecommendations, kidId]);
 
   /* ── 横滑提交：落到目标视角页 ──
      纵向状态（translateY/pageIndex/visiblePage）是「当前列」共用的，切列时必须与
@@ -794,8 +808,14 @@ export default function HomeFeed({ navigation, onOpenDrawer, perspective, setPer
   }, []);
 
   const handleOpenLevel = useCallback((level) => {
+    if (!level.custom) markRecommendationFeedback(kidId, level.num, 'chosen').catch(() => {});
     if (navigation) navigation.navigate('LevelDetail', { level, kidId, me });
-  }, [navigation, kidId, me]);
+  }, [navigation, kidId, me, markRecommendationFeedback]);
+
+  const handleSkipLevel = useCallback((level) => {
+    if (!level.custom) markRecommendationFeedback(kidId, level.num, 'skipped').catch(() => {});
+    goNext();
+  }, [kidId, markRecommendationFeedback, goNext]);
 
   const handleOpenBook = useCallback(() => {
     if (navigation) navigation.navigate('MemoryBook', { kidId });
@@ -815,7 +835,7 @@ export default function HomeFeed({ navigation, onOpenDrawer, perspective, setPer
       return (
         <EndCard
           onBook={handleOpenBook}
-          onReshuffle={reshuffle}
+          onReshuffle={null}
           onAddOwn={handleAddOwn}
           cardHeight={cardHeight}
           allDone={item.allDone}
@@ -826,13 +846,13 @@ export default function HomeFeed({ navigation, onOpenDrawer, perspective, setPer
       <LevelCard
         level={item.level}
         onOpen={handleOpenLevel}
-        onSkip={goNext}
+        onSkip={() => handleSkipLevel(item.level)}
         kidId={kidId}
         meLabel={meLabel}
         cardHeight={cardHeight}
       />
     );
-  }, [kidId, empty, cardHeight, meLabel, goNext, handleOpenLevel, handleOpenBook, reshuffle, handleAddOwn]);
+  }, [kidId, empty, cardHeight, meLabel, handleSkipLevel, handleOpenLevel, handleOpenBook, reshuffle, handleAddOwn]);
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.cream }}>

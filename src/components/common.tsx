@@ -222,7 +222,7 @@ export function PrimaryButton({ label, onPress, icon = null, style = undefined }
       }, style]}
     >
       {icon}
-      <Text style={{
+      <Text numberOfLines={1} style={{
         fontFamily: theme.fonts.head,
         fontSize: 17, color: '#FFFDF7',
       }}>{label}</Text>
@@ -244,7 +244,7 @@ export function SecondaryButton({ label, onPress, style }: any) {
         borderWidth: 1, borderColor: theme.line,
       }, style]}
     >
-      <Text style={{
+      <Text numberOfLines={1} style={{
         fontFamily: theme.fonts.head,
         fontSize: 17, color: theme.ink,
       }}>{label}</Text>

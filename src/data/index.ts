@@ -116,6 +116,8 @@ function mapLevel(row) {
     suggest: row.suggest, sealed: row.sealed, sealUntil: row.seal_until,
     sealedOn: row.sealed_on, sealKind: row.seal_kind, seasonal: row.seasonal, kid: row.kid,
     illustrationPath: row.illustration_path,
+    category: row.category, scene: row.scene, minAge: row.min_age, maxAge: row.max_age,
+    seasons: row.seasons || ['all'], tags: row.tags || [], qualityScore: row.quality_score,
   };
 }
 
@@ -148,10 +150,33 @@ function mapCustomLevel(row) {
 
 // ── Async fetch functions ──
 
-export async function fetchLevels() {
-  const { data, error } = await supabase.from('levels').select('*').order('sort_order');
+export async function fetchLevelsByNums(nums: string[] = []) {
+  if (!nums.length) return [];
+  const { data, error } = await supabase.rpc('get_levels_by_nums', { p_nums: [...new Set(nums)] });
   if (error) throw error;
   return (data || []).map(mapLevel);
+}
+
+// 每个孩子每天由服务端固定挑选最多 10 件。重复请求只返回当天同一批，不能靠刷新刷完整个候选库。
+export async function fetchRecommendedLevels(kidId: string | null = null) {
+  const { data, error } = await supabase.rpc('get_daily_recommended_levels', {
+    p_kid_id: kidId && kidId !== 'all' ? kidId : null,
+  });
+  if (error) throw error;
+  return (data || []).map(mapLevel);
+}
+
+export async function markLevelRecommendation(
+  kidId: string | null,
+  levelNum: string,
+  action: 'skipped' | 'chosen',
+) {
+  const { error } = await supabase.rpc('mark_level_recommendation', {
+    p_kid_id: kidId && kidId !== 'all' ? kidId : null,
+    p_level_num: levelNum,
+    p_action: action,
+  });
+  if (error) throw error;
 }
 
 export async function fetchKids() {

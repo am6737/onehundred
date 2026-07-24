@@ -143,7 +143,7 @@ export default function YearReview({ navigation, route }) {
           }}
         >
           {Icon.book('#FFFDF7', 19)}
-          <Text style={{ fontFamily: theme.fonts.head, fontSize: 17, color: '#FFFDF7' }}>{t('yearReview.makeBook')}</Text>
+          <Text numberOfLines={1} style={{ fontFamily: theme.fonts.head, fontSize: 17, color: '#FFFDF7' }}>{t('yearReview.makeBook')}</Text>
         </TouchableOpacity>
         <TouchableOpacity
           onPress={() => navigation.goBack()}
@@ -153,7 +153,7 @@ export default function YearReview({ navigation, route }) {
             borderWidth: 1, borderColor: theme.line, alignItems: 'center',
           }}
         >
-          <Text style={{ fontFamily: theme.fonts.head, fontSize: 17, color: theme.ink }}>{t('yearReview.backHome')}</Text>
+          <Text numberOfLines={1} style={{ fontFamily: theme.fonts.head, fontSize: 17, color: theme.ink }}>{t('yearReview.backHome')}</Text>
         </TouchableOpacity>
       </View>
     </View>

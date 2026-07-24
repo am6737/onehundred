@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useMemo, useState, useRef } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Dimensions, FlatList } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme, TONE } from '../theme/tokens';
@@ -87,7 +87,7 @@ function BookLeaf({ type, content, template, theme, index, total }: any) {
               backgroundColor: tone.soft,
             }}>
               <Text style={{ fontFamily: theme.fonts.head, fontSize: 11, color: tone.ink }}>
-                {t('records.nthThing', { n: parseInt(m.levelNum, 10) || index })}
+                {t('records.nthThing', { n: m.completionSeq || index })}
               </Text>
             </View>
             <Text style={{ fontFamily: theme.fonts.body, fontSize: 12, color: theme.inkSoft }}>
@@ -163,13 +163,23 @@ export function BookFlip({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const kidId = route?.params?.kidId || 'all';
   const memories = kidId === 'all' ? allMemories : memoriesForKid(kidId);
+  const bookMemories = useMemo(() => {
+    const chronological = [...memories].sort((a, b) =>
+      String(a.createdAt || a.date || '').localeCompare(String(b.createdAt || b.date || ''))
+    );
+    const levelSeq = new Map<string, number>();
+    return chronological.map(m => {
+      if (!levelSeq.has(m.levelNum)) levelSeq.set(m.levelNum, levelSeq.size + 1);
+      return { ...m, completionSeq: levelSeq.get(m.levelNum) };
+    });
+  }, [memories]);
   const kidNames = kidId === 'all'
     ? kids.map(k => k.name).join(t('bookPreview.nameJoin'))
     : (getKid(kidId)?.name || t('drawer.child'));
 
   const [templateIdx, setTemplateIdx] = useState(0);
   const template = BOOK_TEMPLATES[templateIdx];
-  const pages = buildBookPages(memories, kidNames, t);
+  const pages = buildBookPages(bookMemories, kidNames, t);
   const [pageIndex, setPageIndex] = useState(0);
   const flatListRef = useRef<any>(null);
 
@@ -244,7 +254,7 @@ export function BookFlip({ navigation, route }) {
               width: 20, height: 20, borderRadius: 10,
               backgroundColor: tpl.accent, marginBottom: 4,
             }} />
-            <Text style={{
+            <Text numberOfLines={1} style={{
               fontFamily: theme.fonts.head, fontSize: 12,
               color: i === templateIdx ? '#FFFDF7' : theme.ink,
             }}>{t('bookPreview.' + tpl.nameKey)}</Text>

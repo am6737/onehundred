@@ -357,7 +357,7 @@ export default function InviteRecord({ route, navigation }: any) {
                     disabled={creating}
                     style={[styles.actionBtn, { backgroundColor: theme.accent, opacity: creating ? 0.6 : 1 }]}
                   >
-                    <Text style={[styles.actionLabel, { color: '#fff', fontFamily: theme.fonts.head }]}>
+                    <Text numberOfLines={1} style={[styles.actionLabel, { color: '#fff', fontFamily: theme.fonts.head }]}>
                       {creating ? t('yaoji.generating') : t('yaoji.refreshInvite')}
                     </Text>
                   </TouchableOpacity>
@@ -368,7 +368,7 @@ export default function InviteRecord({ route, navigation }: any) {
                     onPress={() => handleCopy(generated.url)}
                     style={[styles.actionBtn, { backgroundColor: theme.sand }]}
                   >
-                    <Text style={[styles.actionLabel, { color: theme.ink, fontFamily: theme.fonts.head }]}>
+                    <Text numberOfLines={1} style={[styles.actionLabel, { color: theme.ink, fontFamily: theme.fonts.head }]}>
                       {t('yaoji.copyLink')}
                     </Text>
                   </TouchableOpacity>
@@ -376,7 +376,7 @@ export default function InviteRecord({ route, navigation }: any) {
                     onPress={() => handleShare(generated.url)}
                     style={[styles.actionBtn, { backgroundColor: theme.accent }]}
                   >
-                    <Text style={[styles.actionLabel, { color: '#fff', fontFamily: theme.fonts.head }]}>
+                    <Text numberOfLines={1} style={[styles.actionLabel, { color: '#fff', fontFamily: theme.fonts.head }]}>
                       {t('yaoji.share')}
                     </Text>
                   </TouchableOpacity>

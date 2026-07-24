@@ -42,10 +42,6 @@ function typeMeta(type) {
   return map[type] || map.text;
 }
 
-function memSeq(m) {
-  return parseInt(m.levelNum, 10) || 0;
-}
-
 export default function RecordsCalendar({ navigation, route }) {
   const { theme } = useTheme();
   const { t, lang } = useI18n();
@@ -58,6 +54,20 @@ export default function RecordsCalendar({ navigation, route }) {
   const initialYear = route?.params?.initialYear;
 
   const [filter, setFilter] = useState(kidId === 'all' ? 'everything' : kidId);
+
+  // “第 N 件”表示这个家庭/孩子完成的第 N 个不同事项，不再把候选库编号当完成序号。
+  const completionSeq = useMemo(() => {
+    const chronological = [...bookFilter(memories, filter)].sort((a, b) =>
+      String(a.createdAt || a.date || '').localeCompare(String(b.createdAt || b.date || ''))
+    );
+    const levelSeq = new Map<string, number>();
+    const memorySeq = new Map<string, number>();
+    chronological.forEach(m => {
+      if (!levelSeq.has(m.levelNum)) levelSeq.set(m.levelNum, levelSeq.size + 1);
+      memorySeq.set(m.id, levelSeq.get(m.levelNum) || 0);
+    });
+    return memorySeq;
+  }, [filter, memories]);
 
   const { byYear, years, allYM } = useMemo(() => {
     const by: Record<number, Record<number, Record<number, any[]>>> = {};
@@ -347,7 +357,7 @@ export default function RecordsCalendar({ navigation, route }) {
                               backgroundColor: tn.soft,
                             }}>
                               <Text style={{ fontFamily: theme.fonts.head, fontSize: 11, color: tn.ink }}>
-                                {t('records.nthThing', { n: memSeq(m) })}
+                                {t('records.nthThing', { n: completionSeq.get(m.id) || 0 })}
                               </Text>
                             </View>
                             {m.place && (

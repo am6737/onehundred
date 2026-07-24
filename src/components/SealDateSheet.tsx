@@ -106,7 +106,7 @@ function DayPickerSheet({ visible, onClose, initY, initM, initD, onConfirm }: an
             backgroundColor: theme.accent, alignItems: 'center',
           }}
         >
-          <Text style={{ fontFamily: theme.fonts.head, fontSize: 15, color: '#FFFDF7' }}>
+          <Text numberOfLines={1} style={{ fontFamily: theme.fonts.head, fontSize: 15, color: '#FFFDF7' }}>
             {t('seal.pickDone')}
           </Text>
         </TouchableOpacity>

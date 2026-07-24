@@ -78,7 +78,7 @@ function CTA({ label, onPress, disabled = false, hint = '' }) {
           backgroundColor: disabled ? theme.sand : theme.accent,
         }}
       >
-        <Text style={{
+        <Text numberOfLines={1} style={{
           fontFamily: theme.fonts.head, fontSize: 17.5,
           color: disabled ? theme.inkSoft : '#FFFDF7',
           letterSpacing: 0.5,
@@ -207,7 +207,7 @@ function MeStep({ value, onChange, onNext }) {
                   borderWidth: 1.5, borderColor: on ? theme.accent : theme.line,
                 }}
               >
-                <Text style={{
+                <Text numberOfLines={1} style={{
                   fontFamily: theme.fonts.head, fontSize: 19,
                   color: on ? '#FFFDF7' : theme.ink,
                 }}>{roleLabel(r)}</Text>
@@ -385,7 +385,7 @@ function JoinCodeStep({ code, onChange, onNext, busy, onScanningChange }) {
           }}
         >
           {Icon.camera('#FFFDF7', 18)}
-          <Text style={{ fontFamily: theme.fonts.head, fontSize: 16, color: '#FFFDF7' }}>
+          <Text numberOfLines={1} style={{ fontFamily: theme.fonts.head, fontSize: 16, color: '#FFFDF7' }}>
             {t('invite.scanToJoin')}
           </Text>
         </TouchableOpacity>
@@ -448,7 +448,7 @@ function JoinRoleStep({ value, onChange, onEnter, loading, takenRoles = [] as st
                   opacity: taken ? 0.5 : 1,
                 }}
               >
-                <Text style={{ fontFamily: theme.fonts.head, fontSize: 19, color: on ? '#FFFDF7' : theme.ink }}>{roleLabel(r)}</Text>
+                <Text numberOfLines={1} style={{ fontFamily: theme.fonts.head, fontSize: 19, color: on ? '#FFFDF7' : theme.ink }}>{roleLabel(r)}</Text>
                 {/* 「已加入」放右上角小角标：不占文档流，卡片保持单行等高、底部不空 */}
                 {taken && (
                   <Text style={{

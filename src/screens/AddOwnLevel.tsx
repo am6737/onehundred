@@ -249,7 +249,7 @@ export default function AddOwnLevel({ route, navigation }) {
                     }]}
                   >
                     {icon(on ? '#FFFDF7' : theme.ink)}
-                    <Text style={{ fontFamily: theme.fonts.head, fontSize: 14, color: on ? '#FFFDF7' : theme.ink }}>
+                    <Text numberOfLines={1} style={{ fontFamily: theme.fonts.head, fontSize: 14, color: on ? '#FFFDF7' : theme.ink }}>
                       {SUG_LABEL[k]}
                     </Text>
                   </TouchableOpacity>
@@ -270,7 +270,7 @@ export default function AddOwnLevel({ route, navigation }) {
             {saving ? (
               <ActivityIndicator color="#FFFDF7" />
             ) : (
-              <Text style={{ fontFamily: theme.fonts.head, fontSize: 17, color: ready ? '#FFFDF7' : theme.inkSoft }}>
+              <Text numberOfLines={1} style={{ fontFamily: theme.fonts.head, fontSize: 17, color: ready ? '#FFFDF7' : theme.inkSoft }}>
                 {isEdit ? t('addOwnLevel.saveEdit') : t('addOwnLevel.saveAdd')}
               </Text>
             )}

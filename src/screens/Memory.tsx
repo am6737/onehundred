@@ -451,7 +451,7 @@ function ShareSheet({ m, visible, onClose }) {
             opacity: busy ? 0.6 : 1,
           }}
         >
-          <Text style={{
+          <Text numberOfLines={1} style={{
             fontFamily: theme.fonts.head, fontSize: 15, color: theme.ink,
           }}>{t('memory.saveToAlbum')}</Text>
         </TouchableOpacity>
@@ -467,7 +467,7 @@ function ShareSheet({ m, visible, onClose }) {
             opacity: busy ? 0.6 : 1,
           }}
         >
-          <Text style={{
+          <Text numberOfLines={1} style={{
             fontFamily: theme.fonts.head, fontSize: 15, color: '#FFFDF7',
           }}>{t('memory.share')}</Text>
         </TouchableOpacity>
@@ -590,12 +590,25 @@ export function MemoryPage({ route, navigation }) {
 
   const sameLevelCount = memoriesForLevel(m.levelNum).length;
 
+  // 历史回忆不应因为原活动未加载（或自定义活动已被删除）就失去「再做一次」。
+  // 找不到完整活动时，用回忆里保存的快照构造一个可记录的最小活动。
+  const repeatLevel = level || {
+    num: m.levelNum,
+    perspective: m.perspective,
+    tone: m.tone,
+    title: m.title,
+    why: '',
+    how: '',
+    record: '',
+    suggest: m.type === 'image' ? 'photo' : m.type,
+  };
+
   const menuItems = [
-    ...(level ? [{
+    {
       label: t('memory.doAgain'),
       icon: (c: string) => Icon.redo(c, 16),
-      onPress: () => { setMenuOpen(false); navigation.navigate('LevelDetail', { level, kidId: m.kid, me: route.params?.me }); },
-    }] : []),
+      onPress: () => { setMenuOpen(false); navigation.navigate('LevelDetail', { level: repeatLevel, kidId: m.kid, me: route.params?.me }); },
+    },
     ...(sameLevelCount >= 2 ? [{
       label: t('memory.menuSeeAll'),
       icon: (c: string) => Icon.eye(c, 16),

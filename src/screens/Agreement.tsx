@@ -101,7 +101,7 @@ export default function Agreement({ route, navigation }) {
                   alignItems: 'center', justifyContent: 'center',
                 }}
               >
-                <Text style={{
+                <Text numberOfLines={1} style={{
                   fontFamily: theme.fonts.head,
                   fontSize: 16,
                   color: '#FFFDF7',

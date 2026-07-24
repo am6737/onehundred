@@ -574,7 +574,7 @@ function ChildProfileSheet({ kid, onChange, onClose }: any) {
                       alignItems: 'center', justifyContent: 'center',
                     }}
                   >
-                    <Text style={{ fontFamily: theme.fonts.head, fontSize: 15.5, color: theme.danger || '#C2553D' }}>
+                    <Text numberOfLines={1} style={{ fontFamily: theme.fonts.head, fontSize: 15.5, color: theme.danger || '#C2553D' }}>
                       {t('settings.deleteKid')}
                     </Text>
                   </TouchableOpacity>
@@ -727,7 +727,7 @@ function DeleteKidSheet({ kid, onClose, onDone }: any) {
             {deleting ? (
               <ActivityIndicator color="#FFFDF7" size="small" />
             ) : (
-              <Text style={{
+              <Text numberOfLines={1} style={{
                 fontFamily: theme.fonts.head, fontSize: 16,
                 color: canDelete ? '#FFFDF7' : theme.inkSoft,
               }}>{t('settings.deleteKidPermanent')}</Text>
@@ -1089,7 +1089,7 @@ function InviteSheet({ kids, me, onClose, onJoinFamily }: any) {
               }}
             >
               {Icon.share('#FFFDF7', 18)}
-              <Text style={{ fontFamily: theme.fonts.head, fontSize: 16, color: '#FFFDF7' }}>
+              <Text numberOfLines={1} style={{ fontFamily: theme.fonts.head, fontSize: 16, color: '#FFFDF7' }}>
                 {t('invite.shareLink')}
               </Text>
             </TouchableOpacity>
@@ -1115,7 +1115,7 @@ function InviteSheet({ kids, me, onClose, onJoinFamily }: any) {
                 }}
               >
                 {Icon.camera('#FFFDF7', 18)}
-                <Text style={{ fontFamily: theme.fonts.head, fontSize: 16, color: '#FFFDF7' }}>
+                <Text numberOfLines={1} style={{ fontFamily: theme.fonts.head, fontSize: 16, color: '#FFFDF7' }}>
                   {t('invite.scanToJoin')}
                 </Text>
               </TouchableOpacity>
@@ -1501,7 +1501,7 @@ function ConfirmDialog({ visible, icon, title, message, confirmLabel, confirmCol
               alignItems: 'center',
             }}
           >
-            <Text style={{
+            <Text numberOfLines={1} style={{
               fontFamily: theme.fonts.head, fontSize: 16, color: '#FFFDF7',
             }}>{confirmLabel}</Text>
           </TouchableOpacity>
@@ -1652,7 +1652,7 @@ function DeleteAccountSheet({ onClose }: any) {
             {deleting ? (
               <ActivityIndicator color="#FFFDF7" size="small" />
             ) : (
-              <Text style={{
+              <Text numberOfLines={1} style={{
                 fontFamily: theme.fonts.head, fontSize: 16,
                 color: canDelete ? '#FFFDF7' : theme.inkSoft,
               }}>{t('settings.deletePermanent')}</Text>
@@ -2087,7 +2087,7 @@ function DndSheet({ visible, onClose, startH, endH, onConfirm }: any) {
             backgroundColor: theme.accent, alignItems: 'center',
           }}
         >
-          <Text style={{ fontFamily: theme.fonts.head, fontSize: 15, color: '#FFFDF7' }}>
+          <Text numberOfLines={1} style={{ fontFamily: theme.fonts.head, fontSize: 15, color: '#FFFDF7' }}>
             {t('settings.dndConfirm')}
           </Text>
         </TouchableOpacity>

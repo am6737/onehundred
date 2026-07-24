@@ -173,7 +173,7 @@ export default function EmailLogin({ navigation }) {
             alignItems: 'center',
           }}
         >
-          <Text style={{
+          <Text numberOfLines={1} style={{
             fontFamily: theme.fonts.head,
             fontSize: 17,
             color: canSubmit && !loading ? '#FFFDF7' : theme.inkSoft,

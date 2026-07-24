@@ -255,7 +255,7 @@ export default function JoinFamily({ navigation, route }) {
           }}
         >
           {Icon.camera('#FFFDF7', 20)}
-          <Text style={{ fontFamily: theme.fonts.head, fontSize: 16, color: '#FFFDF7' }}>
+          <Text numberOfLines={1} style={{ fontFamily: theme.fonts.head, fontSize: 16, color: '#FFFDF7' }}>
             {t('joinFamily.scanButton')}
           </Text>
         </TouchableOpacity>
@@ -300,7 +300,7 @@ export default function JoinFamily({ navigation, route }) {
           {loading ? (
             <ActivityIndicator color="#FFFDF7" size="small" />
           ) : (
-            <Text style={{
+            <Text numberOfLines={1} style={{
               fontFamily: theme.fonts.head, fontSize: 16,
               color: code.trim() ? '#FFFDF7' : theme.inkSoft,
             }}>{t('joinFamily.next')}</Text>

@@ -114,7 +114,7 @@ function BottomButton({ label, enabled, onPress }) {
         alignItems: 'center',
       }}
     >
-      <Text style={{
+      <Text numberOfLines={1} style={{
         fontFamily: theme.fonts.head,
         fontSize: 17,
         color: enabled ? '#FFFDF7' : theme.inkSoft,
@@ -235,7 +235,7 @@ export function LoginWelcome({ navigation }) {
             alignItems: 'center',
           }}
         >
-          <Text style={{
+          <Text numberOfLines={1} style={{
             fontFamily: theme.fonts.head,
             fontSize: 17,
             color: '#FFFDF7',
@@ -278,7 +278,7 @@ export function LoginWelcome({ navigation }) {
           {loading ? (
             <ActivityIndicator color={theme.accent} />
           ) : (
-            <Text style={{
+            <Text numberOfLines={1} style={{
               fontFamily: theme.fonts.head,
               fontSize: 17,
               color: agreed ? theme.accent : theme.inkSoft,

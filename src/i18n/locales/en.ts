@@ -484,6 +484,7 @@ export const en = {
     doThis: 'Do this',
     endAllDone: "You've done everything here.\nFlip through the memory book, or add a thing of your own.",
     endRound: "That's it for this round.\nSwap for a new batch — you might find just the one you want.",
+    endDaily: "That's all for this view today.\nTake time with these 10, and come back tomorrow for more.",
     reshuffle: 'Swap for a new batch',
     addOwn: "Add your family's own thing",
     openBook: "Flip through what you've done",

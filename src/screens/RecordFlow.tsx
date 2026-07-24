@@ -1382,7 +1382,7 @@ export default function RecordFlow({ route, navigation }) {
                 {saving ? (
                   <ActivityIndicator color="#FFFDF7" size="small" />
                 ) : (
-                  <Text style={{
+                  <Text numberOfLines={1} style={{
                     fontFamily: theme.fonts.head,
                     fontSize: 17,
                     color: captureReady ? '#FFFDF7' : theme.inkSoft,
@@ -1603,6 +1603,7 @@ const styles = StyleSheet.create({
     height: 48,
     fontSize: 15,
     textAlignVertical: 'center',
+    includeFontPadding: false,
   },
   placeChips: {
     flexDirection: 'row',

@@ -476,6 +476,7 @@ export const zh = {
     doThis: '做这件事',
     endAllDone: '这里的事，你们都做完啦。\n翻翻回忆册，或者加一件你们家自己的事。',
     endRound: '这一轮先到这。\n换一批，也许会遇见刚好想做的那件。',
+    endDaily: '这个视角今天先到这里。\n每天只认真看看 10 件，明天再遇见新的。',
     reshuffle: '换一批，继续翻',
     addOwn: '加一件我们家自己的事',
     openBook: '翻翻已经做过的',

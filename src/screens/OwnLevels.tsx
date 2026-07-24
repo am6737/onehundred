@@ -136,7 +136,7 @@ export default function OwnLevels({ navigation }) {
                         {busy
                           ? <ActivityIndicator color="#FFFDF7" />
                           : Icon.trash('#FFFDF7', 22)}
-                        <Text style={[styles.swipeDeleteText, { fontFamily: theme.fonts.head }]}>{t('common.delete')}</Text>
+                        <Text numberOfLines={1} style={[styles.swipeDeleteText, { fontFamily: theme.fonts.head }]}>{t('common.delete')}</Text>
                       </RNTouchableOpacity>
                     )}
                   >

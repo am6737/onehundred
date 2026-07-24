@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, Pressable, StyleSheet, AppState } from 'react-native';
 import {
-  fetchLevels, fetchKids, fetchMemories,
+  fetchLevelsByNums, fetchRecommendedLevels, markLevelRecommendation, fetchKids, fetchMemories,
   fetchCustomLevels, fetchProfile, insertCustomLevel,
   updateCustomLevel, deleteCustomLevel,
   insertMemory, insertKid, updateKid, deleteKid, updateProfile, deleteMemory,
@@ -37,6 +37,7 @@ const DataContext = createContext<Record<string, any> | null>(null);
 
 export function DataProvider({ children, userId }) {
   const [levels, setLevels] = useState<any[]>([]);
+  const [recommendationsByKid, setRecommendationsByKid] = useState<Record<string, any[]>>({});
   const [kids, setKids] = useState<any[]>([]);
   const [memories, setMemories] = useState<any[]>([]);
   const [customLevels, setCustomLevels] = useState<any[]>([]);
@@ -49,6 +50,8 @@ export function DataProvider({ children, userId }) {
   const prevUserId = useRef(userId);
   if (userId !== prevUserId.current) {
     prevUserId.current = userId;
+    setRecommendationsByKid({});
+    setLevels([]);
     if (userId) {
       setLoading(true);
       setLoaded(false);
@@ -62,12 +65,13 @@ export function DataProvider({ children, userId }) {
     setLoaded(false);
     setError(null);
     try {
-      const [lv, ki, me, cl, pr, fam] = await withRetry(() =>
+      const [ki, me, cl, pr, fam] = await withRetry(() =>
         Promise.all([
-          fetchLevels(), fetchKids(), fetchMemories(),
+          fetchKids(), fetchMemories(),
           fetchCustomLevels(), fetchProfile(), fetchMyFamily(),
         ])
       );
+      const lv = await fetchLevelsByNums(me.map((m: any) => m.levelNum).filter(Boolean));
       setLevels(lv);
       setKids(ki);
       setMemories(me);
@@ -98,16 +102,24 @@ export function DataProvider({ children, userId }) {
   const refreshQuiet = useCallback(async () => {
     if (!userId) return;
     try {
-      const [lv, ki, me, cl, pr, fam] = await Promise.all([
-        fetchLevels(), fetchKids(), fetchMemories(),
+      const [ki, me, cl, pr, fam] = await Promise.all([
+        fetchKids(), fetchMemories(),
         fetchCustomLevels(), fetchProfile(), fetchMyFamily(),
       ]);
+      const historical = await fetchLevelsByNums(me.map((m: any) => m.levelNum).filter(Boolean));
+      const recommended = Object.values(recommendationsByKid).flat();
+      const seen = new Set<string>();
+      const lv = [...historical, ...recommended].filter((l: any) => {
+        if (seen.has(l.num)) return false;
+        seen.add(l.num);
+        return true;
+      });
       setLevels(lv); setKids(ki); setMemories(me);
       setCustomLevels(cl); setProfile(pr); setFamily(fam);
     } catch {
       // 前台/实时的静默刷新失败就保持现状，不打扰用户
     }
-  }, [userId]);
+  }, [userId, recommendationsByKid]);
 
   // App 回到前台就整体软刷新：家人在别的设备改了内容，回到 App 即最新（也兜住错过的实时事件）
   useEffect(() => {
@@ -158,6 +170,26 @@ export function DataProvider({ children, userId }) {
   const memoriesForKid = useCallback((id) => memoriesForKidFrom(memories, id), [memories]);
   const memoriesForLevel = useCallback((levelNum) => memoriesForLevelFrom(memories, levelNum), [memories]);
   const allLevels = useCallback(() => allLevelsFrom(customLevels, levels), [customLevels, levels]);
+  const recommendedLevelsForKid = useCallback(
+    (kidId: string) => recommendationsByKid[kidId || 'all'] || [],
+    [recommendationsByKid],
+  );
+  const loadRecommendations = useCallback(async (kidId: string) => {
+    const key = kidId || 'all';
+    const recommended = await fetchRecommendedLevels(key);
+    setRecommendationsByKid(prev => ({ ...prev, [key]: recommended }));
+    setLevels(prev => {
+      const byNum = new Map(prev.map((l: any) => [l.num, l]));
+      recommended.forEach((l: any) => byNum.set(l.num, l));
+      return [...byNum.values()];
+    });
+    return recommended;
+  }, []);
+  const markRecommendationFeedback = useCallback(
+    (kidId: string, levelNum: string, action: 'skipped' | 'chosen') =>
+      markLevelRecommendation(kidId, levelNum, action),
+    [],
+  );
   const throwback = useCallback((kidId?) => throwbackFrom(memories, kidId), [memories]);
   const yearReview = useCallback((kidId?) => yearReviewFrom(memories, kidId), [memories]);
   const frameLabel = useCallback((perspective, kidId, meLabel?) => frameLabelFrom(kids, perspective, kidId, meLabel), [kids]);
@@ -241,6 +273,7 @@ export function DataProvider({ children, userId }) {
     levels, kids, memories, customLevels, profile, family, loading, loaded, error,
     refresh: loadAll, dismissError,
     getKid, kidLabel, kidDone, memoriesForKid, memoriesForLevel, allLevels,
+    recommendedLevelsForKid, loadRecommendations, markRecommendationFeedback,
     throwback, yearReview,
     frameLabel, levelWeight, weightedShuffle,
     addMemory, removeMemory, addKid, editKid, removeKid, addCustomLevel, editCustomLevel, removeCustomLevel, updateMe,
