@@ -122,10 +122,10 @@ export const en = {
     updatedLabel: 'Last updated: {{date}}',
     user: {
       title: 'User Agreement',
-      updated: '[effective date, e.g. June 18, 2026]',
+      updated: 'September 3, 2026',
       sections: [
         { h: '1. About This Agreement', p: [
-          'This User Agreement (the "Agreement") is entered into between you and [Company Legal Name] ("we" or "us") regarding your use of the "100 Things" app and related services (the "Service").',
+          'This User Agreement (the "Agreement") is entered into between you and the 100 Things operations team ("we" or "us") regarding your use of the "100 Things" app and related services (the "Service").',
           'Before you register, sign in, or use the Service, please read and fully understand this Agreement. By checking the consent box and completing registration/sign-in, or otherwise using the Service, you confirm that you have read and agree to be bound by this Agreement in full.',
           'If you do not agree to any part of this Agreement, please do not register or use the Service.',
         ] },
@@ -134,7 +134,7 @@ export const en = {
           'We may continuously enrich and adjust the features of the Service as it evolves. The features actually available in your client app shall prevail.',
         ] },
         { h: '3. Registration and Sign-in', p: [
-          'You may register or sign in via mobile number, email, carrier one-tap login, or third-party accounts (such as WeChat or Apple), or use guest mode to try certain features.',
+          'You may register or sign in via mobile number, email, or Sign in with Apple, or use guest mode to try certain features.',
           'You shall register using your own true, lawful, and valid information, and keep your account and password secure. You are responsible for all activities conducted under your account.',
           'If you discover any unauthorized use of your account, you shall notify us immediately.',
         ] },
@@ -175,97 +175,76 @@ export const en = {
         ] },
         { h: '11. Changes, Suspension, Termination, and Account Deletion', p: [
           'We may change, suspend, or terminate part or all of the Service due to business adjustments or legal requirements, and will give you advance notice by appropriate means within a reasonable scope.',
-          'You may apply to delete your account at any time via [Account Settings / Contact Us]. After account deletion, we will delete or anonymize your personal information in accordance with the Privacy Policy and applicable laws, except as otherwise required by law.',
+          'You may delete your account at any time through Settings > Account & Security > Delete Account without contacting support. After account deletion, we will delete or anonymize your personal information in accordance with the Privacy Policy and applicable laws, except as otherwise required by law.',
         ] },
         { h: '12. Amendments', p: [
           'We may revise this Agreement from time to time in light of changes in laws and adjustments to the Service. After a revision, we will announce or notify it by appropriate means. If you continue to use the Service after the revision, you are deemed to accept the revised Agreement.',
         ] },
         { h: '13. Governing Law and Dispute Resolution', p: [
           'The conclusion, effectiveness, interpretation, and dispute resolution of this Agreement are governed by the laws of the mainland of the People’s Republic of China.',
-          'Disputes arising from this Agreement or the Service shall be resolved through friendly consultation; if consultation fails, either party may bring an action before a competent people’s court at the location of [Company Legal Name].',
+          'Disputes arising from this Agreement or the Service shall be resolved through friendly consultation; if consultation fails, either party may bring an action before a competent people’s court at the operator’s location.',
         ] },
         { h: '14. Contact Us', p: [
           'If you have any questions, comments, or suggestions about this Agreement, you may contact us via:',
-          'Operator: [Company Legal Name]',
-          'Email: [contact email]',
-          'Address: [contact address]',
+          'Operator: 100 Things operations team',
+          'Email: hi@yibaijianshi.app',
         ] },
       ],
     },
     privacy: {
       title: 'Privacy Policy',
-      updated: '[effective date, e.g. June 18, 2026]',
+      updated: 'September 3, 2026',
       sections: [
-        { h: '1. Introduction', p: [
-          '[Company Legal Name] ("we" or "us") understands the importance of your personal information and will do its best to protect it. We follow the principles of legitimacy, lawfulness, necessity, and good faith, and process your personal information in accordance with this Privacy Policy.',
-          'This Policy applies to the "100 Things" app and related services. Before using the Service, please read and understand this Policy carefully, especially the clauses marked in bold or underline.',
-          'Special note: the Service records information about minors (especially children). Our handling of children’s personal information is described in Section 9. If you do not agree with this Policy, the Service may not function properly, so please decide carefully.',
+        { h: '1. Information We Collect', p: [
+          'We collect only the information needed to provide and maintain 100 Things. Account and identity information includes the phone number, email address, authentication credentials, and account identifier you use to register, sign in, or link an account. Sign in with Apple also provides an Apple identity identifier and any name or email you authorize Apple to share. Guest mode creates an anonymous account identifier; before linking a permanent sign-in method, uninstalling the app, clearing app data, or changing devices may make the account and its content unrecoverable.',
+          'Family and child information includes family identifiers, member relationships, invitations, and information you enter such as a child’s name or nickname, birth year and month, growth stage, virtual pet, and related settings. Provide this information only if you are the child’s parent or guardian, or have valid authorization from the guardian.',
+          'Content you choose to create or submit may include text, titles, dates, place descriptions, photos, videos, Live Photos, custom covers, audio, transcripts, time-capsule settings, custom activities, invited-record submissions, and data needed to create memory books or shared images. We do not automatically upload media you have not selected.',
+          'To maintain sessions, sync data, deliver notifications, adapt language, troubleshoot, and protect the Service, we may process push device identifiers and tokens, device brand and model, operating-system and app versions, User-Agent, app language, time-zone offset, network availability, and necessary server request logs. The app currently has no advertising SDK for profiling or cross-app tracking, and we do not sell personal information.',
         ] },
-        { h: '2. How We Collect and Use Personal Information', p: [
-          'We collect and use personal information that you actively provide, or that is generated through your use of the Service, only for the following purposes:',
-          '(1) Registration and sign-in: when you register or sign in, we collect your mobile number or email address to create an account and for identity verification and account security. When you use carrier one-tap login, the carrier returns, based on your authorization, information used to verify the device’s own number.',
-          '(2) Records and content: when you use the recording features, we collect the content you fill in or upload, including text, photos, videos, Live Photos, audio, as well as the child’s name/nickname, birth year and month, and family role, to provide growth records, display, and synchronization to you and the family members you authorize.',
-          '(3) Family sharing: when you create or join a family, or generate or use an invite code, we collect the relevant family-relationship information to enable content sharing and permission management among family members.',
-          '(4) Device and log information: to ensure secure and stable operation and to troubleshoot, we may collect necessary device information (such as device model, OS version, device identifiers) and log information (such as operation records and crash logs).',
-          '(5) Permissions: to provide the relevant features, after your authorization we access the following device permissions, which you may enable or disable at any time in system settings:',
-          '• Camera: to take photos and videos;',
-          '• Photos/Storage: to select and upload photos and videos, or to save content;',
-          '• Microphone: to record audio and the sound in videos;',
-          '• Clipboard: to copy invite codes/links;',
-          '• Notifications (if applicable): to send you reminders related to the Service.',
-          'None of the above permissions are enabled by default, and we will not access them without your authorization. Declining a permission may make the corresponding feature unavailable but does not affect your use of other features.',
+        { h: '2. Device Permissions', p: [
+          'The app requests permissions only when you use the relevant feature. Camera access is used to capture photos or videos and scan invitation QR codes; Photos/Media Library access selects and uploads media or saves generated content; Microphone access records voice or video sound; Notifications deliver new family records, growth reminders, and service messages; Clipboard access is used only when you choose to copy an invite code or link; Network access supports sign-in, sync, media uploads, transcription, and service data.',
+          'You may refuse a permission or disable it later in system settings. The related feature may stop working, but unrelated features remain available. The app does not request precise location permission. Places in records are entered by you, and the app does not intentionally read media location metadata.',
         ] },
-        { h: '3. Cookies and Similar Technologies', p: [
-          'To keep you signed in and remember preferences, we or our service providers may store a small amount of necessary information locally on your device (such as local cache and sign-in tokens). You may clear local storage by clearing app data, but this may affect your normal use of the Service.',
+        { h: '3. How We Use Information', p: [
+          'We use this information to create and maintain accounts, verify identity, store and sync family memories, share content among authorized members of the same family, and provide invitations, invited recording, time capsules, memory books, annual reviews, virtual pets, media uploads, transcription, exports, and notifications.',
+          'We also remember language, theme, notification frequency, and quiet-hour preferences, and use necessary information to troubleshoot, prevent abuse, maintain service stability, and comply with law. Before using information for a new purpose not described here, we will provide any notice and obtain any consent required by law.',
         ] },
-        { h: '4. How We Entrust, Share, Transfer, and Disclose', p: [
-          '(1) Entrusted processing: to provide the Service, we may entrust third parties (such as cloud service providers) to process some personal information. We will sign agreements with such parties requiring them to process personal information in accordance with this Policy and our instructions.',
-          '(2) Sharing: in the family-sharing feature, the content you record within a family is shared with members you have actively invited and who have joined the same family. Apart from that, we do not share your personal information with third parties, except: with your separate consent; as necessary to provide a feature you actively choose (such as carrier one-tap login); or in other circumstances provided by law.',
-          '(3) Transfer: we do not transfer your personal information, but in the event of a merger, acquisition, or reorganization, we will require the new holder to continue to be bound by this Policy, failing which we will require it to obtain your authorization again.',
-          '(4) Public disclosure: we do not publicly disclose your personal information unless we obtain your explicit consent or are required to by laws or regulators.',
+        { h: '4. Family Sharing, Invitations, and Visibility', p: [
+          'Members of the same family can view and manage that family’s child information, memories, and related media. Invite only people you trust, and protect invite codes and QR codes. Server access is isolated by family, and access changes when family membership changes.',
+          'Anyone with a valid invited-record link may see the activity, child nickname, inviter role, and other necessary details shown on that page and may submit a record before the link expires. Do not publish links containing private information in public channels. You can deactivate generated links in the app.',
+          'A custom cover uploaded for a family activity may load through a public image URL. Do not use children’s photos, identity documents, contact details, or other sensitive content as custom covers. Photos, videos, and audio attached to memories are stored privately and protected by family access controls.',
         ] },
-        { h: '5. Third-Party SDKs and Services', p: [
-          'To provide specific features, the Service may integrate third-party SDKs or services, which will process the relevant information in accordance with their own privacy policies. The main third parties are listed below (the actual integration shall prevail):',
-          '• Carrier number authentication: [provider, e.g. China Mobile], for device-number verification in one-tap login;',
-          '• Cloud service/data storage: [cloud provider, e.g. Supabase / self-hosted server], for storing and syncing accounts and recorded content;',
-          '• Third-party login: [e.g. WeChat Open Platform, Sign in with Apple], for third-party account sign-in;',
-          '• [other SDKs such as push or analytics — please complete as applicable].',
-          'We manage the third-party SDKs we integrate and endeavor to require them to take necessary security measures to protect personal information.',
+        { h: '5. Processors and Third-Party Services', p: [
+          'We use a self-hosted Supabase service for accounts, family relationships, records, media, invitations, and service logs. Sign in with Apple processes authorized Apple identity information. DooPush and operating-system or device-vendor push channels process device identifiers, push tokens, device brand and model, system and app versions, User-Agent, language, time zone, and notification content. Only after your separate explicit consent, the speech-recognition provider named in the consent prompt processes audio you submit for transcription.',
+          'Third-party services may process information under their own privacy policies. We require processors to provide protection no less than this Policy and applicable law require. You can reduce such processing by disabling notifications or not using the related feature. We otherwise provide personal information to third parties only with your explicit consent, to fulfill a feature you request, to comply with law, or when reasonably necessary to protect personal safety or property.',
+          'If a merger, acquisition, asset transfer, or similar transaction occurs, we will require the new personal information handler to remain bound by this Policy and provide any notice required by law.',
         ] },
-        { h: '6. How We Store Personal Information', p: [
-          'Location: your personal information is stored at [storage location, e.g. a cloud service/server within the People’s Republic of China]. If personal information is to be provided outside the mainland, we will separately obtain your separate consent and fulfill the corresponding obligations in accordance with law.',
-          'Retention: we retain your personal information only for the period necessary to fulfill the purposes described in this Policy, except as otherwise provided by law. After the retention period, we will delete or anonymize your personal information.',
+        { h: '6. Storage and Retention', p: [
+          'Sign-in tokens, language, and some preferences are stored locally on your device. Clearing app data removes that local information and may sign you out. Account, family, and record data is stored on servers we deploy, and media is stored in the corresponding object storage.',
+          'We retain information only as long as needed for the purposes in this Policy. Deleting a record removes its database entry, and we make reasonable efforts to remove associated media. Copies in caches, backups, or technical workflows are removed within a reasonable period unless law requires retention. Expired or deactivated invited-record links cannot accept new submissions, though necessary invitation records may be retained for record relationships, security auditing, or legal obligations.',
+          'If personal information must be transferred across borders, we will provide notice, obtain separate consent, and fulfill other requirements under applicable law.',
         ] },
-        { h: '7. How We Protect Personal Information', p: [
-          'We adopt security and management measures consistent with industry standards (such as transmission encryption and access control) to protect your personal information from unauthorized access, disclosure, alteration, or loss.',
-          'Despite the above measures, please understand that the internet is not absolutely secure. In the event of a personal information security incident, we will inform you and report to the competent authorities in accordance with law.',
+        { h: '7. Information Security', p: [
+          'We use safeguards appropriate to the risk, including encrypted transport, authentication, family-based database row-level access controls, private media storage, and least-privilege access.',
+          'No internet service can guarantee absolute security. Protect your credentials, verification codes, invite codes, and invited-record links. If a personal information incident occurs, we will take remedial measures and notify affected users and authorities where required by law.',
         ] },
-        { h: '8. Your Rights', p: [
-          'In accordance with applicable laws and regulations, we safeguard your rights over your own personal information:',
-          '• Access and correction: you may access and correct your account information and recorded content;',
-          '• Deletion: where permitted by law, you may delete your recorded content or request that we delete your personal information;',
-          '• Withdrawal of consent: you may withdraw consent by turning off relevant permissions or deleting your account;',
-          '• Account deletion: you may apply to delete your account, after which we will delete or anonymize your personal information in accordance with law;',
-          '• Obtaining a copy: within the scope provided by law, you have the right to obtain a copy of your personal information.',
-          'You may exercise these rights via the methods set out in "How to Contact Us," and we will respond within the period prescribed by law.',
+        { h: '8. Your Rights and Account Deletion', p: [
+          'You can view, correct, or delete relevant profile information and records in the app; disable device permissions in system settings; adjust notification preferences; request access, correction, a copy, deletion, or restriction of personal information; and delete your account from Account Settings.',
+          'If you are the family’s only member, deleting your account permanently deletes the family and associated records. If other members remain, you leave the family; memories, custom activities, and media you created are deleted, while content created by others and family-level child profiles managed by remaining guardians are retained with their link to your account removed.',
+          'Sign-in information, profile data, and push device information tied to your account are deleted or anonymized. Accounts linked to Sign in with Apple must reauthenticate during deletion so the Apple token can be revoked. If you cannot complete an action in the app, email hi@yibaijianshi.app. We may verify your identity and generally respond within 15 business days.',
         ] },
-        { h: '9. How We Handle Children’s Personal Information', p: [
-          'A core scenario of the Service involves recording information about children (minors under the age of fourteen), and we attach great importance to protecting children’s personal information.',
-          'We collect, use, and store the recorded children’s personal information only with the consent of the child’s parents or other guardians. As a guardian, by entering a child’s name, birth year/month, photos, videos, and the like into the Service, you, as guardian, consent to our handling of such information in accordance with this Policy.',
-          'We apply protection measures to children’s personal information that are no lower than those for adults, and protect it strictly as sensitive personal information.',
-          'If, as a guardian, you wish to access, correct, or delete a child’s personal information, or withdraw the relevant consent, you may contact us via the methods set out in this Policy.',
-          'If we discover that we have collected children’s personal information without first obtaining guardian consent, we will seek to delete it as soon as possible.',
+        { h: '9. Children’s Personal Information', p: [
+          'The app is primarily for parents, guardians, and other adult family members and does not offer independent account services to children under 14. A child’s name or nickname, birth date, photos, videos, audio, and growth history may be children’s personal information or sensitive personal information.',
+          'Before providing it, a guardian should confirm that doing so is in the child’s best interests and provide any required notice or consent. We process children’s information only to provide family memory features, not for targeted advertising or sale.',
+          'Guardians may view, correct, or delete children’s information in the app or contact us by email. If we discover that children’s information was collected without valid guardian consent, we will delete it or take other necessary measures as soon as legally required.',
         ] },
-        { h: '10. How This Policy Is Updated', p: [
-          'We may revise this Policy from time to time. After a revision, we will publish the updated version within the Service by appropriate means and indicate the update date; for major changes, we will provide a more prominent notice.',
-          'If you continue to use the Service after this Policy is updated, you acknowledge and agree to the updated Policy.',
+        { h: '10. Policy Updates', p: [
+          'We may update this Policy because of feature changes, service adjustments, or legal requirements. We will publish the new version in the app or by another appropriate method and update its date. For material changes to processing purposes, methods, or your rights, we will provide more prominent notice and obtain renewed consent where required.',
         ] },
-        { h: '11. How to Contact Us', p: [
-          'If you have any questions, complaints, or suggestions about this Policy or about personal information protection, you may contact us as follows, and we will handle them as soon as possible:',
-          'Personal information handler: [Company Legal Name]',
-          'Email: [contact email]',
-          'Address: [contact address]',
-          'In general, we will respond to your request within fifteen business days.',
+        { h: '11. Contact Us', p: [
+          'For questions, feedback, complaints, or requests about this Policy, personal information, or children’s privacy, contact the 100 Things operations team.',
+          'Email: hi@yibaijianshi.app',
+          'We will verify and process your request as soon as possible, generally within 15 business days.',
         ] },
       ],
     },
@@ -543,6 +522,10 @@ export const en = {
     listenHint: "Have a listen · re-record if you'd like",
     voiceTextLabel: 'Voice text · auto transcript',
     transcribing: 'Transcribing…',
+    transcribeConsentTitle: 'Send this recording for transcription?',
+    transcribeConsentBody: 'With your consent, this recording will be sent to {{provider}} for speech recognition. You can skip transcription and still save the original recording.',
+    transcribeConsentDecline: 'Not now',
+    transcribeConsentAllow: 'Allow and transcribe',
     transcriptPlaceholder: 'The transcript will appear here — edit it anytime…',
     transcriptHint: 'Auto transcript may be off — just fix a word or two. The original audio is kept too.',
     tapToAddPhoto: 'Tap to add a photo',
@@ -770,13 +753,6 @@ export const en = {
       ['The service will grow', 'We may add, adjust or retire features. For important changes affecting your rights, we\'ll tell you in the app in advance.'],
       ['Find us', 'Questions about this agreement? Write to us anytime at {{email}}.'],
     ],
-    privacy: [
-      ['What we collect', 'Only what the app needs to work: the family info you fill in, and the memories you choose to record.'],
-      ['How we use it', 'To show your memory book, generate the printed-book layout, and gently remind you at your chosen pace. That\'s all — never sold.'],
-      ['Who can see it', 'By default only you and the family you invite can see these memories. You can adjust this anytime in Settings.'],
-      ['You decide', 'You can export or delete your content anytime. After deletion, we clear it from our servers within a reasonable period.'],
-      ['Find us', 'For any privacy questions, write to us at {{email}}.'],
-    ],
     about: 'About',
     versionBuild: 'Version {{version}} (build {{build}})',
     aboutTagline: 'Together with your child, finish a hundred worthwhile things,\none by one, slowly.',
@@ -814,11 +790,11 @@ export const en = {
     deletePermanent: 'Permanently delete account',
     deleteAccountConfirmTitle: 'Permanently delete account?',
     deleteAccountConfirmBody: 'All memories, photos and recordings will be permanently erased with no way to recover them. Delete anyway?',
-    // When the family has other members: deleting only removes you; the family's records (incl. yours) stay
+    // In a shared family, delete this user's content while preserving other members' content.
     deleteConfirmTextShared: 'Delete my account',
-    deleteWarningShared: "After deletion you'll leave this family and your account will be permanently removed — you'll no longer be able to access the family's shared records. The memories you recorded will stay with the rest of your family.",
-    deleteCheckShared: "I understand that after deletion I'll leave this family, lose access to the shared records, and my account cannot be recovered.",
-    deleteAccountConfirmBodyShared: "You'll leave this family and permanently delete your account, losing access to the family's records. The entries you recorded will stay with your family. Delete anyway?",
+    deleteWarningShared: "After deletion you'll leave this family. Your account and the memories, media, recordings, and custom activities you created will be permanently deleted. Content created by other family members will remain.",
+    deleteCheckShared: 'I understand that my account and the content I created will be permanently deleted and cannot be recovered.',
+    deleteAccountConfirmBodyShared: 'Your account and the memories, media, recordings, and custom activities you created will be permanently deleted. Delete anyway?',
     bindFailTitle: 'Binding failed',
     tryAgain: 'Please try again',
     bindEmail: 'Bind email',

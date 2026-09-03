@@ -1,6 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { View, Text, ActivityIndicator, Linking, Pressable, Platform, PermissionsAndroid, AppState, Alert } from 'react-native';
-import * as Clipboard from 'expo-clipboard';
+import { View, Text, ActivityIndicator, Linking, Pressable, Platform, PermissionsAndroid } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -16,7 +15,7 @@ import { I18nProvider, loadSavedLang, useT, type Lang } from './src/i18n';
 import { DataProvider, useData } from './src/data/DataProvider';
 import { DEFAULT_ME, meName, upsertPushDevice, markNotificationClicked } from './src/data';
 import { getSession, getValidSession, onAuthStateChange } from './src/lib/auth';
-import { parseInviteCode, parseInviteFromClipboard } from './src/lib/invite';
+import { parseInviteCode } from './src/lib/invite';
 import { formatDooPushError, markDooPushConfigured, markDooPushUnconfigured, safeDooPushRegister } from './src/lib/doopushRegister';
 
 import HomeFeed from './src/screens/HomeFeed';
@@ -245,11 +244,8 @@ function AppNavigator() {
   const t = useT();
   const [initialRoute, setInitialRoute] = useState<string | null>(null);
 
-  // 深链 / 剪贴板识别到的同一邀请码只处理一次，避免重复弹窗
+  // 同一深链邀请码只处理一次，避免重复跳转。
   const handledCodeRef = useRef<string | null>(null);
-  // 剪贴板检测函数放进 ref，让 AppState 回调始终读到最新的家庭态闭包
-  const clipboardCheckRef = useRef<() => void>(() => {});
-  const checkingClipRef = useRef(false);
 
   useEffect(() => {
     if (loading || initialRoute) return;
@@ -277,42 +273,6 @@ function AppNavigator() {
     };
     Linking.getInitialURL().then(url => { if (url) handleUrl({ url }); });
     const sub = Linking.addEventListener('url', handleUrl);
-    return () => sub.remove();
-  }, []);
-
-  // 剪贴板口令：复制含邀请链接的文本，打开/切回 App 时自动识别并询问加入
-  // （抖音/淘宝那种“复制链接进 App 打开”的效果）。
-  // 只在“已登录且不在多人家庭”（真能加入）时才读剪贴板，尽量少触发 iOS 的“已粘贴”横幅；
-  // 只认 join/<code> 链接形态，避免把任意短文本误判成邀请。
-  clipboardCheckRef.current = async () => {
-    if (checkingClipRef.current || !loaded || !navigationRef.isReady()) return;
-    if (family && (family.members?.length ?? 0) > 1) return;            // 多人家庭无法直接加入
-    if ((navigationRef as any).getCurrentRoute?.()?.name === 'JoinFamily') return;
-    checkingClipRef.current = true;
-    try {
-      if (!(await Clipboard.hasStringAsync())) return;
-      const code = parseInviteFromClipboard(await Clipboard.getStringAsync());
-      if (!code) return;
-      if (family?.inviteCode && code === family.inviteCode) return;     // 自己家的邀请码
-      if (handledCodeRef.current === code) return;                      // 本次会话已处理过
-      handledCodeRef.current = code;
-      Alert.alert(
-        t('joinFamily.clipboardTitle'),
-        t('joinFamily.clipboardBody', { code }),
-        [
-          { text: t('common.cancel'), style: 'cancel' },
-          { text: t('joinFamily.clipboardJoin'), onPress: () => (navigationRef as any).navigate('JoinFamily', { code }) },
-        ],
-      );
-    } catch {} finally {
-      checkingClipRef.current = false;
-    }
-  };
-
-  // 冷启动（数据就绪后）查一次 + 每次回到前台再查一次
-  useEffect(() => { if (loaded) clipboardCheckRef.current(); }, [loaded]);
-  useEffect(() => {
-    const sub = AppState.addEventListener('change', s => { if (s === 'active') clipboardCheckRef.current(); });
     return () => sub.remove();
   }, []);
 

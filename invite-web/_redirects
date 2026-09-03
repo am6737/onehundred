@@ -1,3 +1,4 @@
 # Netlify / Cloudflare Pages 路径重写：/join/<code> 交给单页 join/index.html 渲染（HTTP 200，不改地址栏）。
 # .well-known/* 是静态文件，按原路径直出，不要重写。
 /join/*   /join/index.html   200
+/privacy  /privacy/index.html  200

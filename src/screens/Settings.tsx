@@ -1153,9 +1153,15 @@ function DocSheet({ kind, onClose }: any) {
   const { theme } = useTheme();
   const { t, tRaw } = useI18n();
   const insets = useSafeAreaInsets();
-  const title = kind === 'terms' ? t('settings.docTermsTitle') : t('settings.docPrivacyTitle');
-  const body = (tRaw(kind === 'terms' ? 'settings.terms' : 'settings.privacy') || [])
-    .map(([h, p]) => [h, p.replace('{{email}}', APP_EMAIL)]);
+  const privacyDoc = tRaw('agreement.privacy') || {};
+  const title = kind === 'terms' ? t('settings.docTermsTitle') : privacyDoc.title;
+  const updated = kind === 'terms' ? t('settings.docUpdated') : privacyDoc.updated;
+  const sections = kind === 'terms'
+    ? (tRaw('settings.terms') || []).map(([h, p]) => ({
+      h,
+      p: [p.replace('{{email}}', APP_EMAIL)],
+    }))
+    : (privacyDoc.sections || []);
 
   return (
     <Modal visible animationType="slide" onRequestClose={onClose}>
@@ -1164,16 +1170,18 @@ function DocSheet({ kind, onClose }: any) {
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 22, paddingBottom: 48 + insets.bottom }}>
           <Text style={{
             fontFamily: theme.fonts.body, fontSize: 12.5, color: theme.inkSoft, letterSpacing: 0.3,
-          }}>{t('settings.docUpdatedLine', { date: t('settings.docUpdated') })}</Text>
-          {body.map(([h, p], i) => (
+          }}>{t('settings.docUpdatedLine', { date: updated })}</Text>
+          {sections.map((section, i) => (
             <View key={i} style={{ marginTop: 22 }}>
               <Text style={{
                 fontFamily: theme.fonts.head, fontSize: 16.5, color: theme.ink,
-              }}>{h}</Text>
-              <Text style={{
-                marginTop: 9, fontFamily: theme.fonts.body, fontSize: 14,
-                lineHeight: 27, color: theme.inkSoft,
-              }}>{p}</Text>
+              }}>{section.h}</Text>
+              {section.p.map((paragraph, paragraphIndex) => (
+                <Text key={paragraphIndex} style={{
+                  marginTop: 9, fontFamily: theme.fonts.body, fontSize: 14,
+                  lineHeight: 27, color: theme.inkSoft,
+                }}>{paragraph}</Text>
+              ))}
             </View>
           ))}
         </ScrollView>
@@ -1527,7 +1535,7 @@ function DeleteAccountSheet({ onClose }: any) {
   const t = useT();
   const insets = useSafeAreaInsets();
   const { family } = useData();
-  // 家里还有别人时，注销只是自己退出，家庭记录（含我记的）都会留给家人 —— 文案要说实话
+  // 共享家庭中只删除当前用户创建的内容，其他成员的内容继续保留。
   const shared = (family?.members?.length ?? 1) > 1;
   const CONFIRM_TEXT = t(shared ? 'settings.deleteConfirmTextShared' : 'settings.deleteConfirmText');
   const [input, setInput] = useState('');

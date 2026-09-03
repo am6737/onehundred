@@ -466,20 +466,49 @@ CREATE POLICY "illustrations_family_write" ON storage.objects FOR ALL TO authent
 -- 10. Account deletion: 用户删自己账号。
 --     创建者注销前先把「还有其他成员」的家移交给最早加入的成员，否则 families.created_by
 --     ON DELETE CASCADE 会连带删掉整个家；只有唯一成员的家才随 CASCADE 删空。
---     成员记过的内容归家庭所有：kids/memories/custom_levels.user_id 为 ON DELETE SET NULL，
---     作者注销后内容保留、署名置空。
+--     注销成员创建的 memories/custom_levels 会删除；家庭级孩子资料继续由其他监护人管理，
+--     其作者关联随账号删除置空。Storage 文件由 delete-account Edge Function 随后清理。
 CREATE OR REPLACE FUNCTION public.delete_own_account()
-RETURNS void
+RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = ''
 AS $$
 DECLARE
   uid uuid := auth.uid();
+  family_id_to_delete uuid;
+  shared_family boolean := false;
+  memory_ids text[] := ARRAY[]::text[];
+  illustration_paths text[] := ARRAY[]::text[];
 BEGIN
   IF uid IS NULL THEN
     RAISE EXCEPTION 'not_authenticated' USING errcode = '28000';
   END IF;
+
+  SELECT fm.family_id INTO family_id_to_delete
+  FROM public.family_members fm
+  WHERE fm.user_id = uid
+  LIMIT 1;
+
+  IF family_id_to_delete IS NOT NULL THEN
+    SELECT count(*) > 1 INTO shared_family
+    FROM public.family_members fm
+    WHERE fm.family_id = family_id_to_delete;
+
+    SELECT COALESCE(array_agg(m.id::text), ARRAY[]::text[]) INTO memory_ids
+    FROM public.memories m
+    WHERE m.family_id = family_id_to_delete
+      AND (NOT shared_family OR m.user_id = uid);
+
+    SELECT COALESCE(array_agg(c.illustration_path), ARRAY[]::text[]) INTO illustration_paths
+    FROM public.custom_levels c
+    WHERE c.family_id = family_id_to_delete
+      AND c.illustration_path IS NOT NULL
+      AND (NOT shared_family OR c.user_id = uid);
+  END IF;
+
+  DELETE FROM public.memories WHERE user_id = uid;
+  DELETE FROM public.custom_levels WHERE user_id = uid;
 
   -- 把「我创建、但还有其他成员」的家移交给最早加入的另一位成员；
   -- 我是唯一成员的家不动，随下面的 DELETE 一并 CASCADE 删掉空家。
@@ -498,6 +527,12 @@ BEGIN
     );
 
   DELETE FROM auth.users WHERE id = uid;
+
+  RETURN jsonb_build_object(
+    'familyId', family_id_to_delete,
+    'memoryIds', to_jsonb(memory_ids),
+    'illustrationPaths', to_jsonb(illustration_paths)
+  );
 END;
 $$;
 REVOKE ALL ON FUNCTION public.delete_own_account() FROM public;

@@ -478,6 +478,11 @@ services:
       DOOPUSH_APP_ID: "${DOOPUSH_APP_ID:-}"
       DOOPUSH_API_KEY: "${DOOPUSH_API_KEY:-}"
       DOOPUSH_BASE_URL: "${DOOPUSH_BASE_URL:-https://doopush.com/api/v1}"
+      # Sign in with Apple 注销：用于交换一次性 authorization code 并撤销 token。
+      APPLE_TEAM_ID: "${APPLE_TEAM_ID:-}"
+      APPLE_KEY_ID: "${APPLE_KEY_ID:-}"
+      APPLE_CLIENT_ID: "${APPLE_CLIENT_ID:-com.hitosea.moments100}"
+      APPLE_PRIVATE_KEY: "${APPLE_PRIVATE_KEY:-}"
     command:
       [
         "start",

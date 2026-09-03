@@ -30,7 +30,6 @@ invite-web/
 |------|--------|------|
 | `join/index.html` | `IOS_STORE_URL` / `ANDROID_STORE_URL` | App 上架后的商店链接（留空则按钮显示「即将上线」） |
 | `join/index.html` | `APP_SCHEME`（已填 `moments100`） | 若正式包 scheme 改了再同步 |
-| `.well-known/apple-app-site-association` | `<TEAM_ID>` | Apple Team ID（`eas credentials` 或 Apple 开发者后台，形如 `A1B2C3D4E5`） |
 | `.well-known/assetlinks.json` | `<ANDROID_SHA256>` / `<ANDROID_SHA256_DEV>` | 签名证书 SHA256 指纹 |
 
 > 拿 Android SHA256：走 Play 应用签名时用 **Play Console → 应用完整性 → 应用签名** 里的
@@ -41,7 +40,8 @@ invite-web/
 
 链接在浏览器可点之后，要做到「点 https 链接直接拉起 App、不过浏览器」，需要：
 
-1. **本目录已部署**且关联文件占位已填真值（上表）。
+1. **本目录已部署**且 Android 关联文件占位已填真值（上表）。iOS AASA 已使用
+   `eas.json` 中的 Team ID `G365J5PZA2`；更换 Apple Developer 团队时必须同步修改。
 2. App 端配置已就位 —— 已在 `app.config.ts` 写好：
    - iOS `ios.associatedDomains: ["applinks:yibaijianshi.app"]`
    - Android `android.intentFilters`（`autoVerify: true`，host `yibaijianshi.app`，pathPrefix `/join`）

@@ -46,6 +46,26 @@ This Docker Compose configuration includes the following services:
 - **[Ask DeepWiki / Supabase](https://deepwiki.com/supabase/supabase/3-self-hosted-deployment)** - DeepWiki-generated description of self-hosted configuration
 - **[CONFIG.md](./CONFIG.md)** - Configuration reference for all environment variables
 
+## App Account Deletion
+
+The mobile app calls the `delete-account` Edge Function so account deletion can also
+revoke Sign in with Apple tokens and remove uploaded files.
+
+Before a production deployment:
+
+1. Apply `migrations/20260903_app_store_account_deletion.sql` to the production database.
+2. Set `APPLE_TEAM_ID`, `APPLE_KEY_ID`, `APPLE_CLIENT_ID`, and `APPLE_PRIVATE_KEY` in
+   `.env`. Encode line breaks in the `.p8` private key as `\n`.
+3. Restart the `functions` service so the environment and
+   `volumes/functions/delete-account/index.ts` are loaded.
+4. Delete test accounts on a physical iOS device for both a sole-member family and a
+   shared family. Confirm that the user, authored records, push devices, and matching
+   objects in the `memories` and `illustrations` buckets are gone.
+
+Do not commit the `.p8` key or the production `.env` file. A `cleanupCompleted: false`
+response means the account and database rows were deleted but Storage cleanup needs an
+operator retry based on the Edge Function error log.
+
 ## Updates
 
 To update your self-hosted Supabase instance:

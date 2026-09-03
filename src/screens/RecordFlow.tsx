@@ -18,6 +18,7 @@ import { useVideoPlayer, VideoView } from 'expo-video';
 import { useEvent, useEventListener } from 'expo';
 import { File as FSFile } from 'expo-file-system';
 import { transcribeAudio } from '../lib/transcribe';
+import Constants from 'expo-constants';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme, TONE, COLORS } from '../theme/tokens';
 import { useT } from '../i18n';
@@ -156,6 +157,7 @@ export default function RecordFlow({ route, navigation }) {
   const audioRecorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const soundRef = useRef<AudioPlayer | null>(null);
   const recordingUriRef = useRef<string | null>(null);
+  const transcriptionPromptedUriRef = useRef<string | null>(null);
   const elapsedRef = useRef(0);
   const savedMemRef = useRef(null); // 保存成功后的 memory，庆祝页结束时跳详情用
 
@@ -346,16 +348,28 @@ export default function RecordFlow({ route, navigation }) {
     if (!recordingDone) return;
     const uri = recordingUriRef.current;
     if (!uri) return;
+    if (transcriptionPromptedUriRef.current === uri) return;
+    transcriptionPromptedUriRef.current = uri;
 
-    let cancelled = false;
-    setTranscribing(true);
+    const provider = String(Constants.expoConfig?.extra?.asrProviderName || 'OpenAI');
 
-    transcribeAudio(uri)
-      .then(text => { if (!cancelled) setTranscript(text); })
-      .catch(err => console.warn('Transcription failed:', err))
-      .finally(() => { if (!cancelled) setTranscribing(false); });
-
-    return () => { cancelled = true; };
+    Alert.alert(
+      t('record.transcribeConsentTitle'),
+      t('record.transcribeConsentBody', { provider }),
+      [
+        { text: t('record.transcribeConsentDecline'), style: 'cancel' },
+        {
+          text: t('record.transcribeConsentAllow'),
+          onPress: () => {
+            setTranscribing(true);
+            transcribeAudio(uri)
+              .then(text => setTranscript(text))
+              .catch(err => console.warn('Transcription failed:', err))
+              .finally(() => setTranscribing(false));
+          },
+        },
+      ],
+    );
   }, [step, type, recording, recordingDone]);
 
   /* ── Photo capture ── */

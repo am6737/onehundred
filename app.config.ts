@@ -49,9 +49,33 @@ const config: ExpoConfig = {
     supportsTablet: true,
     bundleIdentifier: IS_DEV ? "com.hitosea.moments100.dev" : "com.hitosea.moments100",
     usesAppleSignIn: true,
+    // App-level aggregate for Required Reason APIs used by React Native and installed
+    // Expo modules. Static CocoaPod manifests are not always merged by App Store tools.
+    privacyManifests: {
+      NSPrivacyTracking: false,
+      NSPrivacyCollectedDataTypes: [],
+      NSPrivacyAccessedAPITypes: [
+        {
+          NSPrivacyAccessedAPIType: "NSPrivacyAccessedAPICategoryUserDefaults",
+          NSPrivacyAccessedAPITypeReasons: ["CA92.1"],
+        },
+        {
+          NSPrivacyAccessedAPIType: "NSPrivacyAccessedAPICategoryFileTimestamp",
+          NSPrivacyAccessedAPITypeReasons: ["0A2A.1", "3B52.1", "C617.1"],
+        },
+        {
+          NSPrivacyAccessedAPIType: "NSPrivacyAccessedAPICategoryDiskSpace",
+          NSPrivacyAccessedAPITypeReasons: ["E174.1", "85F4.1"],
+        },
+        {
+          NSPrivacyAccessedAPIType: "NSPrivacyAccessedAPICategorySystemBootTime",
+          NSPrivacyAccessedAPITypeReasons: ["35F9.1"],
+        },
+      ],
+    },
     // Universal Link：让 https://yibaijianshi.app/join/<code> 直接拉起 App 到「加入家庭」。
     // 生效三条件：(1) 关联文件 apple-app-site-association 已部署到该域名 /.well-known/
-    //           （见 invite-web/，把 <TEAM_ID> 换成真实 Apple Team ID）；
+    //           （见 invite-web/，Team ID 必须与当前 Apple Developer 团队一致）；
     //           (2) 本条配置已在包里；(3) 重新出原生包。未齐时链接优雅降级为打开网页版邀请页。
     associatedDomains: ["applinks:yibaijianshi.app"],
   },
@@ -156,6 +180,8 @@ const config: ExpoConfig = {
       appId: DOOPUSH_APP_ID,
       apiKey: DOOPUSH_API_KEY,
     },
+    asrProviderName:
+      process.env.EXPO_PUBLIC_ASR_PROVIDER_NAME || "一百件事语音识别服务",
   },
 };
 

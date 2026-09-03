@@ -98,6 +98,7 @@ npm install
 APP_VARIANT=development            # development → Dev 变体；留空/其它 → 生产变体
 EXPO_PUBLIC_SUPABASE_URL=...       # 你的 Supabase 地址
 EXPO_PUBLIC_SUPABASE_ANON_KEY=...  # Supabase anon key
+EXPO_PUBLIC_ASR_PROVIDER_NAME=...  # 转写授权弹窗展示的实际服务商名称
 EXPO_PUBLIC_DOOPUSH_APP_ID=...     # DooPush 生产凭据
 EXPO_PUBLIC_DOOPUSH_API_KEY=...
 EXPO_PUBLIC_DOOPUSH_APP_ID_DEV=... # DooPush Dev 凭据（APP_VARIANT=development 时使用）
@@ -113,6 +114,8 @@ DOOPUSH_VIVO_API_KEY_DEV=...
 ```
 
 > 缺少 DooPush 凭据时 App 会跳过推送初始化（不会崩溃），其余功能可正常使用。
+> `EXPO_PUBLIC_ASR_PROVIDER_NAME` 必须与生产环境实际处理录音的服务商一致；自建
+> Whisper 可填写“一百件事语音识别服务”，使用第三方时填写其公开名称。
 
 ### 3. 运行 App
 
@@ -140,6 +143,7 @@ npm test          # jest-expo
   - `transcribe`：`ASR_PROVIDER` / `ASR_API_KEY` / `ASR_MODEL` / `ASR_BASE_URL`
   - `send-pet-notifications`：`DOOPUSH_APP_ID` / `DOOPUSH_API_KEY`（与客户端 `EXPO_PUBLIC_DOOPUSH_*` 一致）
   - `yaoji`：`JWT_SECRET`、`SUPABASE_SERVICE_ROLE_KEY`、`SUPABASE_PUBLIC_URL`
+  - `delete-account`：`APPLE_TEAM_ID` / `APPLE_KEY_ID` / `APPLE_CLIENT_ID` / `APPLE_PRIVATE_KEY`
 
 > ⚠️ 重置本地库时请按 `supabase-docker` 的正确流程操作，避免误用破坏数据隔离的手段（见仓库内相关说明）。
 

@@ -86,9 +86,18 @@ export async function signOut() {
 
 // 永久注销：删除自己的账号（含级联清除全部回忆），再清掉本地会话。
 export async function deleteAccount() {
-  const { error } = await supabase.rpc('delete_own_account');
+  const providers = await getLinkedProviders();
+  let appleAuthorizationCode: string | null = null;
+  if (providers.includes('apple')) {
+    const credential = await appleCredential();
+    appleAuthorizationCode = credential.authorizationCode;
+  }
+
+  const { error } = await supabase.functions.invoke('delete-account', {
+    body: { appleAuthorizationCode },
+  });
   if (error) throw error;
-  // 账号已删，本地会话必须清掉；服务端可能已无此用户，signOut 报错就忽略。
+  // 服务端已删账号，本地会话必须清掉；此时 signOut 报错可以忽略。
   await supabase.auth.signOut().catch(() => {});
 }
 
@@ -160,7 +169,12 @@ async function appleCredential() {
     nonce: hashedNonce,
   });
   if (!credential.identityToken) throw new Error('Apple Sign-In: no identity token');
-  return { token: credential.identityToken, nonce: rawNonce };
+  if (!credential.authorizationCode) throw new Error('Apple Sign-In: no authorization code');
+  return {
+    token: credential.identityToken,
+    nonce: rawNonce,
+    authorizationCode: credential.authorizationCode,
+  };
 }
 
 export async function isAppleSignInAvailable(): Promise<boolean> {
