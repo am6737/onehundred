@@ -13,16 +13,6 @@ const { width: SCREEN_W } = Dimensions.get('window');
 
 /* ── Social Icons ── */
 
-function WeChatIcon({ size = 28 }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M9.5 4C5.91 4 3 6.69 3 10c0 1.85 1 3.49 2.53 4.55L5 16.75l2.5-1.25c.63.2 1.3.3 2 .3.17 0 .33 0 .5-.02A5.57 5.57 0 0 1 9.5 14c0-3.04 2.69-5.5 6-5.5.17 0 .34 0 .5.02C15.07 5.8 12.53 4 9.5 4z" fill="#57A862" />
-      <Path d="M21 14c0-2.49-2.46-4.5-5.5-4.5S10 11.51 10 14s2.46 4.5 5.5 4.5c.63 0 1.23-.09 1.8-.25l2.2 1.1-.5-1.72C20.17 16.72 21 15.44 21 14z" fill="#57A862" />
-      <Path d="M8 9a.75.75 0 1 0 0-1.5A.75.75 0 0 0 8 9zM12 9a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5zM14 13.5a.6.6 0 1 0 0-1.2.6.6 0 0 0 0 1.2zM17.5 13.5a.6.6 0 1 0 0-1.2.6.6 0 0 0 0 1.2z" fill="white" />
-    </Svg>
-  );
-}
-
 function AppleIcon({ size = 22, color = '#3A332B' }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
@@ -401,18 +391,6 @@ export function LoginWelcome({ navigation }) {
                 gap: 40,
                 paddingVertical: 12,
               }}>
-                <TouchableOpacity activeOpacity={0.7} style={{ alignItems: 'center', gap: 10 }}>
-                  <View style={{
-                    width: 56, height: 56, borderRadius: 28,
-                    backgroundColor: theme.cream,
-                    justifyContent: 'center', alignItems: 'center',
-                  }}>
-                    <WeChatIcon size={30} />
-                  </View>
-                  <Text style={{
-                    fontFamily: theme.fonts.body, fontSize: 13, color: theme.inkSoft,
-                  }}>{t('login.wechat')}</Text>
-                </TouchableOpacity>
                 {appleAvailable ? (
                 <TouchableOpacity
                   activeOpacity={0.7}
