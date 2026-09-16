@@ -115,6 +115,11 @@ services:
     container_name: supabase-auth
     image: supabase/gotrue:v2.189.0
     restart: unless-stopped
+    # Apple ID token verification fetches Apple's OIDC discovery document and
+    # signing keys at runtime. Use the host resolver explicitly because the
+    # Docker embedded DNS can intermittently fail external lookups.
+    dns:
+      - ${AUTH_DNS_SERVER:-192.168.100.200}
     healthcheck:
       test:
         [
