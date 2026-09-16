@@ -44,8 +44,8 @@ export function formatDooPushError(error: unknown) {
   }
 }
 
-function getRuntimeDooPushConfig(): { appId?: string; apiKey?: string } {
-  return (Constants.expoConfig?.extra?.doopush ?? {}) as { appId?: string; apiKey?: string };
+function getRuntimeDooPushConfig(): { appId?: string; appKey?: string } {
+  return (Constants.expoConfig?.extra?.doopush ?? {}) as { appId?: string; appKey?: string };
 }
 
 function logDooPushRuntimeState(stage: string) {
@@ -56,7 +56,7 @@ function logDooPushRuntimeState(stage: string) {
     configured,
     hasAppId: Boolean(cfg.appId),
     appId: cfg.appId,
-    hasApiKey: Boolean(cfg.apiKey),
+    hasAppKey: Boolean(cfg.appKey),
   });
 }
 
@@ -93,11 +93,11 @@ export async function safeDooPushRegister(): Promise<PushRegistration> {
   logDooPushRuntimeState('safeDooPushRegister:start');
   if (!configured) {
     const cfg = getRuntimeDooPushConfig();
-    if (!cfg.appId || !cfg.apiKey) {
+    if (!cfg.appId || !cfg.appKey) {
       throw new Error('DooPush 尚未初始化，请先检查 EXPO_PUBLIC_DOOPUSH_APP_ID / EXPO_PUBLIC_DOOPUSH_API_KEY 是否已注入并成功 configure');
     }
     try {
-      DooPush.configure({ appId: cfg.appId, apiKey: cfg.apiKey });
+      DooPush.configure({ appId: cfg.appId, appKey: cfg.appKey });
       markDooPushConfigured();
       logDooPushRuntimeState('safeDooPushRegister:configured-fallback');
     } catch (e) {

@@ -10,7 +10,7 @@
       "channel": "development",
       "autoIncrement": true,
       "env": {
-        "APP_VARIANT": "development"
+        "APP_VARIANT": "production"
       },
       "android": {
         "buildType": "apk"
@@ -36,7 +36,8 @@
     "production": {
       "ios": {
         "appleId": "service@hitosea.com",
-        "appleTeamId": "G365J5PZA2"
+        "appleTeamId": "G365J5PZA2",
+        "ascAppId": "6781630715"
       }
     }
   }

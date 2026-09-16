@@ -48,7 +48,7 @@ const HAS_HONOR_MCS = fs.existsSync(path.resolve(DOOPUSH_HONOR_MCS_FILE));
 
 const config: ExpoConfig = {
   name: IS_DEV ? "一百件事(Dev)" : "一百件事",
-  slug: "yibai",
+  slug: "100-moments",
   version: APP_VERSION,
   orientation: "portrait",
   icon: "./assets/icon.png",
@@ -58,6 +58,9 @@ const config: ExpoConfig = {
     supportsTablet: true,
     bundleIdentifier: IS_DEV ? "com.hitosea.moments100.dev" : "com.hitosea.moments100",
     usesAppleSignIn: true,
+    infoPlist: {
+      ITSAppUsesNonExemptEncryption: false,
+    },
     // App-level aggregate for Required Reason APIs used by React Native and installed
     // Expo modules. Static CocoaPod manifests are not always merged by App Store tools.
     privacyManifests: {
@@ -182,19 +185,19 @@ const config: ExpoConfig = {
   },
   extra: {
     eas: {
-      projectId: "068f5c93-dfff-445c-ba00-cb1fed6c4598",
+      projectId: "8ee80a69-5dd5-4504-bd1f-553def071b63",
     },
     // 把按环境选好的 DooPush 凭据带到运行时（APP_VARIANT 不会进 JS bundle）
     doopush: {
       appId: DOOPUSH_APP_ID,
-      apiKey: DOOPUSH_API_KEY,
+      appKey: DOOPUSH_API_KEY,
     },
     asrProviderName:
       process.env.EXPO_PUBLIC_ASR_PROVIDER_NAME || "一百件事语音识别服务",
   },
 };
 
-// DooPush 插件要求 appId/apiKey 必填。构建时这些值由 EAS 环境变量注入，
+// DooPush 插件要求 appId/appKey 必填。构建时这些值由 EAS 环境变量注入，
 // 但在 eas env:push 等引导阶段尚未就绪——缺失时跳过插件以免 config 解析失败。
 if (DOOPUSH_APP_ID && DOOPUSH_API_KEY) {
   const androidVendors: Record<string, unknown> = {};
@@ -225,20 +228,30 @@ if (DOOPUSH_APP_ID && DOOPUSH_API_KEY) {
     };
   }
 
-  // 荣耀 Honor：同华为，无内联凭证模式，必须提供 mcs-services.json 文件。plugin 在 prebuild 时
-  // 把它复制到 android/app/ 与 assets/，并注入荣耀 asplugin（com.hihonor.mcs.asplugin）、荣耀 Maven
-  // 仓库、com.hihonor.mcs:push 依赖。文件不存在则不启用（见上方 HAS_HONOR_MCS），本地/CI 缺文件时打包不含荣耀通道。
+  // 荣耀 Honor：提供 mcs-services.json 文件（plugin 在 prebuild 时复制到 android/app/ 与 assets/，
+  // 并注入荣耀 asplugin、Maven 仓库、com.hihonor.mcs:push 依赖）。文件不存在则不启用（见 HAS_HONOR_MCS）。
+  // 另外把文件里的 app_id / developer_id 一并作为内联值传入：DooPush 的原生清单里声明了
+  // <meta-data com.hihonor.push.app_id/developer_id>，其值来自 manifestPlaceholder DOOPUSH_HONOR_APP_ID /
+  // DOOPUSH_HONOR_DEVELOPER_ID（见 SDK withAppBuildGradle）。只传文件时占位符为空 → 运行期报 3607「缺少 AppId」。
   if (HAS_HONOR_MCS) {
-    androidVendors.honor = {
+    const honorVendor: Record<string, string> = {
       mcsServicesFile: DOOPUSH_HONOR_MCS_FILE,
     };
+    try {
+      const mcs = JSON.parse(
+        fs.readFileSync(path.resolve(DOOPUSH_HONOR_MCS_FILE), "utf8")
+      );
+      if (mcs.app_id) honorVendor.appId = String(mcs.app_id);
+      if (mcs.developer_id) honorVendor.developerId = String(mcs.developer_id);
+    } catch {}
+    androidVendors.honor = honorVendor;
   }
 
   config.plugins!.push([
     "doopush-react-native-sdk",
     {
       appId: DOOPUSH_APP_ID,
-      apiKey: DOOPUSH_API_KEY,
+      appKey: DOOPUSH_API_KEY,
       baseURL: "https://doopush.com/api/v1",
       ios: {
         mode: IS_DEV ? "development" : "production",
