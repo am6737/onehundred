@@ -18,12 +18,15 @@ import { cn } from "@/lib/utils"
 interface SettingsState {
   repository: AdminRepository | null
   permission: RoleCapabilitySummary | null
+  recommendationLimitEnabled: boolean | null
   loading: boolean
   error: string | null
 }
 
 type NoticeTone = "success" | "warning" | "error" | "neutral"
 type SaveStatus = "idle" | "saving" | "success" | "error"
+
+const RECOMMENDATION_LIMIT_FLAG = "daily_recommendation_limit"
 
 const roleLabels: Record<RoleCapabilitySummary["normalizedRole"], string> = {
   content_editor: "内容编辑",
@@ -167,10 +170,12 @@ function StatusBadge({ tone, children }: { tone: NoticeTone; children: React.Rea
 }
 
 export function SettingsPage() {
-  const [state, setState] = React.useState<SettingsState>({ repository: null, permission: null, loading: true, error: null })
+  const [state, setState] = React.useState<SettingsState>({ repository: null, permission: null, recommendationLimitEnabled: null, loading: true, error: null })
   const [saveStatus, setSaveStatus] = React.useState<SaveStatus>("idle")
+  const [recommendationSaveStatus, setRecommendationSaveStatus] = React.useState<SaveStatus>("idle")
   const governanceSettings = useGovernanceAuthorizationSettings()
   const [manualAuthorizationDraft, setManualAuthorizationDraft] = React.useState(governanceSettings.manualAuthorizationEnabled)
+  const [recommendationLimitDraft, setRecommendationLimitDraft] = React.useState(true)
 
   const config = getSupabaseConfigStatus()
 
@@ -179,13 +184,18 @@ export function SettingsPage() {
     try {
       const repository = await openRepository()
       try {
-        const permission = await repository.getPermissionSummary()
-        setState({ repository, permission, loading: false, error: null })
+        const [permission, recommendationLimit] = await Promise.all([
+          repository.getPermissionSummary(),
+          repository.getFeatureFlag(RECOMMENDATION_LIMIT_FLAG),
+        ])
+        setRecommendationLimitDraft(recommendationLimit.enabled)
+        setRecommendationSaveStatus("idle")
+        setState({ repository, permission, recommendationLimitEnabled: recommendationLimit.enabled, loading: false, error: null })
       } catch (error) {
-        setState({ repository, permission: null, loading: false, error: formatSettingsError(error) })
+        setState({ repository, permission: null, recommendationLimitEnabled: null, loading: false, error: formatSettingsError(error) })
       }
     } catch (error) {
-      setState({ repository: null, permission: null, loading: false, error: formatSettingsError(error) })
+      setState({ repository: null, permission: null, recommendationLimitEnabled: null, loading: false, error: formatSettingsError(error) })
     }
   }, [])
 
@@ -196,6 +206,7 @@ export function SettingsPage() {
   const repositoryMode = state.repository?.mode ?? null
   const canManageGovernance = state.permission?.normalizedRole === "system_admin"
   const hasGovernanceChanges = manualAuthorizationDraft !== governanceSettings.manualAuthorizationEnabled
+  const hasRecommendationChanges = state.recommendationLimitEnabled !== null && recommendationLimitDraft !== state.recommendationLimitEnabled
   const governanceTone = manualAuthorizationDraft ? "success" : "warning"
 
   function saveGovernanceSettings() {
@@ -211,6 +222,24 @@ export function SettingsPage() {
   function resetGovernanceDraft() {
     setManualAuthorizationDraft(governanceSettings.manualAuthorizationEnabled)
     setSaveStatus("idle")
+  }
+
+  async function saveRecommendationSettings() {
+    if (!state.repository || !canManageGovernance) return
+    setRecommendationSaveStatus("saving")
+    try {
+      const updated = await state.repository.updateFeatureFlag(RECOMMENDATION_LIMIT_FLAG, recommendationLimitDraft)
+      setState((current) => ({ ...current, recommendationLimitEnabled: updated.enabled }))
+      setRecommendationLimitDraft(updated.enabled)
+      setRecommendationSaveStatus("success")
+    } catch {
+      setRecommendationSaveStatus("error")
+    }
+  }
+
+  function resetRecommendationDraft() {
+    if (state.recommendationLimitEnabled !== null) setRecommendationLimitDraft(state.recommendationLimitEnabled)
+    setRecommendationSaveStatus("idle")
   }
 
   const governanceFooterMessage =
@@ -269,6 +298,72 @@ export function SettingsPage() {
             {repositoryMode === "demo" ? <StatusNotice tone="warning">当前为演示数据，只用于预览，不保存生产设置。</StatusNotice> : null}
           </div>
         ) : null}
+      </SettingsSection>
+
+      <SettingsSection
+        title="首页推荐"
+        description="控制首页推荐是否固定为每个孩子每天最多 10 条。"
+        footer={canManageGovernance ? (
+          <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center">
+            <Button type="button" size="sm" onClick={saveRecommendationSettings} disabled={!hasRecommendationChanges || recommendationSaveStatus === "saving"}>
+              {recommendationSaveStatus === "saving" ? <RefreshCwIcon className="animate-spin" /> : <SaveIcon />}
+              保存设置
+            </Button>
+            <Button type="button" size="sm" variant="outline" onClick={resetRecommendationDraft} disabled={!hasRecommendationChanges || recommendationSaveStatus === "saving"}>
+              放弃更改
+            </Button>
+            <span className={cn("text-xs", recommendationSaveStatus === "error" ? "text-destructive" : "text-muted-foreground")}>
+              {recommendationSaveStatus === "success"
+                ? "推荐设置已保存。"
+                : recommendationSaveStatus === "error"
+                  ? "设置未保存，请重试。"
+                  : hasRecommendationChanges
+                    ? "有未保存更改。"
+                    : "当前设置已保存。"}
+            </span>
+          </div>
+        ) : (
+          <>
+            <span className="text-xs text-muted-foreground">当前账号没有可编辑的系统设置。</span>
+            <StatusBadge tone="neutral">只读</StatusBadge>
+          </>
+        )}
+      >
+        <StatusRow
+          label="每日推荐限制"
+          value={state.recommendationLimitEnabled === null ? "读取失败" : state.recommendationLimitEnabled ? "已开启" : "已关闭"}
+          tone={state.recommendationLimitEnabled === null ? "error" : state.recommendationLimitEnabled ? "success" : "warning"}
+          description={state.recommendationLimitEnabled ? "每个孩子每天固定最多 10 条，重复刷新只调整顺序。" : "每次请求重新抽取最多 10 条，适合测试连续刷新。"}
+          loading={state.loading}
+        />
+        <div className="py-3">
+          {canManageGovernance ? (
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <div className="text-sm font-medium">限制每日推荐数量</div>
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                  关闭后立即影响所有家庭。测试完成后建议恢复开启。
+                </p>
+              </div>
+              <Switch
+                checked={recommendationLimitDraft}
+                onCheckedChange={(checked) => {
+                  setRecommendationLimitDraft(checked)
+                  setRecommendationSaveStatus("idle")
+                }}
+                aria-label="限制每日推荐数量"
+              />
+            </div>
+          ) : (
+            <StatusNotice tone="neutral">当前角色只能查看推荐限制状态。</StatusNotice>
+          )}
+        </div>
+        <StatusRow
+          label="保存后模式"
+          value={recommendationLimitDraft ? "每日固定 10 条" : "不限次测试"}
+          tone={recommendationLimitDraft ? "success" : "warning"}
+          description={recommendationLimitDraft ? "适合正常线上使用。" : "每次下拉会从完整候选库重新抽取。"}
+        />
       </SettingsSection>
 
       <SettingsSection

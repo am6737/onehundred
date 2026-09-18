@@ -13,9 +13,11 @@ import {
 import { AdminPagination } from "@/components/admin"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Textarea } from "@/components/ui/textarea"
 import {
   createAdminRepository,
   isGovernanceReasonReady,
@@ -58,7 +60,7 @@ function formatDate(value?: string | null) {
 function shortId(value?: string | null) {
   if (!value) return "未返回"
   if (value.length <= 12) return value
-  return `${value.slice(0, 8)}...${value.slice(-4)}`
+  return `${value.slice(0, 8)}…${value.slice(-4)}`
 }
 
 function captureLabel(mode: CaptureMode) {
@@ -216,18 +218,27 @@ function GovernancePanel({
       </div>
       {manualAuthorizationEnabled ? (
         <>
-          <textarea
-            className="min-h-20 w-full resize-y rounded-lg border border-input bg-transparent px-3 py-2 text-sm leading-6 outline-none transition focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30"
-            value={reason}
-            onChange={(event) => onReasonChange(event.target.value)}
-            placeholder="例如：审核案件 CASE-123，需核对被举报完成记录。"
-            aria-label="治理访问理由"
-          />
+          <div className="grid gap-1.5">
+            <Label htmlFor="records-list-governance-reason">治理访问理由 <span className="text-destructive" aria-hidden="true">*</span></Label>
+            <Textarea
+              id="records-list-governance-reason"
+              name="records-list-governance-reason"
+              autoComplete="off"
+              className="min-h-20"
+              value={reason}
+              onChange={(event) => onReasonChange(event.target.value)}
+              placeholder="例如：审核案件 CASE-123，需要核对被举报完成记录…"
+              required
+              minLength={reasonMinimumLength}
+              aria-invalid={reason.length > 0 && !ready}
+              aria-describedby="records-list-governance-status"
+            />
+          </div>
           <div className="flex flex-col gap-2 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
-            <span>{ready ? (loadedReason ? "已授权，可刷新列表" : "理由有效，可以加载列表") : `还需输入 ${remaining} 个字符`}</span>
+            <span id="records-list-governance-status" aria-live="polite">{ready ? (loadedReason ? "已授权，可刷新列表" : "理由有效，可以加载列表") : `还需输入 ${remaining} 个字符`}</span>
             <Button onClick={onLoad} disabled={loading || !ready}>
               <ShieldCheckIcon />
-              {loading ? "正在加载" : loadedReason ? "刷新列表" : "加载记录"}
+              {loading ? "正在加载…" : loadedReason ? "刷新列表" : "加载记录"}
             </Button>
           </div>
         </>
@@ -236,7 +247,7 @@ function GovernancePanel({
           <p className="text-sm text-muted-foreground">手动授权已关闭，本次会使用临时排查理由：{automaticReason}</p>
           <Button onClick={onLoad} disabled={loading}>
             <ShieldCheckIcon />
-            {loading ? "正在加载" : loadedReason ? "刷新列表" : "加载记录"}
+            {loading ? "正在加载…" : loadedReason ? "刷新列表" : "加载记录"}
           </Button>
         </div>
       )}
@@ -267,13 +278,21 @@ function DetailAccessPanel({
         <p className="mt-1 text-sm text-muted-foreground">详情会单独请求，媒体与完整内容不会在列表常驻展开。</p>
       </div>
       {manualAuthorizationEnabled ? (
-        <textarea
-          className="min-h-20 w-full resize-y rounded-lg border border-input bg-transparent px-3 py-2 text-sm leading-6 outline-none transition focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30"
-          value={reason}
-          onChange={(event) => onReasonChange(event.target.value)}
-          placeholder="例如：审核案件 CASE-123，需查看记录媒体。"
-          aria-label="详情治理访问理由"
-        />
+        <div className="grid gap-1.5">
+          <Label htmlFor="record-detail-governance-reason">详情治理访问理由 <span className="text-destructive" aria-hidden="true">*</span></Label>
+          <Textarea
+            id="record-detail-governance-reason"
+            name="record-detail-governance-reason"
+            autoComplete="off"
+            className="min-h-20"
+            value={reason}
+            onChange={(event) => onReasonChange(event.target.value)}
+            placeholder="例如：审核案件 CASE-123，需要查看记录媒体…"
+            required
+            minLength={reasonMinimumLength}
+            aria-invalid={reason.length > 0 && !ready}
+          />
+        </div>
       ) : (
         <p className="rounded-lg border bg-muted/20 px-3 py-2 text-sm text-muted-foreground">使用临时排查理由：{automaticReason}</p>
       )}
@@ -281,7 +300,7 @@ function DetailAccessPanel({
       <div className="flex justify-end">
         <Button onClick={onLoad} disabled={loading || !ready}>
           <LockKeyholeIcon />
-          {loading ? "正在读取" : "查看详情"}
+          {loading ? "正在读取…" : "查看详情"}
         </Button>
       </div>
     </section>

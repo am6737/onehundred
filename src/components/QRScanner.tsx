@@ -12,8 +12,13 @@ import { parseInviteCode } from '../lib/invite';
 
 type Props = {
   onClose: () => void;
-  /** 扫到有效邀请码时回调，已解析成纯邀请码 */
   onScanned: (code: string) => void;
+  /** 默认解析家庭邀请码；其他扫码场景可以提供自己的严格解析器。 */
+  parseValue?: (raw: string) => string | null;
+  title?: string;
+  hint?: string;
+  invalidHint?: string;
+  permissionTitle?: string;
 };
 
 /** 取二维码的中心点（优先角点，其次 bounds）；拿不到有效坐标返回 null。 */
@@ -35,7 +40,15 @@ function centerOf(r: BarcodeScanningResult): { x: number; y: number } | null {
  * 全屏相机扫码遮罩。用绝对定位覆盖层而非 RN Modal，
  * 规避本项目在新架构（Fabric）下 Modal 的一些坑。
  */
-export default function QRScanner({ onClose, onScanned }: Props) {
+export default function QRScanner({
+  onClose,
+  onScanned,
+  parseValue = parseInviteCode,
+  title,
+  hint,
+  invalidHint,
+  permissionTitle,
+}: Props) {
   const { theme } = useTheme();
   const t = useT();
   const insets = useSafeAreaInsets();
@@ -44,6 +57,9 @@ export default function QRScanner({ onClose, onScanned }: Props) {
   const askedRef = useRef(false);
   const [handled, setHandled] = useState(false);
   const [ok, setOk] = useState(false);
+  const [invalid, setInvalid] = useState(false);
+  const invalidTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastInvalidRef = useRef(0);
   const fade = useRef(new Animated.Value(1)).current;
   const maskFade = useRef(new Animated.Value(0)).current;
   const frameRef = useRef<View>(null);
@@ -69,8 +85,16 @@ export default function QRScanner({ onClose, onScanned }: Props) {
 
   const handleScan = useCallback((result: BarcodeScanningResult) => {
     if (handled) return;
-    const code = parseInviteCode(result.data);
-    if (!code) return; // 不是我们的邀请码，忽略继续扫
+    const code = parseValue(result.data);
+    if (!code) {
+      if (invalidHint && Date.now() - lastInvalidRef.current > 1800) {
+        lastInvalidRef.current = Date.now();
+        setInvalid(true);
+        if (invalidTimerRef.current) clearTimeout(invalidTimerRef.current);
+        invalidTimerRef.current = setTimeout(() => setInvalid(false), 1400);
+      }
+      return;
+    }
     // 只认取景框内的二维码：能拿到坐标就判断中心是否落在框内，拿不到就放行
     const c = centerOf(result);
     if (c && hitRect) {
@@ -90,7 +114,11 @@ export default function QRScanner({ onClose, onScanned }: Props) {
       Animated.timing(fade, { toValue: 0, duration: 300, useNativeDriver: true })
         .start(() => onScanned(code));
     }, 900);
-  }, [handled, onScanned, fade, maskFade, hitRect]);
+  }, [handled, onScanned, parseValue, invalidHint, fade, maskFade, hitRect]);
+
+  useEffect(() => () => {
+    if (invalidTimerRef.current) clearTimeout(invalidTimerRef.current);
+  }, []);
 
   const granted = !!permission?.granted;
 
@@ -112,7 +140,7 @@ export default function QRScanner({ onClose, onScanned }: Props) {
             // 系统弹窗已给出结果仍未授权（拒绝 / 不能再问）：才显示自家的提示与按钮
             <>
               <Text style={[styles.permText, { fontFamily: theme.fonts.body }]}>
-                {t('scan.permTitle')}
+                {permissionTitle || t('scan.permTitle')}
               </Text>
               <TouchableOpacity
                 onPress={() => (permission.canAskAgain ? ask() : RNLinking.openSettings())}
@@ -138,7 +166,9 @@ export default function QRScanner({ onClose, onScanned }: Props) {
             {ok && <ActivityIndicator color="#FFFDF7" size="large" />}
           </View>
           {!ok && (
-            <Text style={[styles.hint, { fontFamily: theme.fonts.body }]}>{t('scan.hint')}</Text>
+            <Text style={[styles.hint, { fontFamily: theme.fonts.body }]}>
+              {invalid ? invalidHint : (hint || t('scan.hint'))}
+            </Text>
           )}
         </View>
       )}
@@ -146,9 +176,9 @@ export default function QRScanner({ onClose, onScanned }: Props) {
       {/* 顶部标题栏 + 关闭 */}
       <View style={[styles.topBar, { top: insets.top + 8 }]}>
         <TouchableOpacity onPress={onClose} hitSlop={12} activeOpacity={0.7} style={styles.closeBtn}>
-          {Icon.chevL('#FFFDF7', 22)}
+          {Icon.chevL('#FFFDF7', 24)}
         </TouchableOpacity>
-        <Text style={[styles.title, { fontFamily: theme.fonts.head }]}>{t('scan.title')}</Text>
+        <Text style={[styles.title, { fontFamily: theme.fonts.head }]}>{title || t('scan.title')}</Text>
       </View>
 
     </Animated.View>
@@ -177,8 +207,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center',
   },
   closeBtn: {
-    width: 40, height: 40, borderRadius: 20,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    width: 40, height: 40,
     justifyContent: 'center', alignItems: 'center',
   },
   title: {

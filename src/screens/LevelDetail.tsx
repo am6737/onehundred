@@ -44,7 +44,7 @@ export default function LevelDetail({ route, navigation }) {
     <TouchableOpacity
       onPress={() => navigation.navigate('AddOwnLevel', { level: L })}
       activeOpacity={0.7}
-      style={[styles.headerBtn, { backgroundColor: theme.paper, borderColor: theme.line }]}
+      style={styles.headerBtn}
     >
       {Icon.pen(theme.accent, 19)}
     </TouchableOpacity>
@@ -180,8 +180,7 @@ const styles = StyleSheet.create({
   },
 
   headerBtn: {
-    width: 42, height: 42, borderRadius: 21,
-    borderWidth: 1,
+    width: 42, height: 42,
     justifyContent: 'center', alignItems: 'center',
   },
 

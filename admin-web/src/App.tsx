@@ -96,16 +96,26 @@ export default function App() {
   const [activePage, setActivePage] = useState<PageId>(pageFromHash)
 
   useEffect(() => {
-    const syncPage = () => setActivePage(pageFromHash())
+    const syncPage = () => {
+      setActivePage(pageFromHash())
+      const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+      window.scrollTo({ top: 0, behavior: reduceMotion ? "auto" : "smooth" })
+    }
+
     window.addEventListener("hashchange", syncPage)
     return () => window.removeEventListener("hashchange", syncPage)
   }, [])
+
+  useEffect(() => {
+    document.title = `${pageTitles[activePage]} · 一百件事管理后台`
+  }, [activePage])
 
   const navigate = useCallback((page: PageId) => {
     setActivePage(page)
     const nextHash = `#/${page}`
     if (window.location.hash !== nextHash) window.location.hash = nextHash
-    window.scrollTo({ top: 0, behavior: "smooth" })
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    window.scrollTo({ top: 0, behavior: reduceMotion ? "auto" : "smooth" })
   }, [])
 
   if (auth.status === "demo") {
@@ -156,7 +166,7 @@ function AdminShell({
 
   const banner = demoMode ? (
     <div className="mx-auto w-full max-w-7xl px-4 pt-4">
-      <div className="flex flex-wrap items-center gap-2 rounded-md border border-destructive/20 bg-destructive/8 px-3 py-2 text-sm text-destructive shadow-xs">
+      <div role="status" aria-live="polite" className="flex flex-wrap items-center gap-2 rounded-md border border-destructive/20 bg-destructive/8 px-3 py-2 text-sm text-destructive shadow-xs">
         <Badge variant="destructive">DEMO</Badge>
         <span>当前使用演示数据源，不会读取或修改真实后台数据。</span>
       </div>
@@ -173,11 +183,31 @@ function AdminShell({
         } as CSSProperties
       }
     >
-      <AppSidebar activePage={activePage} onNavigate={(page) => onNavigate(page as PageId)} />
+      <a
+        href="#main-content"
+        onClick={(event) => {
+          event.preventDefault()
+          document.getElementById("main-content")?.focus()
+        }}
+        className="fixed left-3 top-3 z-50 -translate-y-20 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground shadow-lg transition-transform focus-visible:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+      >
+        跳到主内容
+      </a>
+      <AppSidebar activePage={activePage} />
       <SidebarInset className="min-w-0 bg-background">
-        <SiteHeader title={title} description={description} role={session?.role} demoMode={demoMode} user={sidebarUser} onSignOut={handleSignOut} />
+        <SiteHeader
+          title={title}
+          description={description}
+          primaryHeading={activePage === "dashboard"}
+          role={session?.role}
+          demoMode={demoMode}
+          user={sidebarUser}
+          onSignOut={handleSignOut}
+        />
         {banner}
-        {renderPage()}
+        <div id="main-content" className="flex min-w-0 flex-1 flex-col" tabIndex={-1}>
+          {renderPage()}
+        </div>
       </SidebarInset>
       <Toaster position="top-center" />
     </SidebarProvider>

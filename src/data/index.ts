@@ -157,7 +157,7 @@ export async function fetchLevelsByNums(nums: string[] = []) {
   return (data || []).map(mapLevel);
 }
 
-// 每个孩子每天由服务端固定挑选最多 10 件。重复请求只返回当天同一批，不能靠刷新刷完整个候选库。
+// 默认每个孩子每天固定最多 10 件；管理员关闭限制后，每次请求都从完整候选库重新抽取。
 export async function fetchRecommendedLevels(kidId: string | null = null) {
   const { data, error } = await supabase.rpc('get_daily_recommended_levels', {
     p_kid_id: kidId && kidId !== 'all' ? kidId : null,

@@ -32,13 +32,11 @@ function BackButton({ onPress }) {
       accessibilityRole="button"
       accessibilityLabel={t('common.a11y.back')}
       style={{
-        width: 42, height: 42, borderRadius: 21,
-        backgroundColor: theme.paper,
-        borderWidth: 1, borderColor: theme.line,
+        width: 42, height: 42,
         justifyContent: 'center', alignItems: 'center',
       }}
     >
-      {Icon.chevL(theme.ink, 20)}
+      {Icon.chevL(theme.ink, 24)}
     </TouchableOpacity>
   );
 }
@@ -232,6 +230,37 @@ export function LoginWelcome({ navigation }) {
           }}>{t('login.phoneLogin')}</Text>
         </TouchableOpacity>
 
+        <TouchableOpacity
+          onPress={() => {
+            if (!agreed) {
+              Alert.alert(t('login.agreeFirstTitle'), t('login.agreeFirstBody'));
+              return;
+            }
+            navigation.navigate('QRLogin');
+          }}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel={t('login.qrLogin')}
+          style={{
+            marginTop: 12,
+            minHeight: 54,
+            borderRadius: 999,
+            borderWidth: 1.5,
+            borderColor: theme.accent,
+            flexDirection: 'row',
+            justifyContent: 'center',
+            alignItems: 'center',
+            gap: 10,
+          }}
+        >
+          {Icon.qrCode(theme.accent, 23)}
+          <Text numberOfLines={1} style={{
+            fontFamily: theme.fonts.head,
+            fontSize: 17,
+            color: theme.accent,
+          }}>{t('login.qrLogin')}</Text>
+        </TouchableOpacity>
+
         {/* Guest login */}
         <TouchableOpacity
           onPress={async () => {
@@ -255,24 +284,25 @@ export function LoginWelcome({ navigation }) {
           disabled={loading}
           accessibilityRole="button"
           style={{
-            marginTop: 12,
-            minHeight: 54,
+            marginTop: 8,
+            minHeight: 48,
             justifyContent: 'center',
-            borderRadius: 999,
-            backgroundColor: 'transparent',
-            borderWidth: 1.5,
-            borderColor: agreed ? theme.accent : theme.line,
             alignItems: 'center',
+            flexDirection: 'row',
+            gap: 10,
           }}
         >
           {loading ? (
             <ActivityIndicator color={theme.accent} />
           ) : (
-            <Text numberOfLines={1} style={{
-              fontFamily: theme.fonts.head,
-              fontSize: 17,
-              color: agreed ? theme.accent : theme.inkSoft,
-            }}>{t('login.guestLogin')}</Text>
+            <>
+              {Icon.users(agreed ? theme.inkSoft : theme.line, 22)}
+              <Text numberOfLines={1} style={{
+                fontFamily: theme.fonts.head,
+                fontSize: 15,
+                color: agreed ? theme.inkSoft : theme.line,
+              }}>{t('login.guestLogin')}</Text>
+            </>
           )}
         </TouchableOpacity>
 

@@ -7,23 +7,37 @@ ENV_FILE="$SCRIPT_DIR/../supabase-docker/.env"
 # Read keys from .env
 SERVICE_ROLE_KEY=$(grep '^SERVICE_ROLE_KEY=' "$ENV_FILE" | cut -d= -f2-)
 API_URL="http://localhost:8000"
+DEMO_EMAIL="demo@yibai.app"
+DEMO_PASSWORD="demo123456"
 
 echo "Creating demo user..."
 RESPONSE=$(curl -s -X POST "$API_URL/auth/v1/admin/users" \
   -H "Authorization: Bearer $SERVICE_ROLE_KEY" \
   -H "apikey: $SERVICE_ROLE_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"email":"demo@yibai.app","password":"demo123456","email_confirm":true}')
+  -d "{\"email\":\"$DEMO_EMAIL\",\"password\":\"$DEMO_PASSWORD\",\"email_confirm\":true}")
 
 USER_ID=$(echo "$RESPONSE" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4 || true)
 
 if [ -z "$USER_ID" ]; then
   echo "User may already exist. Fetching by email..."
-  RESPONSE=$(curl -s "$API_URL/auth/v1/admin/users?filter=demo@yibai.app" \
+  RESPONSE=$(curl -s "$API_URL/auth/v1/admin/users?page=1&per_page=1000" \
     -H "Authorization: Bearer $SERVICE_ROLE_KEY" \
     -H "apikey: $SERVICE_ROLE_KEY")
-  USER_ID=$(echo "$RESPONSE" | python3 -c "import sys,json; users=json.load(sys.stdin).get('users',[]); print(next((u['id'] for u in users if u.get('email')=='demo@yibai.app'),''))" 2>/dev/null || true)
+  USER_ID=$(echo "$RESPONSE" | python3 -c "import sys,json; users=json.load(sys.stdin).get('users',[]); print(next((u['id'] for u in users if u.get('email','').lower()=='$DEMO_EMAIL'),''))" 2>/dev/null || true)
 fi
+
+if [ -z "$USER_ID" ]; then
+  echo "Failed to create or find demo user" >&2
+  exit 1
+fi
+
+# Keep the documented credentials reliable when the user already exists.
+curl -fsS -X PUT "$API_URL/auth/v1/admin/users/$USER_ID" \
+  -H "Authorization: Bearer $SERVICE_ROLE_KEY" \
+  -H "apikey: $SERVICE_ROLE_KEY" \
+  -H "Content-Type: application/json" \
+  -d "{\"password\":\"$DEMO_PASSWORD\",\"email_confirm\":true}" >/dev/null
 
 echo "User ID: $USER_ID"
 
@@ -97,4 +111,4 @@ ON CONFLICT DO NOTHING;
 SQL
 
 echo "Done! Demo user seeded."
-echo "Login: demo@yibai.app / demo123456"
+echo "Login: $DEMO_EMAIL / $DEMO_PASSWORD"

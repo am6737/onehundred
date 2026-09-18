@@ -13,12 +13,13 @@ import {
   SearchIcon,
 } from "lucide-react"
 
-import { AdminPagination, ConfirmActionDialog } from "@/components/admin"
+import { AdminField, AdminPagination, ConfirmActionDialog } from "@/components/admin"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Textarea } from "@/components/ui/textarea"
 import { createAdminRepository, createDemoAdminRepository, isGovernanceReasonReady, resolveGovernanceReason, useGovernanceAuthorizationSettings } from "@/lib/admin"
 import type {
   AdminReadModel,
@@ -148,13 +149,17 @@ function OperationNotice({ state }: { state: OperationState }) {
   const isPending = state.phase === "pending"
   const Icon = isPending ? Loader2Icon : isError ? AlertTriangleIcon : CheckCircle2Icon
   return (
-    <div className={[
+    <div
+      role={isError ? "alert" : "status"}
+      aria-live={isError ? "assertive" : "polite"}
+      className={[
       "flex items-center gap-2 rounded-md border px-3 py-2 text-sm",
       isError
         ? "border-destructive/40 bg-destructive/10 text-destructive"
         : "border-border bg-muted/40 text-muted-foreground",
-    ].join(" ")}>
-      <Icon className={["size-4", isPending ? "animate-spin" : ""].join(" ")} />
+    ].join(" ")}
+    >
+      <Icon aria-hidden="true" className={["size-4", isPending ? "animate-spin" : ""].join(" ")} />
       <span>{state.message}</span>
     </div>
   )
@@ -351,18 +356,28 @@ function QueuePanel({
       <div className="grid gap-2 border-b p-3">
         <div className="flex items-center gap-2">
           <div className="relative min-w-0 flex-1">
-            <SearchIcon className="pointer-events-none absolute left-2.5 top-2 size-4 text-muted-foreground" />
-            <Input className="h-8 pl-8" value={search} onChange={(event) => onSearchChange(event.target.value)} placeholder="搜索" />
+            <SearchIcon className="pointer-events-none absolute left-2.5 top-2 size-4 text-muted-foreground" aria-hidden="true" />
+            <Input
+              id="moderation-search"
+              name="moderation-search"
+              type="search"
+              autoComplete="off"
+              className="h-8 pl-8"
+              value={search}
+              onChange={(event) => onSearchChange(event.target.value)}
+              placeholder="搜索案件 ID、目标或理由…"
+              aria-label="搜索审核案件"
+            />
           </div>
           <Select value={statusFilter} onValueChange={(value) => onStatusChange(value as CaseStatusFilter)}>
-            <SelectTrigger size="sm" className="w-[92px]"><SelectValue /></SelectTrigger>
+            <SelectTrigger size="sm" className="w-[92px]" aria-label="筛选案件状态"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">全部状态</SelectItem>
               {caseStatuses.map((status) => <SelectItem key={status} value={status}>{caseStatusLabel(status)}</SelectItem>)}
             </SelectContent>
           </Select>
           <Select value={kindFilter} onValueChange={(value) => onKindChange(value as CaseKindFilter)}>
-            <SelectTrigger size="sm" className="w-[92px]"><SelectValue /></SelectTrigger>
+            <SelectTrigger size="sm" className="w-[92px]" aria-label="筛选案件类型"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">全部类型</SelectItem>
               {caseKinds.map((kind) => <SelectItem key={kind} value={kind}>{caseKindLabel(kind)}</SelectItem>)}
@@ -384,12 +399,25 @@ function QueuePanel({
               <p className="mt-1 text-xs leading-5 opacity-85">请说明本次查看案件队列的目的，成功读取后这里会切换为案件列表。</p>
             </div>
           </div>
-          <textarea
-            className="min-h-28 resize-y rounded-md border border-input bg-transparent px-3 py-2 text-sm leading-6 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-            value={gateReason}
-            onChange={(event) => onGateReasonChange(event.target.value)}
-            placeholder="例如：处理用户举报，需要查看待审核案件队列并判断处置方式。"
-          />
+          <AdminField
+            htmlFor="moderation-queue-reason"
+            label="队列访问治理理由"
+            required
+            description={gateReasonReady ? "理由有效，可以读取案件队列。" : `至少输入 ${explicitReasonMinLength} 个字符。`}
+          >
+            <Textarea
+              id="moderation-queue-reason"
+              name="moderation-queue-reason"
+              autoComplete="off"
+              value={gateReason}
+              onChange={(event) => onGateReasonChange(event.target.value)}
+              placeholder="例如：处理用户举报，需要查看待审核案件队列…"
+              required
+              minLength={explicitReasonMinLength}
+              aria-invalid={gateReason.length > 0 && !gateReasonReady}
+              aria-describedby="moderation-queue-reason-description"
+            />
+          </AdminField>
           <Button onClick={onUnlock} disabled={loading || !gateReasonReady}>
             {loading ? <Loader2Icon className="animate-spin" /> : <FileSearchIcon />}
             读取队列
@@ -465,54 +493,95 @@ function CreateCaseDialog({
   onSubmit: () => void
   onUpdate: (form: CreateCaseForm) => void
 }) {
+  const reasonValid = isExplicitGovernanceReason(createForm.reason)
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-h-[90vh] grid-rows-[auto_minmax(0,1fr)_auto]">
         <DialogHeader>
           <DialogTitle>新建案件</DialogTitle>
           <DialogDescription>填写目标和治理理由后创建待审核案件。</DialogDescription>
         </DialogHeader>
-        <div className="grid gap-3 px-6">
-          <div className="grid gap-2 sm:grid-cols-2">
-            <Select value={createForm.kind} onValueChange={(value) => onUpdate({ ...createForm, kind: value as ModerationCaseKind })}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {caseKinds.map((kind) => <SelectItem key={kind} value={kind}>{caseKindLabel(kind)}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <Select value={createForm.targetType} onValueChange={(value) => onUpdate({ ...createForm, targetType: value as CaseTargetType })}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {targetTypes.map((type) => <SelectItem key={type} value={type}>{targetTypeLabel(type)}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <Input value={createForm.targetId} onChange={(event) => onUpdate({ ...createForm, targetId: event.target.value })} placeholder="目标 ID" />
-          <div className="grid gap-2 sm:grid-cols-2">
-            <Input value={createForm.familyId} onChange={(event) => onUpdate({ ...createForm, familyId: event.target.value })} placeholder="家庭 ID（可选）" />
-            <Input value={createForm.assignedTo} onChange={(event) => onUpdate({ ...createForm, assignedTo: event.target.value })} placeholder="分派给（可选）" />
-          </div>
-          <textarea
-            className="min-h-28 resize-y rounded-md border border-input bg-transparent px-3 py-2 text-sm leading-6 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-            value={createForm.reason}
-            onChange={(event) => onUpdate({ ...createForm, reason: event.target.value })}
-            placeholder="治理理由：说明来源、目标对象和创建目的。"
-          />
-          {createNeedsFamilyReason ? (
-            <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-950 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-100">
-              <LockKeyholeIcon className="mt-0.5 size-4 shrink-0" />
-              <span>涉及家庭边界，请填写明确治理理由。</span>
+        <form
+          className="contents"
+          onSubmit={(event) => {
+            event.preventDefault()
+            onSubmit()
+          }}
+        >
+          <div className="grid min-h-0 gap-4 overflow-y-auto overscroll-contain px-6 py-5">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <AdminField htmlFor="moderation-case-kind" label="案件类型" required>
+                <Select value={createForm.kind} onValueChange={(value) => onUpdate({ ...createForm, kind: value as ModerationCaseKind })}>
+                  <SelectTrigger id="moderation-case-kind" aria-label="案件类型"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {caseKinds.map((kind) => <SelectItem key={kind} value={kind}>{caseKindLabel(kind)}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </AdminField>
+              <AdminField htmlFor="moderation-target-type" label="目标类型" required>
+                <Select value={createForm.targetType} onValueChange={(value) => onUpdate({ ...createForm, targetType: value as CaseTargetType })}>
+                  <SelectTrigger id="moderation-target-type" aria-label="目标类型"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {targetTypes.map((type) => <SelectItem key={type} value={type}>{targetTypeLabel(type)}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </AdminField>
             </div>
-          ) : null}
-          <OperationNotice state={createState} />
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>取消</Button>
-          <Button onClick={onSubmit} disabled={disabled}>
-            {createState.phase === "pending" ? <Loader2Icon className="animate-spin" /> : <PlusIcon />}
-            创建
-          </Button>
-        </DialogFooter>
+            <AdminField htmlFor="moderation-target-id" label="目标 ID" required description="填写记录、用户、家庭或内容的完整标识符。">
+              <Input
+                id="moderation-target-id"
+                name="target-id"
+                autoComplete="off"
+                value={createForm.targetId}
+                onChange={(event) => onUpdate({ ...createForm, targetId: event.target.value })}
+                placeholder="例如：record_01H…"
+                required
+              />
+            </AdminField>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <AdminField htmlFor="moderation-family-id" label="家庭 ID" description="仅在案件涉及家庭数据时填写。">
+                <Input id="moderation-family-id" name="family-id" autoComplete="off" value={createForm.familyId} onChange={(event) => onUpdate({ ...createForm, familyId: event.target.value })} placeholder="例如：family_01H…" />
+              </AdminField>
+              <AdminField htmlFor="moderation-assigned-to" label="分派给" description="可填写管理员用户 ID。">
+                <Input id="moderation-assigned-to" name="assigned-to" autoComplete="off" value={createForm.assignedTo} onChange={(event) => onUpdate({ ...createForm, assignedTo: event.target.value })} placeholder="例如：admin_01H…" />
+              </AdminField>
+            </div>
+            <AdminField
+              htmlFor="moderation-create-reason"
+              label="治理理由"
+              required
+              description={reasonValid ? "理由有效，可以创建案件。" : `至少输入 ${explicitReasonMinLength} 个字符，并说明来源、对象和目的。`}
+            >
+              <Textarea
+                id="moderation-create-reason"
+                name="governance-reason"
+                autoComplete="off"
+                value={createForm.reason}
+                onChange={(event) => onUpdate({ ...createForm, reason: event.target.value })}
+                placeholder="例如：收到用户举报，需要创建案件核对目标记录…"
+                required
+                minLength={explicitReasonMinLength}
+                aria-invalid={createForm.reason.length > 0 && !reasonValid}
+                aria-describedby="moderation-create-reason-description"
+              />
+            </AdminField>
+            {createNeedsFamilyReason ? (
+              <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-950 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-100">
+                <LockKeyholeIcon className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                <span>涉及家庭边界，请填写明确治理理由。</span>
+              </div>
+            ) : null}
+            <OperationNotice state={createState} />
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>取消</Button>
+            <Button type="submit" disabled={disabled}>
+              {createState.phase === "pending" ? <Loader2Icon className="animate-spin" aria-hidden="true" /> : <PlusIcon aria-hidden="true" />}
+              {createState.phase === "pending" ? "创建中…" : "创建案件"}
+            </Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   )
@@ -533,41 +602,79 @@ function ResolutionPanel({
   onUpdate: (form: ResolutionForm) => void
   state: OperationState
 }) {
+  const noteValid = form.resolutionNote.trim().length >= explicitReasonMinLength
+  const governanceReasonValid = !governanceSettings.manualAuthorizationEnabled || isGovernanceReasonReady(form.governanceReason, explicitReasonMinLength)
+
   return (
     <section className="rounded-md border bg-background shadow-sm">
       <div className="border-b px-4 py-3">
         <h2 className="text-base font-semibold">处理案件</h2>
         <p className="mt-1 text-xs text-muted-foreground">选择结论并填写处理说明，提交前需要再次确认。</p>
       </div>
-      <div className="grid gap-3 p-4">
-        <Select value={form.status} onValueChange={(value) => onUpdate({ ...form, status: value as ResolutionStatus })}>
-          <SelectTrigger><SelectValue /></SelectTrigger>
-          <SelectContent>
-            {resolutionStatuses.map((status) => <SelectItem key={status} value={status}>{caseStatusLabel(status)}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <textarea
-          className="min-h-28 resize-y rounded-md border border-input bg-transparent px-3 py-2 text-sm leading-6 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-          value={form.resolutionNote}
-          onChange={(event) => onUpdate({ ...form, resolutionNote: event.target.value })}
-          placeholder="处理备注：说明结论、依据和后续边界。"
-        />
-        {governanceSettings.manualAuthorizationEnabled ? (
-          <textarea
-            className="min-h-24 resize-y rounded-md border border-input bg-transparent px-3 py-2 text-sm leading-6 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-            value={form.governanceReason}
-            onChange={(event) => onUpdate({ ...form, governanceReason: event.target.value })}
-            placeholder="治理理由：说明为什么可以执行本次处理。"
+      <form
+        className="grid gap-4 p-4"
+        onSubmit={(event) => {
+          event.preventDefault()
+          onSubmit()
+        }}
+      >
+        <AdminField htmlFor="moderation-resolution-status" label="处理结论" required>
+          <Select value={form.status} onValueChange={(value) => onUpdate({ ...form, status: value as ResolutionStatus })}>
+            <SelectTrigger id="moderation-resolution-status" aria-label="处理结论"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {resolutionStatuses.map((status) => <SelectItem key={status} value={status}>{caseStatusLabel(status)}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </AdminField>
+        <AdminField
+          htmlFor="moderation-resolution-note"
+          label="处理说明"
+          required
+          description={noteValid ? "处理说明长度符合要求。" : `至少输入 ${explicitReasonMinLength} 个字符，说明结论、依据和后续边界。`}
+        >
+          <Textarea
+            id="moderation-resolution-note"
+            name="resolution-note"
+            autoComplete="off"
+            value={form.resolutionNote}
+            onChange={(event) => onUpdate({ ...form, resolutionNote: event.target.value })}
+            placeholder="例如：证据不足，关闭案件并保留后续复核入口…"
+            required
+            minLength={explicitReasonMinLength}
+            aria-invalid={form.resolutionNote.length > 0 && !noteValid}
+            aria-describedby="moderation-resolution-note-description"
           />
+        </AdminField>
+        {governanceSettings.manualAuthorizationEnabled ? (
+          <AdminField
+            htmlFor="moderation-resolution-reason"
+            label="治理理由"
+            required
+            description={governanceReasonValid ? "治理理由有效。" : `至少输入 ${explicitReasonMinLength} 个字符。`}
+          >
+            <Textarea
+              id="moderation-resolution-reason"
+              name="resolution-governance-reason"
+              autoComplete="off"
+              className="min-h-20"
+              value={form.governanceReason}
+              onChange={(event) => onUpdate({ ...form, governanceReason: event.target.value })}
+              placeholder="例如：依据案件证据和审核规则执行本次处理…"
+              required
+              minLength={explicitReasonMinLength}
+              aria-invalid={form.governanceReason.length > 0 && !governanceReasonValid}
+              aria-describedby="moderation-resolution-reason-description"
+            />
+          </AdminField>
         ) : (
           <div className="rounded-md border bg-muted/25 px-3 py-2 text-xs text-muted-foreground">治理授权已就绪，提交时会记录本次处理。</div>
         )}
         <OperationNotice state={state} />
-        <Button onClick={onSubmit} disabled={disabled}>
-          {state.phase === "pending" ? <Loader2Icon className="animate-spin" /> : <GavelIcon />}
-          提交处理
+        <Button type="submit" disabled={disabled}>
+          {state.phase === "pending" ? <Loader2Icon className="animate-spin" aria-hidden="true" /> : <GavelIcon aria-hidden="true" />}
+          {state.phase === "pending" ? "提交中…" : "提交处理"}
         </Button>
-      </div>
+      </form>
     </section>
   )
 }
@@ -640,8 +747,8 @@ export function ModerationPage() {
   const selectedCaseMutable = Boolean(selectedCase && isMutableStatus(selectedCase.status))
   const pendingCount = cases.filter((item) => item.status === "open" || item.status === "in_review").length
   const gateOpen = Boolean(repository?.mode === "live" && governanceSettings.manualAuthorizationEnabled && !queueUnlocked)
-  const disableCreate = !canWriteLive || createState.phase === "pending" || !createForm.targetId.trim() || !createReasonValid
-  const disableResolve = !canWriteLive || resolveState.phase === "pending" || !selectedCaseMutable || !resolutionNoteValid || !resolutionReasonValid
+  const disableCreate = !canWriteLive || createState.phase === "pending"
+  const disableResolve = !canWriteLive || resolveState.phase === "pending" || !selectedCaseMutable
 
   React.useEffect(() => {
     setQueuePage(1)
@@ -761,7 +868,7 @@ export function ModerationPage() {
       return
     }
 
-    setCreateState({ phase: "pending", message: "正在创建案件..." })
+    setCreateState({ phase: "pending", message: "正在创建案件…" })
     try {
       const reason = createForm.reason.trim()
       const created = await repository.createModerationCase({
@@ -799,7 +906,7 @@ export function ModerationPage() {
       return
     }
 
-    setResolveState({ phase: "pending", message: "正在提交处理..." })
+    setResolveState({ phase: "pending", message: "正在提交处理…" })
     try {
       const reason = governanceSettings.manualAuthorizationEnabled
         ? resolveGovernanceReason(resolutionForm.governanceReason)
@@ -848,7 +955,7 @@ export function ModerationPage() {
         <div className="min-w-0">
           <h1 className="text-2xl font-semibold tracking-normal">审核工作台</h1>
           <div className="mt-1 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-            <span>待处理 {loading ? "..." : pendingCount}</span>
+            <span>待处理 {loading ? "…" : pendingCount}</span>
             {repository?.mode === "demo" ? <span>只读演示模式</span> : null}
             {permissionError ? <span>权限信息不可用：{permissionError}</span> : null}
           </div>

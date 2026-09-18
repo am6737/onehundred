@@ -22,6 +22,7 @@ import type {
   DashboardSummary,
   Database,
   FamilyRow,
+  FeatureFlag,
   GovernanceInput,
   Json,
   ListOptions,
@@ -268,6 +269,16 @@ function mapAuditLog(row: Database['public']['Tables']['admin_audit_log']['Row']
     details: row.details,
     ipAddress: row.ip_address,
     createdAt: row.created_at,
+  };
+}
+
+function mapFeatureFlag(value: unknown): FeatureFlag {
+  const row = asRecord(value);
+  return {
+    key: asString(row.key),
+    enabled: row.enabled !== false,
+    description: asString(row.description),
+    updatedAt: asString(row.updated_at ?? row.updatedAt, now()),
   };
 }
 
@@ -561,6 +572,29 @@ export class SupabaseAdminRepository implements AdminRepository {
       return getCapabilities(role ?? (await requireAdminRole(this.client)));
     } catch (error) {
       throw toAdminDataError(error, 'Load permission summary');
+    }
+  }
+
+  async getFeatureFlag(key: string): Promise<FeatureFlag> {
+    try {
+      const { data, error } = await this.client.rpc('admin_v2_get_feature_flag', { p_key: key });
+      if (error) throw error;
+      return mapFeatureFlag(data);
+    } catch (error) {
+      throw toAdminDataError(error, 'Load feature flag');
+    }
+  }
+
+  async updateFeatureFlag(key: string, enabled: boolean): Promise<FeatureFlag> {
+    try {
+      const { data, error } = await this.client.rpc('admin_v2_update_feature_flag', {
+        p_key: key,
+        p_enabled: enabled,
+      });
+      if (error) throw error;
+      return mapFeatureFlag(data);
+    } catch (error) {
+      throw toAdminDataError(error, 'Update feature flag');
     }
   }
 

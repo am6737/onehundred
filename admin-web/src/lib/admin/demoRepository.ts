@@ -228,6 +228,17 @@ export function createDemoAdminRepository(reason = 'Explicit demo admin reposito
     async getPermissionSummary(role = 'system_admin') {
       return getCapabilities(role);
     },
+    async getFeatureFlag(key) {
+      return {
+        key,
+        enabled: true,
+        description: '演示模式中的功能开关不会写入数据库。',
+        updatedAt: generatedAt,
+      };
+    },
+    async updateFeatureFlag() {
+      return demoReadonly('updateFeatureFlag');
+    },
     async getDashboardSummary(): Promise<DashboardSummary> {
       return {
         source: 'demo',

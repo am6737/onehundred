@@ -78,8 +78,8 @@ export function AdminPagination({
       )}
     >
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-muted-foreground">
-        <span className="whitespace-nowrap">共 {safeTotal} 条</span>
-        <span className="whitespace-nowrap">第 {currentPage}/{totalPages} 页</span>
+        <span className="whitespace-nowrap tabular-nums">共 {safeTotal} 条</span>
+        <span className="whitespace-nowrap tabular-nums">第 {currentPage}/{totalPages} 页</span>
         {onPageSizeChange ? (
           <div className="flex items-center gap-1.5">
             <span className="whitespace-nowrap">每页</span>
@@ -88,7 +88,7 @@ export function AdminPagination({
               onValueChange={(value) => onPageSizeChange(Number(value))}
               disabled={disabled}
             >
-              <SelectTrigger size="sm" className="h-7 w-20">
+              <SelectTrigger size="sm" className="h-8 w-20" aria-label="每页显示数量">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -125,7 +125,7 @@ export function AdminPagination({
                   className="grid size-8 place-items-center text-muted-foreground"
                   aria-hidden="true"
                 >
-                  ...
+                  …
                 </span>
               ) : (
                 <Button

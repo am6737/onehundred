@@ -37,6 +37,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Textarea } from "@/components/ui/textarea"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { createAdminRepository, createDemoAdminRepository, isGovernanceReasonReady, resolveGovernanceReason, useGovernanceAuthorizationSettings } from "@/lib/admin"
 import type {
@@ -408,27 +409,66 @@ function LoadingRows() {
 }
 
 function TextAreaField({
+  id,
   label,
+  name,
   value,
   onChange,
   rows = 3,
   required,
+  placeholder,
 }: {
+  id?: string
   label: string
+  name?: string
   value: string
   onChange: (value: string) => void
   rows?: number
   required?: boolean
+  placeholder?: string
 }) {
+  const generatedId = React.useId().replaceAll(":", "")
+  const fieldId = id ?? `activity-textarea-${generatedId}`
+
   return (
     <div className="grid gap-1.5">
-      <Label>{label}{required ? " *" : ""}</Label>
-      <textarea
+      <Label htmlFor={fieldId}>
+        {label}
+        {required ? <span className="text-destructive" aria-hidden="true"> *</span> : null}
+        {required ? <span className="sr-only">（必填）</span> : null}
+      </Label>
+      <Textarea
+        id={fieldId}
+        name={name ?? fieldId}
+        autoComplete="off"
         value={value}
         onChange={(event) => onChange(event.target.value)}
         rows={rows}
-        className="min-h-20 w-full rounded-md border bg-background px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+        required={required}
+        placeholder={placeholder}
       />
+    </div>
+  )
+}
+
+function InputField({
+  id,
+  label,
+  required,
+  ...props
+}: {
+  id: string
+  label: string
+  required?: boolean
+} & Omit<React.ComponentProps<typeof Input>, "id">) {
+  return (
+    <div className="grid gap-1.5">
+      <Label htmlFor={id}>
+        {label}
+        {required ? <span className="text-destructive" aria-hidden="true"> *</span> : null}
+        {required ? <span className="sr-only">（必填）</span> : null}
+      </Label>
+      <Input id={id} name={props.name ?? id} autoComplete={props.autoComplete ?? "off"} required={required} {...props} />
     </div>
   )
 }
@@ -442,24 +482,32 @@ function CaptureModePicker({
   suggestMode: CaptureMode
   onChange: (value: CaptureMode[], suggestMode: CaptureMode) => void
 }) {
+  const generatedId = React.useId().replaceAll(":", "")
   return (
-    <div className="grid gap-2">
-      <Label>允许记录方式 *</Label>
+    <fieldset className="grid gap-2">
+      <legend className="text-sm font-medium">
+        允许记录方式 <span className="text-destructive" aria-hidden="true">*</span>
+        <span className="sr-only">（必填）</span>
+      </legend>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        {captureModes.map((mode) => (
-          <label key={mode} className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm">
-            <Checkbox
-              checked={value.includes(mode)}
-              onCheckedChange={(checked) => {
-                const next = setAllowedModes(value, suggestMode, mode, Boolean(checked))
-                onChange(next.allowedCaptureModes, next.suggestMode)
-              }}
-            />
-            {modeLabel(mode)}
-          </label>
-        ))}
+        {captureModes.map((mode) => {
+          const checkboxId = `capture-mode-${generatedId}-${mode}`
+          return (
+            <label key={mode} htmlFor={checkboxId} className="flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-sm hover:bg-muted/50">
+              <Checkbox
+                id={checkboxId}
+                checked={value.includes(mode)}
+                onCheckedChange={(checked) => {
+                  const next = setAllowedModes(value, suggestMode, mode, Boolean(checked))
+                  onChange(next.allowedCaptureModes, next.suggestMode)
+                }}
+              />
+              {modeLabel(mode)}
+            </label>
+          )
+        })}
       </div>
-    </div>
+    </fieldset>
   )
 }
 
@@ -647,13 +695,10 @@ function VersionEditor({
     <div className="grid gap-5">
       <Section title="内容">
         <div className="grid gap-4">
-          <div className="grid gap-1.5">
-            <Label>标题 *</Label>
-            <Input value={form.title} onChange={(event) => onChange({ title: event.target.value })} />
-          </div>
-          <TextAreaField label="为什么值得做" required value={form.why} onChange={(why) => onChange({ why })} />
-          <TextAreaField label="可以怎么做" required value={form.how} onChange={(how) => onChange({ how })} rows={4} />
-          <TextAreaField label="记录些什么" required value={form.record_hint} onChange={(record_hint) => onChange({ record_hint })} />
+          <InputField id="activity-version-title" label="标题" required value={form.title} onChange={(event) => onChange({ title: event.target.value })} />
+          <TextAreaField id="activity-version-why" name="why" label="为什么值得做" required value={form.why} onChange={(why) => onChange({ why })} />
+          <TextAreaField id="activity-version-how" name="how" label="可以怎么做" required value={form.how} onChange={(how) => onChange({ how })} rows={4} />
+          <TextAreaField id="activity-version-record-hint" name="record-hint" label="记录些什么" required value={form.record_hint} onChange={(record_hint) => onChange({ record_hint })} />
         </div>
       </Section>
 
@@ -665,7 +710,7 @@ function VersionEditor({
             onChange={(allowed_capture_modes, suggest_mode) => onChange({ allowed_capture_modes, suggest_mode })}
           />
           <div className="grid content-start gap-1.5">
-            <Label>推荐记录方式 *</Label>
+            <Label htmlFor="activity-version-suggest-mode">推荐记录方式 <span className="text-destructive" aria-hidden="true">*</span></Label>
             <Select
               value={form.suggest_mode}
               onValueChange={(value) => {
@@ -676,7 +721,7 @@ function VersionEditor({
                 })
               }}
             >
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger id="activity-version-suggest-mode" aria-label="推荐记录方式"><SelectValue /></SelectTrigger>
               <SelectContent>{captureModes.map((mode) => <SelectItem key={mode} value={mode}>{modeLabel(mode)}</SelectItem>)}</SelectContent>
             </Select>
           </div>
@@ -689,11 +734,11 @@ function VersionEditor({
           <section className="grid gap-3">
             <div className="text-sm font-medium">适用范围</div>
             <div className="grid gap-3 md:grid-cols-4">
-              <div className="grid gap-1.5"><Label>家庭 ID</Label><Input value={form.family_id} onChange={(event) => onChange({ family_id: event.target.value })} /></div>
+              <InputField id="activity-family-id" label="家庭 ID" value={form.family_id} onChange={(event) => onChange({ family_id: event.target.value })} />
               <div className="grid gap-1.5">
-                <Label>视角</Label>
+                <Label htmlFor="activity-perspective">视角</Label>
                 <Select value={form.perspective} onValueChange={(value) => onChange({ perspective: value as VersionFormState["perspective"] })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger id="activity-perspective" aria-label="适用视角"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">未设置</SelectItem>
                     <SelectItem value="parent">家长</SelectItem>
@@ -702,14 +747,14 @@ function VersionEditor({
                   </SelectContent>
                 </Select>
               </div>
-              <div className="grid gap-1.5"><Label>语气</Label><Input value={form.tone} onChange={(event) => onChange({ tone: event.target.value })} /></div>
-              <div className="grid gap-1.5"><Label>分类</Label><Input value={form.category} onChange={(event) => onChange({ category: event.target.value })} /></div>
+              <InputField id="activity-tone" label="语气" value={form.tone} onChange={(event) => onChange({ tone: event.target.value })} />
+              <InputField id="activity-category" label="分类" value={form.category} onChange={(event) => onChange({ category: event.target.value })} />
             </div>
             <div className="grid gap-3 md:grid-cols-4">
-              <div className="grid gap-1.5"><Label>场景</Label><Input value={form.scene} onChange={(event) => onChange({ scene: event.target.value })} /></div>
-              <div className="grid gap-1.5"><Label>标签</Label><Input value={form.tags} onChange={(event) => onChange({ tags: event.target.value })} placeholder="逗号分隔" /></div>
-              <div className="grid gap-1.5"><Label>最小年龄</Label><Input value={form.min_age} onChange={(event) => onChange({ min_age: event.target.value })} /></div>
-              <div className="grid gap-1.5"><Label>最大年龄</Label><Input value={form.max_age} onChange={(event) => onChange({ max_age: event.target.value })} /></div>
+              <InputField id="activity-scene" label="场景" value={form.scene} onChange={(event) => onChange({ scene: event.target.value })} />
+              <InputField id="activity-tags" label="标签" value={form.tags} onChange={(event) => onChange({ tags: event.target.value })} placeholder="例如：户外，亲子，周末…" />
+              <InputField id="activity-min-age" label="最小年龄" type="number" inputMode="numeric" min="0" value={form.min_age} onChange={(event) => onChange({ min_age: event.target.value })} />
+              <InputField id="activity-max-age" label="最大年龄" type="number" inputMode="numeric" min="0" value={form.max_age} onChange={(event) => onChange({ max_age: event.target.value })} />
             </div>
           </section>
 
@@ -732,7 +777,7 @@ function VersionEditor({
             </div>
             <div className="grid gap-3 md:grid-cols-[220px_minmax(0,1fr)]">
               <div className="grid gap-1.5">
-                <Label>插画来源</Label>
+                <Label htmlFor="activity-illustration-source">插画来源</Label>
                 <Select
                   value={form.illustration_source}
                   onValueChange={(value) => {
@@ -743,16 +788,20 @@ function VersionEditor({
                     })
                   }}
                 >
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger id="activity-illustration-source" aria-label="插画来源"><SelectValue /></SelectTrigger>
                   <SelectContent>{illustrationSources.map((source) => <SelectItem key={source} value={source}>{illustrationSourceLabel(source)}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
               <div className="grid gap-1.5">
-                <Label>storage path / URL</Label>
+                <Label htmlFor="activity-illustration-path">Storage Path / URL</Label>
                 <Input
+                  id="activity-illustration-path"
+                  name="illustration-path"
+                  autoComplete="off"
+                  type="url"
                   value={form.illustration_path}
                   onChange={(event) => onChange({ illustration_path: event.target.value })}
-                  placeholder="family-id/custom-cover.png 或 https://..."
+                  placeholder="例如：https://example.com/cover.png…"
                   disabled={form.illustration_source === "none" || form.illustration_source === "motif_fallback"}
                 />
               </div>
@@ -775,14 +824,14 @@ function VersionEditor({
           <section className="grid gap-3 border-t pt-5">
             <div className="text-sm font-medium">封存建议</div>
             <div className="grid gap-3 md:grid-cols-4">
-              <label className="flex items-center gap-2 rounded-lg border px-3 py-2 text-sm">
-                <Checkbox checked={form.seasonal} onCheckedChange={(checked) => onChange({ seasonal: Boolean(checked) })} />
+              <label htmlFor="activity-seasonal" className="flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm">
+                <Checkbox id="activity-seasonal" checked={form.seasonal} onCheckedChange={(checked) => onChange({ seasonal: Boolean(checked) })} />
                 季节限定
               </label>
               <div className="grid gap-1.5">
-                <Label>封存默认</Label>
+                <Label htmlFor="activity-seal-default">封存默认</Label>
                 <Select value={form.seal_default_state} onValueChange={(value) => onChange({ seal_default_state: value as VersionFormState["seal_default_state"] })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger id="activity-seal-default" aria-label="封存默认状态"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="recommend_unsealed">默认不封存</SelectItem>
                     <SelectItem value="recommend_sealed">默认封存</SelectItem>
@@ -790,17 +839,17 @@ function VersionEditor({
                 </Select>
               </div>
               <div className="grid gap-1.5">
-                <Label>封存类型</Label>
+                <Label htmlFor="activity-seal-kind">封存类型</Label>
                 <Select value={form.seal_kind} onValueChange={(value) => onChange({ seal_kind: value as SealRecommendationKind })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger id="activity-seal-kind" aria-label="封存类型"><SelectValue /></SelectTrigger>
                   <SelectContent>{sealKinds.map((kind) => <SelectItem key={kind} value={kind}>{kind}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
-              <div className="grid gap-1.5"><Label>封存至</Label><Input value={form.seal_default_until} onChange={(event) => onChange({ seal_default_until: event.target.value })} placeholder="YYYY-MM-DD" /></div>
+              <InputField id="activity-seal-until" label="封存至" type="date" value={form.seal_default_until} onChange={(event) => onChange({ seal_default_until: event.target.value })} />
             </div>
             <div className="grid gap-3 md:grid-cols-[280px_1fr]">
-              <div className="grid gap-1.5"><Label>封存标签</Label><Input value={form.seal_label} onChange={(event) => onChange({ seal_label: event.target.value })} /></div>
-              <TextAreaField label="封存建议原因" value={form.seal_reason} onChange={(seal_reason) => onChange({ seal_reason })} rows={2} />
+              <InputField id="activity-seal-label" label="封存标签" value={form.seal_label} onChange={(event) => onChange({ seal_label: event.target.value })} />
+              <TextAreaField id="activity-seal-reason" name="seal-reason" label="封存建议原因" value={form.seal_reason} onChange={(seal_reason) => onChange({ seal_reason })} rows={2} />
             </div>
           </section>
         </div>
@@ -808,8 +857,8 @@ function VersionEditor({
 
       {governanceSettings.manualAuthorizationEnabled ? (
         <div className="grid gap-1.5 rounded-xl border border-amber-300/60 bg-amber-50/70 p-4 dark:border-amber-500/30 dark:bg-amber-500/8">
-          <Label>本次操作治理理由 *</Label>
-          <Input className="bg-background" value={form.governanceReason} onChange={(event) => onChange({ governanceReason: event.target.value })} placeholder={`至少 ${minimumGovernanceReasonLength} 个字符`} />
+          <Label htmlFor="activity-version-governance-reason">本次操作治理理由 <span className="text-destructive" aria-hidden="true">*</span></Label>
+          <Input id="activity-version-governance-reason" name="governance-reason" autoComplete="off" required minLength={minimumGovernanceReasonLength} className="bg-background" value={form.governanceReason} onChange={(event) => onChange({ governanceReason: event.target.value })} placeholder={`至少 ${minimumGovernanceReasonLength} 个字符…`} />
         </div>
       ) : null}
     </div>
@@ -843,14 +892,23 @@ function CreateDialog({
           <DialogTitle>新建事情草稿</DialogTitle>
           <DialogDescription>先建立可编辑草稿，创建后进入详情继续处理版本。</DialogDescription>
         </DialogHeader>
-        <div className="grid min-h-0 gap-5 overflow-y-auto px-6 py-5">
-          <div className="grid gap-2">
-            <Label>事情来源</Label>
-            <div className="grid gap-2 sm:grid-cols-2">
+        <form
+          className="contents"
+          onSubmit={(event) => {
+            event.preventDefault()
+            onCreate()
+          }}
+        >
+        <div className="grid min-h-0 gap-5 overflow-y-auto overscroll-contain px-6 py-5">
+          <fieldset className="grid gap-2">
+            <legend className="text-sm font-medium">事情来源</legend>
+            <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="事情来源">
               {sourceTypes.map((type) => (
                 <button
                   key={type}
                   type="button"
+                  role="radio"
+                  aria-checked={draft.sourceType === type}
                   onClick={() => setDraft((current) => ({ ...current, sourceType: type, familyId: type === "system" ? "" : current.familyId }))}
                   className={`rounded-lg border px-3 py-2 text-left text-sm ${draft.sourceType === type ? "border-primary bg-primary/8" : "bg-background"}`}
                 >
@@ -859,21 +917,15 @@ function CreateDialog({
                 </button>
               ))}
             </div>
-          </div>
+          </fieldset>
           <div className="grid gap-4">
-            <div className="grid gap-1.5">
-              <Label>标题 *</Label>
-              <Input value={draft.title} onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))} autoFocus />
-            </div>
+            <InputField id="activity-draft-title" label="标题" required value={draft.title} onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))} />
             {draft.sourceType === "family" ? (
-              <div className="grid gap-1.5">
-                <Label>家庭 ID *</Label>
-                <Input value={draft.familyId} onChange={(event) => setDraft((current) => ({ ...current, familyId: event.target.value }))} />
-              </div>
+              <InputField id="activity-draft-family-id" label="家庭 ID" required value={draft.familyId} onChange={(event) => setDraft((current) => ({ ...current, familyId: event.target.value }))} />
             ) : null}
-            <TextAreaField label="为什么值得做" required value={draft.why} onChange={(why) => setDraft((current) => ({ ...current, why }))} />
-            <TextAreaField label="可以怎么做" required value={draft.how} onChange={(how) => setDraft((current) => ({ ...current, how }))} rows={4} />
-            <TextAreaField label="记录些什么" required value={draft.recordHint} onChange={(recordHint) => setDraft((current) => ({ ...current, recordHint }))} />
+            <TextAreaField id="activity-draft-why" name="why" label="为什么值得做" required value={draft.why} onChange={(why) => setDraft((current) => ({ ...current, why }))} />
+            <TextAreaField id="activity-draft-how" name="how" label="可以怎么做" required value={draft.how} onChange={(how) => setDraft((current) => ({ ...current, how }))} rows={4} />
+            <TextAreaField id="activity-draft-record-hint" name="record-hint" label="记录些什么" required value={draft.recordHint} onChange={(recordHint) => setDraft((current) => ({ ...current, recordHint }))} />
           </div>
           <div className="grid gap-4 md:grid-cols-[1fr_200px]">
             <CaptureModePicker
@@ -882,7 +934,7 @@ function CreateDialog({
               onChange={(allowedCaptureModes, suggestMode) => setDraft((current) => ({ ...current, allowedCaptureModes, suggestMode }))}
             />
             <div className="grid content-start gap-1.5">
-              <Label>推荐记录方式 *</Label>
+              <Label htmlFor="activity-draft-suggest-mode">推荐记录方式 <span className="text-destructive" aria-hidden="true">*</span></Label>
               <Select
                 value={draft.suggestMode}
                 onValueChange={(value) => {
@@ -894,27 +946,28 @@ function CreateDialog({
                   }))
                 }}
               >
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger id="activity-draft-suggest-mode" aria-label="推荐记录方式"><SelectValue /></SelectTrigger>
                 <SelectContent>{captureModes.map((mode) => <SelectItem key={mode} value={mode}>{modeLabel(mode)}</SelectItem>)}</SelectContent>
               </Select>
             </div>
           </div>
           {governanceSettings.manualAuthorizationEnabled ? (
             <div className="grid gap-1.5 rounded-xl border border-amber-300/60 bg-amber-50/70 p-4 dark:border-amber-500/30 dark:bg-amber-500/8">
-              <Label>治理理由 *</Label>
-              <Input className="bg-background" value={draft.governanceReason} onChange={(event) => setDraft((current) => ({ ...current, governanceReason: event.target.value }))} placeholder={`至少 ${minimumGovernanceReasonLength} 个字符`} />
+              <Label htmlFor="activity-draft-governance-reason">治理理由 <span className="text-destructive" aria-hidden="true">*</span></Label>
+              <Input id="activity-draft-governance-reason" name="governance-reason" autoComplete="off" required minLength={minimumGovernanceReasonLength} className="bg-background" value={draft.governanceReason} onChange={(event) => setDraft((current) => ({ ...current, governanceReason: event.target.value }))} placeholder={`至少 ${minimumGovernanceReasonLength} 个字符…`} />
             </div>
           ) : null}
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>取消</Button>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>取消</Button>
           {canCreate ? (
-            <Button onClick={onCreate} disabled={busy || demoReadonly}>
-              {busy ? <Loader2Icon className="animate-spin" /> : <PlusIcon />}
-              创建并打开
+            <Button type="submit" disabled={busy || demoReadonly}>
+              {busy ? <Loader2Icon className="animate-spin" aria-hidden="true" /> : <PlusIcon aria-hidden="true" />}
+              {busy ? "创建中…" : "创建并打开"}
             </Button>
           ) : null}
         </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   )
@@ -1053,7 +1106,7 @@ export function ActivityLibraryPage() {
 
   async function runAction(label: string, action: (adminRepository: AdminRepository) => Promise<ActivityDetail | ActivityVersion | void>, refreshActivityId?: string, refreshReason?: string) {
     setBusyAction(label)
-    showAction("pending", `${label}处理中...`)
+    showAction("pending", `${label}处理中…`)
     try {
       const adminRepository = await ensureRepository()
       if (adminRepository.mode === "demo") throw new Error("演示数据只读，不能执行写操作。")
@@ -1237,11 +1290,11 @@ export function ActivityLibraryPage() {
 
         <div className={`grid gap-2 rounded-md border bg-background p-2 ${canCreate ? "lg:grid-cols-[minmax(240px,1fr)_180px_180px_auto]" : "lg:grid-cols-[minmax(240px,1fr)_180px_180px]"}`}>
           <div className="relative">
-            <SearchIcon className="pointer-events-none absolute left-3 top-2.5 size-4 text-muted-foreground" />
-            <Input className="pl-9" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="搜索标题、内容或记录提示" />
+            <SearchIcon className="pointer-events-none absolute left-3 top-2.5 size-4 text-muted-foreground" aria-hidden="true" />
+            <Input id="activity-search" name="activity-search" type="search" autoComplete="off" className="pl-9" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="搜索标题、内容或记录提示…" aria-label="搜索事情库" />
           </div>
           <Select value={source} onValueChange={(value) => setSource(value as SourceFilter)}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectTrigger aria-label="筛选事情来源"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="system">系统事情</SelectItem>
               <SelectItem value="family">家庭自定义</SelectItem>
@@ -1250,7 +1303,7 @@ export function ActivityLibraryPage() {
             </SelectContent>
           </Select>
           <Select value={status} onValueChange={(value) => setStatus(value as StatusFilter)}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectTrigger aria-label="筛选事情状态"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">全部状态</SelectItem>
               <SelectItem value="draft">草稿</SelectItem>
@@ -1270,9 +1323,9 @@ export function ActivityLibraryPage() {
         {requiresGovernance ? (
           <div className="grid gap-3 rounded-xl border border-amber-300/60 bg-amber-50/70 p-3 dark:border-amber-500/30 dark:bg-amber-500/8 md:grid-cols-[1fr_auto] md:items-end">
             <div className="grid gap-1.5">
-              <Label>{governanceSettings.manualAuthorizationEnabled ? "家庭事情访问理由" : "家庭事情访问"}</Label>
+              <Label htmlFor="activity-list-governance-reason">{governanceSettings.manualAuthorizationEnabled ? "家庭事情访问理由" : "家庭事情访问"}</Label>
               {governanceSettings.manualAuthorizationEnabled ? (
-                <Input className="bg-background" value={governanceReason} onChange={(event) => setGovernanceReason(event.target.value)} placeholder={`至少 ${minimumGovernanceReasonLength} 个字符`} />
+                <Input id="activity-list-governance-reason" name="list-governance-reason" autoComplete="off" required minLength={minimumGovernanceReasonLength} className="bg-background" value={governanceReason} onChange={(event) => setGovernanceReason(event.target.value)} placeholder={`至少 ${minimumGovernanceReasonLength} 个字符…`} />
               ) : (
                 <div className="text-sm text-muted-foreground">{governanceSettings.automaticReason}</div>
               )}
@@ -1461,9 +1514,9 @@ export function ActivityLibraryPage() {
           </div>
 
           <div className="grid gap-1.5">
-            <Label>目标版本</Label>
+            <Label htmlFor="activity-target-version">目标版本</Label>
             <Select value={targetVersionId} onValueChange={setTargetVersionId}>
-              <SelectTrigger><SelectValue placeholder="选择版本" /></SelectTrigger>
+              <SelectTrigger id="activity-target-version" aria-label="目标版本"><SelectValue placeholder="选择版本…" /></SelectTrigger>
               <SelectContent>
                 {detail.versions.slice().sort((a, b) => b.version_no - a.version_no).map((version) => (
                   <SelectItem key={version.id} value={version.id}>
@@ -1481,8 +1534,8 @@ export function ActivityLibraryPage() {
 
           {governanceSettings.manualAuthorizationEnabled ? (
             <div className="grid gap-1.5">
-              <Label>操作治理理由 *</Label>
-              <Input value={versionActionReason} onChange={(event) => setVersionActionReason(event.target.value)} placeholder={`至少 ${minimumGovernanceReasonLength} 个字符`} />
+              <Label htmlFor="activity-version-action-reason">操作治理理由 <span className="text-destructive" aria-hidden="true">*</span></Label>
+              <Input id="activity-version-action-reason" name="version-action-reason" autoComplete="off" required minLength={minimumGovernanceReasonLength} value={versionActionReason} onChange={(event) => setVersionActionReason(event.target.value)} placeholder={`至少 ${minimumGovernanceReasonLength} 个字符…`} />
             </div>
           ) : null}
 
@@ -1570,15 +1623,9 @@ export function ActivityLibraryPage() {
             <div className="grid gap-3 border-t pt-4">
               <div className="font-medium">复制为家庭事情</div>
               <div className="grid gap-3">
-                <div className="grid gap-1.5">
-                  <Label>家庭 ID *</Label>
-                  <Input value={copyFamilyId} onChange={(event) => setCopyFamilyId(event.target.value)} />
-                </div>
+                <InputField id="activity-copy-family-id" label="家庭 ID" required value={copyFamilyId} onChange={(event) => setCopyFamilyId(event.target.value)} />
                 {governanceSettings.manualAuthorizationEnabled ? (
-                  <div className="grid gap-1.5">
-                    <Label>治理理由 *</Label>
-                    <Input value={copyReason} onChange={(event) => setCopyReason(event.target.value)} />
-                  </div>
+                  <InputField id="activity-copy-governance-reason" label="治理理由" required minLength={minimumGovernanceReasonLength} value={copyReason} onChange={(event) => setCopyReason(event.target.value)} />
                 ) : null}
                 <Button
                   variant="outline"

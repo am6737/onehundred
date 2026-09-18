@@ -150,7 +150,7 @@ export default function AddOwnLevel({ route, navigation }) {
       onPress={confirmDelete}
       disabled={saving || deleting}
       activeOpacity={0.7}
-      style={[styles.headerDelete, { backgroundColor: theme.paper, borderColor: theme.line }]}
+      style={styles.headerDelete}
     >
       {deleting ? <ActivityIndicator color={theme.danger} /> : Icon.trash(theme.danger, 19)}
     </TouchableOpacity>
@@ -316,8 +316,7 @@ function EditField({ label, value, onChange, placeholder, theme }: any) {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   headerDelete: {
-    width: 42, height: 42, borderRadius: 21,
-    borderWidth: 1,
+    width: 42, height: 42,
     justifyContent: 'center', alignItems: 'center',
   },
   scroller: { flex: 1 },

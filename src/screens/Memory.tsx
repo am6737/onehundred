@@ -636,9 +636,7 @@ export function MemoryPage({ route, navigation }) {
         accessibilityRole="button"
         accessibilityLabel={t('common.a11y.more')}
         style={{
-          width: 42, height: 42, borderRadius: 21,
-          backgroundColor: theme.paper,
-          borderWidth: 1, borderColor: theme.line,
+          width: 42, height: 42,
           justifyContent: 'center', alignItems: 'center',
           opacity: deleting ? 0.4 : 1,
         }}

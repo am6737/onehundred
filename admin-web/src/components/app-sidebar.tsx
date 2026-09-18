@@ -51,30 +51,31 @@ const navigation = [
 
 export function AppSidebar({
   activePage,
-  onNavigate,
   ...props
 }: React.ComponentProps<typeof Sidebar> & {
   activePage: string
-  onNavigate: (page: string) => void
 }) {
   return (
-    <Sidebar collapsible="icon" {...props}>
+    <Sidebar collapsible="icon" aria-label="后台主导航" {...props}>
       <SidebarHeader className="px-3 pb-2 pt-3">
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
+              asChild
               size="lg"
               tooltip="一百件事管理后台"
-              onClick={() => onNavigate("dashboard")}
-              className="h-10 rounded-md px-2 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground"
+              isActive={activePage === "dashboard"}
+              className="h-11 rounded-lg px-2 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground"
             >
-              <span className="grid size-7 shrink-0 place-items-center rounded-md border border-sidebar-border bg-background text-[12px] font-semibold text-sidebar-foreground shadow-xs">
-                百
-              </span>
-              <span className="grid flex-1 text-left leading-tight">
-                <span className="truncate text-sm font-semibold">一百件事</span>
-                <span className="truncate text-xs text-muted-foreground">管理后台</span>
-              </span>
+              <a href="#/dashboard" aria-current={activePage === "dashboard" ? "page" : undefined}>
+                <span className="grid size-8 shrink-0 place-items-center rounded-lg border border-sidebar-border bg-background text-xs font-semibold text-sidebar-foreground shadow-xs" aria-hidden="true">
+                  百
+                </span>
+                <span className="grid min-w-0 flex-1 text-left leading-tight">
+                  <span className="truncate text-sm font-semibold">一百件事</span>
+                  <span className="truncate text-xs text-muted-foreground">管理后台</span>
+                </span>
+              </a>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
@@ -83,23 +84,27 @@ export function AppSidebar({
       <SidebarContent className="px-2 py-3">
         {navigation.map((section) => (
           <SidebarGroup key={section.label} className="px-0 py-2">
-            <SidebarGroupLabel className="h-7 px-2 text-xs font-medium tracking-normal text-sidebar-foreground/45">
+            <SidebarGroupLabel className="h-7 px-2 text-xs font-medium tracking-normal text-sidebar-foreground/55">
               {section.label}
             </SidebarGroupLabel>
             <SidebarGroupContent>
-              <SidebarMenu className="gap-0.5">
+              <SidebarMenu className="gap-1">
                 {section.items.map((item) => {
                   const Icon = item.icon
+                  const isActive = activePage === item.page
+
                   return (
                     <SidebarMenuItem key={item.page}>
                       <SidebarMenuButton
+                        asChild
                         tooltip={item.title}
-                        isActive={activePage === item.page}
-                        onClick={() => onNavigate(item.page)}
-                        className="h-8 rounded-md px-2 text-sm text-sidebar-foreground/78 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground data-[active=true]:bg-sidebar-accent data-[active=true]:font-medium data-[active=true]:text-sidebar-accent-foreground"
+                        isActive={isActive}
+                        className="h-9 rounded-lg px-2.5 text-sm text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground data-[active=true]:bg-sidebar-accent data-[active=true]:font-medium data-[active=true]:text-sidebar-accent-foreground"
                       >
-                        <Icon className="size-4" />
-                        <span>{item.title}</span>
+                        <a href={`#/${item.page}`} aria-current={isActive ? "page" : undefined}>
+                          <Icon className="size-4" aria-hidden="true" />
+                          <span>{item.title}</span>
+                        </a>
                       </SidebarMenuButton>
                     </SidebarMenuItem>
                   )

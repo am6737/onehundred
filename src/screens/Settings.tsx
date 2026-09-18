@@ -1147,7 +1147,7 @@ function InviteSheet({ kids, me, onClose, onJoinFamily }: any) {
 
 const APP_VERSION = '1.0.0';
 const APP_BUILD = '1';
-const APP_EMAIL = 'hi@yibaijianshi.app';
+const APP_EMAIL = 'service@hitosea.com';
 
 function DocSheet({ kind, onClose }: any) {
   const { theme } = useTheme();
@@ -2809,7 +2809,6 @@ export default function Settings({ navigation, route }: any) {
   const [kids, setKids] = useState(() => dataKids.map(k => ({ ...k })));
   const [editId, setEditId] = useState<string | null>(null);
   const [sheet, setSheet] = useState<string | null>(null); // 'add'|'invite'|'about'|'account'|'dev'
-  const [defView, setDefView] = useState('together');
   const [anon, setAnon] = useState(false);
   const [inviteExpiry, setInviteExpiry] = useState(DEFAULT_INVITE_EXPIRY);
   const [devUnlocked, setDevUnlocked] = useState(false);
@@ -2891,8 +2890,14 @@ export default function Settings({ navigation, route }: any) {
             title={t('settings.accountSecurity')}
             value={anon ? t('settings.guest') : undefined}
             onPress={() => setSheet('account')}
-            last
+            last={anon}
           />
+          {!anon ? <Row
+            icon={Icon.scanLine(theme.accent, 20)}
+            title={t('settings.qrLoginOtherDevice')}
+            onPress={() => navigation.navigate('ApproveQRLogin')}
+            last
+          /> : null}
         </SettingGroup>
 
         {/* ── Children section ── */}
@@ -2929,17 +2934,6 @@ export default function Settings({ navigation, route }: any) {
             title={t('settings.familyMembers')}
             value={t('settings.inviteFamily')}
             onPress={() => setSheet('invite')}
-          />
-          <SelectRow
-            icon={Icon.eye(theme.accent, 20)}
-            title={t('settings.defaultView')}
-            options={[
-              { key: 'parent', label: t('perspective.parent.label') },
-              { key: 'child', label: t('perspective.child.label') },
-              { key: 'together', label: t('perspective.together.label') },
-            ]}
-            value={defView}
-            onSelect={setDefView}
           />
           <SelectRow
             icon={Icon.share(theme.accent, 20)}

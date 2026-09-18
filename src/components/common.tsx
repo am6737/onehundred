@@ -33,13 +33,11 @@ export function LayerHeader({ title, onBack, right = null }: any) {
         accessibilityRole="button"
         accessibilityLabel={t('common.a11y.back')}
         style={{
-          width: 42, height: 42, borderRadius: 21,
-          backgroundColor: theme.paper,
-          borderWidth: 1, borderColor: theme.line,
+          width: 42, height: 42,
           justifyContent: 'center', alignItems: 'center',
         }}
       >
-        {Icon.chevL(theme.ink, 20)}
+        {Icon.chevL(theme.ink, 24)}
       </TouchableOpacity>
       <Text style={{
         flex: 1, textAlign: 'center',

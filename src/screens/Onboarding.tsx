@@ -37,12 +37,11 @@ function TopBar({ onBack, page }) {
             onPress={onBack}
             activeOpacity={0.7}
             style={{
-              width: 42, height: 42, borderRadius: 21,
-              backgroundColor: theme.sand,
+              width: 42, height: 42,
               justifyContent: 'center', alignItems: 'center',
             }}
           >
-            {Icon.chevL(theme.ink, 20)}
+            {Icon.chevL(theme.ink, 24)}
           </TouchableOpacity>
         )}
       </View>

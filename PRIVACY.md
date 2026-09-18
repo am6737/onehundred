@@ -142,7 +142,7 @@
 - 与你账号直接关联的登录信息、个人资料和推送设备信息将被删除或依法匿名化，法律法规另有规定的除外。
 - 若账号绑定了“通过 Apple 登录”，注销时会要求你重新通过 Apple 验证，并撤销相应的 Apple 登录 token。
 
-如你无法在应用内完成操作，或希望行使其他个人信息权利，请发送邮件至 [hi@yibaijianshi.app](mailto:hi@yibaijianshi.app)。为保护账号安全，我们可能需要先验证你的身份。我们通常会在 15 个工作日内回复。
+如你无法在应用内完成操作，或希望行使其他个人信息权利，请发送邮件至 [service@hitosea.com](mailto:service@hitosea.com)。为保护账号安全，我们可能需要先验证你的身份。我们通常会在 15 个工作日内回复。
 
 ## 9. 儿童个人信息保护
 
@@ -162,6 +162,6 @@
 
 如你对本政策、个人信息处理或儿童个人信息保护有任何疑问、意见、投诉或请求，请通过以下方式联系“一百件事”运营团队：
 
-- 联系邮箱：[hi@yibaijianshi.app](mailto:hi@yibaijianshi.app)
+- 联系邮箱：[service@hitosea.com](mailto:service@hitosea.com)
 
 我们会核实并尽快处理你的请求，通常在 15 个工作日内回复。

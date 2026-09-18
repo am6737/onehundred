@@ -7,6 +7,7 @@ import { useTheme } from '../theme/tokens';
 import { useT } from '../i18n';
 import { Icon } from '../components/Icons';
 import { signIn, signUp } from '../lib/auth';
+import { getAuthErrorTranslationKey } from '../lib/authError';
 
 function BackButton({ onPress }) {
   const { theme } = useTheme();
@@ -14,13 +15,11 @@ function BackButton({ onPress }) {
     <TouchableOpacity
       onPress={onPress}
       style={{
-        width: 42, height: 42, borderRadius: 21,
-        backgroundColor: theme.paper,
-        borderWidth: 1, borderColor: theme.line,
+        width: 42, height: 42,
         justifyContent: 'center', alignItems: 'center',
       }}
     >
-      {Icon.chevL(theme.ink, 20)}
+      {Icon.chevL(theme.ink, 24)}
     </TouchableOpacity>
   );
 }
@@ -57,7 +56,7 @@ export default function EmailLogin({ navigation }) {
       }
       navigation.replace('Home');
     } catch (e: any) {
-      setError(e.message || t('emailLogin.genericError'));
+      setError(t(getAuthErrorTranslationKey(e)));
     } finally {
       setLoading(false);
     }

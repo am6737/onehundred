@@ -40,7 +40,7 @@ export function NavUser({
             <AvatarFallback className="rounded-md text-xs">{user.name.slice(0, 1)}</AvatarFallback>
           </Avatar>
           <span className="hidden max-w-36 truncate text-sm font-medium md:inline">{user.name}</span>
-          <ChevronDownIcon className="hidden size-3.5 text-muted-foreground sm:block" />
+          <ChevronDownIcon className="hidden size-3.5 text-muted-foreground sm:block" aria-hidden="true" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-64 rounded-lg shadow-sm" side="bottom" align="end" sideOffset={8}>
@@ -57,7 +57,7 @@ export function NavUser({
               </div>
             </div>
             <Badge variant={demoMode ? "destructive" : "outline"} className="w-fit gap-1 text-[11px]">
-              <ShieldCheckIcon className="size-3" />
+              <ShieldCheckIcon className="size-3" aria-hidden="true" />
               {demoMode ? "演示数据源" : role || "管理员"}
             </Badge>
           </div>
@@ -65,11 +65,11 @@ export function NavUser({
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
           <DropdownMenuItem>
-            <CircleUserRoundIcon />
+            <CircleUserRoundIcon aria-hidden="true" />
             个人资料
           </DropdownMenuItem>
           <DropdownMenuItem>
-            <CreditCardIcon />
+            <CreditCardIcon aria-hidden="true" />
             权限信息
           </DropdownMenuItem>
         </DropdownMenuGroup>
@@ -81,7 +81,7 @@ export function NavUser({
             void onSignOut?.()
           }}
         >
-          <LogOutIcon />
+          <LogOutIcon aria-hidden="true" />
           退出登录
         </DropdownMenuItem>
       </DropdownMenuContent>

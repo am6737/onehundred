@@ -4,7 +4,7 @@
 import React, { useState, useRef, useMemo, useEffect, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, Dimensions,
-  StyleSheet, TextInput, Pressable, Modal, ActivityIndicator,
+  StyleSheet, TextInput, ActivityIndicator,
 } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -20,9 +20,9 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme, TONE } from '../theme/tokens';
 import { useT } from '../i18n';
-import { PERSPECTIVES, meName, kidAge, suitsNow } from '../data';
+import { meName, suitsNow } from '../data';
 import { useData } from '../data/DataProvider';
-import { Icon, PhotoSlot, KidAvatar } from '../components/Icons';
+import { Icon, PhotoSlot } from '../components/Icons';
 import { SceneSlot, motifForLevel, illustrationUrl } from '../components/Motifs';
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
@@ -37,181 +37,30 @@ const REFRESH_TRIGGER = 64;     // 下拉位移超过它即触发刷新
 const REFRESH_HOLD = 64;        // 刷新中刷新头停留的位移
 
 /* ════════════════════════════════════════════════════════════
-   KidFace — avatar badge used inside the KidSwitcher
+   TopBar — menu
    ════════════════════════════════════════════════════════════ */
 
-function KidFace({ id, size = 30 }: any) {
-  const { kids, getKid } = useData();
-  if (id === 'all') {
-    const a = getKid(kids[0]?.id);
-    const b = getKid((kids[1] || kids[0])?.id);
-    const s = size * 0.82;
-    return (
-      <View style={{ position: 'relative', width: size, height: size }}>
-        <View style={{ position: 'absolute', left: -size * 0.2, top: 0 }}>
-          <KidAvatar name={a.name} tone={a.tone} size={s} />
-        </View>
-        <View style={{ position: 'absolute', right: -size * 0.2, top: size * 0.08 }}>
-          <KidAvatar name={b.name} tone={b.tone} size={s} ring />
-        </View>
-      </View>
-    );
-  }
-  const k = getKid(id);
-  if (!k) return null;
-  return <KidAvatar name={k.name} tone={k.tone} size={size} />;
-}
-
-/* ════════════════════════════════════════════════════════════
-   KidSwitcher — dropdown to switch between kids or "all"
-   ════════════════════════════════════════════════════════════ */
-
-function KidSwitcher({ kidId, onSelect }: any) {
-  const { theme } = useTheme();
-  const t = useT();
-  const { kids, getKid } = useData();
-  const [open, setOpen] = useState(false);
-  const rows = [...kids.map(k => k.id), 'all'];
-
-  return (
-    <View style={{ position: 'relative', width: 44, flexShrink: 0 }}>
-      <TouchableOpacity
-        onPress={() => setOpen(o => !o)}
-        accessibilityLabel={t('home.switchKid')}
-        style={{
-          width: 44, height: 44,
-          alignItems: 'center', justifyContent: 'center',
-        }}
-      >
-        <KidFace id={kidId} size={kidId === 'all' ? 32 : 36} />
-      </TouchableOpacity>
-
-      <Modal transparent visible={open} animationType="fade" onRequestClose={() => setOpen(false)}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={() => setOpen(false)}>
-          <View style={{
-            position: 'absolute', top: 100, right: 18, width: 188,
-            backgroundColor: theme.paper,
-            borderWidth: 1, borderColor: theme.line,
-            borderRadius: 20, padding: 6,
-            shadowColor: theme.shadow, shadowOpacity: 0.25, shadowRadius: 20, shadowOffset: { width: 0, height: 12 },
-            elevation: 12,
-          }}>
-              <Text style={{
-                paddingHorizontal: 12, paddingTop: 8, paddingBottom: 6,
-                fontFamily: theme.fonts.body, fontSize: 12,
-                color: theme.inkSoft, letterSpacing: 0.5,
-              }}>
-                {t('home.whoGrowing')}
-              </Text>
-
-              {rows.map(id => {
-                const on = kidId === id;
-                const k = getKid(id);
-                const age = k ? kidAge(k) : null;
-                const sub = id === 'all' ? t('home.parentsAndKids') : (age != null ? t('common.ageYears', { age }) : '');
-                const label = id === 'all' ? t('family.all') : (k ? k.name : '');
-
-                return (
-                  <TouchableOpacity
-                    key={id}
-                    onPress={() => { onSelect(id); setOpen(false); }}
-                    style={{
-                      width: '100%', flexDirection: 'row', alignItems: 'center',
-                      gap: 11, paddingVertical: 9, paddingHorizontal: 10,
-                      borderRadius: 14,
-                      backgroundColor: on ? theme.sand : 'transparent',
-                    }}
-                  >
-                    <View style={{
-                      width: 36, height: 36, flexShrink: 0, borderRadius: 999,
-                      backgroundColor: theme.cream,
-                      alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
-                    }}>
-                      <KidFace id={id} size={id === 'all' ? 24 : 30} />
-                    </View>
-                    <View style={{ flex: 1, minWidth: 0 }}>
-                      <Text style={{
-                        fontFamily: theme.fonts.head, fontSize: 15.5, color: theme.ink,
-                      }}>{label}</Text>
-                      <Text style={{
-                        fontFamily: theme.fonts.body, fontSize: 11.5, color: theme.inkSoft,
-                      }}>{sub}</Text>
-                    </View>
-                    {on && <View style={{ flexShrink: 0 }}>{Icon.check(theme.accent, 16)}</View>}
-                  </TouchableOpacity>
-                );
-              })}
-          </View>
-        </Pressable>
-      </Modal>
-    </View>
-  );
-}
-
-/* ════════════════════════════════════════════════════════════
-   TopBar — perspective tabs + menu + kid switcher
-   ════════════════════════════════════════════════════════════ */
-
-function TopBar({ perspective, setPerspective, onMore, kidId, onSelectKid }: any) {
+function TopBar({ onMore }: any) {
   const { theme } = useTheme();
   const t = useT();
   const insets = useSafeAreaInsets();
-  const ps = ['parent', 'child', 'together'];
-  const isAll = kidId === 'all';
 
   return (
     <View style={{
       position: 'absolute', top: insets.top + 6, left: 0, right: 0, zIndex: 20,
-      flexDirection: 'row', alignItems: 'center', paddingHorizontal: 18,
+      flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12,
     }}>
       {/* Menu button */}
       <TouchableOpacity
         onPress={onMore}
         accessibilityLabel={t('home.more')}
         style={{
-          width: 44, height: 44, flexShrink: 0, marginLeft: -6,
+          width: 44, height: 44, flexShrink: 0,
           alignItems: 'center', justifyContent: 'center',
         }}
       >
         {Icon.menu(theme.ink, 24)}
       </TouchableOpacity>
-
-      {/* Perspective tabs */}
-      <View style={{
-        flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 22,
-      }}>
-        {ps.map(p => {
-          const on = perspective === p;
-          const disabled = isAll && p !== 'together';
-          return (
-            <TouchableOpacity
-              key={p}
-              disabled={disabled}
-              onPress={() => !disabled && setPerspective(p)}
-              style={{ position: 'relative', paddingVertical: 4, paddingHorizontal: 2 }}
-            >
-              <Text style={{
-                fontFamily: theme.fonts.head,
-                fontSize: on ? 18 : 16,
-                color: on ? theme.ink : theme.inkSoft,
-                opacity: disabled ? 0.28 : (on ? 1 : 0.6),
-                letterSpacing: 0.5,
-              }}>
-                {PERSPECTIVES[p].label}
-              </Text>
-              <View style={{
-                position: 'absolute', left: '50%', bottom: -7,
-                transform: [{ translateX: -8 }],
-                width: on ? 16 : 0, height: 3, borderRadius: 999,
-                backgroundColor: theme.accent,
-              }} />
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-
-      {/* Kid switcher */}
-      <KidSwitcher kidId={kidId} onSelect={onSelectKid} />
     </View>
   );
 }
@@ -264,9 +113,16 @@ function LevelCardSkeleton({ theme, tone }: any) {
 function LevelCard({ level, onOpen, onSkip, kidId, meLabel, cardHeight }: any) {
   const { theme } = useTheme();
   const t = useT();
-  const { frameLabel } = useData();
+  const insets = useSafeAreaInsets();
+  const { getKid } = useData();
   const tn = TONE[level.tone] || TONE.orange;
   const suits = suitsNow(level);
+  const kidName = getKid(kidId).name;
+  const relationshipLabel = level.perspective === 'parent'
+    ? t('home.parentForChild', { me: meLabel, name: kidName })
+    : level.perspective === 'child'
+      ? t('home.childForParent', { me: meLabel, name: kidName })
+      : t('home.togetherWith', { me: meLabel, name: kidName });
 
   // 插画与文字同时出现：有插画时先等它加载完，整张卡在此之前都是 loading
   const illoUrl = illustrationUrl(level);
@@ -294,7 +150,7 @@ function LevelCard({ level, onOpen, onSkip, kidId, meLabel, cardHeight }: any) {
   return (
     <View style={{
       height: cardHeight,
-      paddingTop: 114, paddingBottom: 36, paddingHorizontal: 22,
+      paddingTop: Math.max(92, insets.top + 64), paddingBottom: 36, paddingHorizontal: 22,
     }}>
       <View style={{ flex: 1 }}>
       <Animated.View style={[{ flex: 1 }, contentStyle]}>
@@ -360,10 +216,10 @@ function LevelCard({ level, onOpen, onSkip, kidId, meLabel, cardHeight }: any) {
 
       {/* Activity details */}
       <View style={{ marginTop: 20, flex: 1, minHeight: 0 }}>
-        {/* Perspective label + context chip */}
+        {/* Relationship label + context chip */}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
           <Text style={{ fontFamily: theme.fonts.body, fontSize: 13, color: theme.inkSoft }}>
-            {frameLabel(level.perspective, kidId, meLabel)}
+            {relationshipLabel}
           </Text>
           {!theme.isDark && suits && typeof suits === 'string' && (
             <View style={{
@@ -524,70 +380,79 @@ function EndCard({ onBook, onReshuffle, onAddOwn, cardHeight, allDone }: any) {
    HomeFeed — main component
    ════════════════════════════════════════════════════════════ */
 
-export default function HomeFeed({ navigation, onOpenDrawer, perspective, setPerspective, kidId, setKidId, me }) {
+export default function HomeFeed({ navigation, onOpenDrawer, me }) {
   const { theme } = useTheme();
   const t = useT();
   const insets = useSafeAreaInsets();
   const {
-    kidDone, memoriesForKid, customLevels, recommendedLevelsForKid,
+    kids, kidDone, memoriesForKid, customLevels, recommendedLevelsForKid,
     loadRecommendations, markRecommendationFeedback, weightedShuffle, refresh,
   } = useData();
 
   const cardHeight = SCREEN_H;
   const meLabel = meName(me);
 
-  const completedCount = kidDone(kidId);
-  const empty = completedCount === 0 && memoriesForKid(kidId).length === 0;
-
   const [shuffleKey, setShuffleKey] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const [readyToRefresh, setReadyToRefresh] = useState(false);
   const refreshingRef = useRef(false);
 
+  const kidIds = useMemo(() => kids.map((kid) => kid.id), [kids]);
+  const kidKey = kidIds.join('|');
+  const loadAllRecommendations = useCallback(
+    () => Promise.all(kidIds.map((id) => loadRecommendations(id))),
+    [kidIds, loadRecommendations],
+  );
+
   useEffect(() => {
-    loadRecommendations(kidId).catch(() => {});
-  }, [kidId, loadRecommendations]);
+    loadAllRecommendations().catch(() => {});
+  }, [loadAllRecommendations]);
 
-  const feedLevels = useMemo(
-    () => [...customLevels, ...recommendedLevelsForKid(kidId)],
-    [customLevels, recommendedLevelsForKid, kidId],
-  );
-
-  // 只按 levelNum 判定「做过」：num 是全局唯一的事项标识（levels.num 是主键，自定义事用「★n」），
-  // perspective 冗余且不可靠——邀记（yaoji）流程写回的记忆 perspective 被服务端硬编码成 together，
-  // 若把它并进 key，就会和首页里 parent/child 事项对不上，导致做完的事在首页删不掉。
-  const doneSet = useMemo(
-    () => new Set(memoriesForKid(kidId).map(m => m.levelNum)),
-    [memoriesForKid, kidId]
-  );
-
-  // 横向分页：每个视角一个 tab；kid='all' 时只有「一起」一页
-  const psOrder = kidId === 'all' ? ['together'] : ['parent', 'child', 'together'];
-  const psKey = psOrder.join(',');
-  const activeIdx = Math.max(0, psOrder.indexOf(perspective));
-
-  // 每个视角各自预构建一份 feed（横滑要能预览相邻视角，故全部构建；不依赖 perspective，切 tab 不重排）
-  const columns = useMemo(() => {
-    return psOrder.map((p) => {
-      let pool = feedLevels.filter((l) => l.perspective === p);
-      if (!pool.length) pool = feedLevels;
-      // 用 shuffleKey 当 seed：refresh 静默重载不会重排，只有「换一批」才换顺序
-      const shuf = weightedShuffle(pool, kidId, shuffleKey + 1);
-      // 当前孩子做过的活动不再出现（kid='all' 的记录对每个孩子都算做过）
-      const lv = shuf.filter((l) => !doneSet.has(l.num));
-      const items: any[] = [];
-      lv.forEach((l, i) => {
-        items.push({ type: 'level', key: `${l.num}-${p}-${shuffleKey}`, level: l, index: i });
-      });
-      items.push({ type: 'end', key: `end-${p}`, allDone: completedCount >= 100 });
-      return { perspective: p, data: items };
+  const activeData = useMemo(() => {
+    // 每个孩子独立按年龄和场景排序，再轮流抽取。不同 seed 避免相同事项总被第一个孩子领走。
+    const queues = kids.map((kid, kidIndex) => {
+      const done = new Set(memoriesForKid(kid.id).map((memory) => memory.levelNum));
+      const pool = [...customLevels, ...recommendedLevelsForKid(kid.id)];
+      return weightedShuffle(pool, kid.id, (shuffleKey + 1) * 1009 + kidIndex)
+        .filter((level) => !done.has(level.num))
+        .map((level) => ({ level, kidId: kid.id }));
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [psKey, shuffleKey, kidId, doneSet, empty, completedCount, feedLevels, weightedShuffle]);
 
-  const activeData = columns[activeIdx]?.data || columns[0]?.data || [];
+    const items: any[] = [];
+    const cursors = queues.map(() => 0);
+    const seenLevels = new Set();
+    const startKid = queues.length ? shuffleKey % queues.length : 0;
 
-  /* ── 纵向 feed 状态（只作用于当前视角列）── */
+    // 首页每天仍只展示 10 件；跨孩子轮换，并避免同一事项在一批里重复出现。
+    while (items.length < 10 && queues.length) {
+      let addedThisRound = false;
+      for (let offset = 0; offset < queues.length && items.length < 10; offset += 1) {
+        const queueIndex = (startKid + offset) % queues.length;
+        const queue = queues[queueIndex];
+        while (cursors[queueIndex] < queue.length) {
+          const candidate = queue[cursors[queueIndex]];
+          cursors[queueIndex] += 1;
+          if (seenLevels.has(candidate.level.num)) continue;
+          seenLevels.add(candidate.level.num);
+          items.push({
+            type: 'level',
+            key: `${candidate.kidId}-${candidate.level.num}-${shuffleKey}`,
+            level: candidate.level,
+            kidId: candidate.kidId,
+          });
+          addedThisRound = true;
+          break;
+        }
+      }
+      if (!addedThisRound) break;
+    }
+
+    const allDone = kids.length > 0 && kids.every((kid) => kidDone(kid.id) >= 100);
+    items.push({ type: 'end', key: 'end', allDone });
+    return items;
+  }, [shuffleKey, kids, memoriesForKid, customLevels, recommendedLevelsForKid, weightedShuffle, kidDone]);
+
+  /* ── 纵向 feed 状态 ── */
   const translateY = useSharedValue(0);
   const gestureCtx = useSharedValue(0);
   const pageIndex = useSharedValue(0);
@@ -596,15 +461,6 @@ export default function HomeFeed({ navigation, onOpenDrawer, perspective, setPer
   const dragVelY = useSharedValue(0);
   const pullReady = useSharedValue(0);   // 第一条下拉是否已过刷新阈值（去抖用）
   const [visiblePage, setVisiblePage] = useState(0);
-
-  /* ── 横向分页状态（视角之间）── */
-  const pagerX = useSharedValue(-activeIdx * SCREEN_W);   // 横向位移：第 i 页停在 -i*屏宽
-  const pagerCtx = useSharedValue(0);                     // 手势开始时的 pagerX
-  const hPage = useSharedValue(activeIdx);                // 已提交的横向页；横滑途中保持不变，纵向归属用它避免跨页跳变
-  const nPagesSV = useSharedValue(psOrder.length);
-  const dragX = useSharedValue(0);
-  const dragVelX = useSharedValue(0);
-  const axis = useSharedValue(0);                         // 本次手势锁定的轴：0 未定 / 1 横向 / 2 纵向
 
   useEffect(() => {
     dataLenSV.value = activeData.length;
@@ -641,7 +497,7 @@ export default function HomeFeed({ navigation, onOpenDrawer, perspective, setPer
       // 重拉服务端数据；同时保底 650ms，避免刷新头一闪而过
       await Promise.all([
         Promise.resolve(refresh && refresh()).catch(() => {}),
-        Promise.resolve(loadRecommendations(kidId)).catch(() => {}),
+        Promise.resolve(loadAllRecommendations()).catch(() => {}),
         new Promise((res) => setTimeout(res, 650)),
       ]);
     } finally {
@@ -650,59 +506,19 @@ export default function HomeFeed({ navigation, onOpenDrawer, perspective, setPer
       setRefreshing(false);
       refreshingRef.current = false;
     }
-  }, [refresh, loadRecommendations, kidId]);
+  }, [refresh, loadAllRecommendations]);
 
-  /* ── 横滑提交：落到目标视角页 ──
-     纵向状态（translateY/pageIndex/visiblePage）是「当前列」共用的，切列时必须与
-     setPerspective 同批同步归零，否则新列会沿用旧列的滚动量而显示空白。 */
-  const commitPager = useCallback((target) => {
-    const order = kidId === 'all' ? ['together'] : ['parent', 'child', 'together'];
-    const p = order[target];
-    if (!p) return;
-    hPage.value = target;
-    translateY.value = 0;
-    pageIndex.value = 0;
-    setVisiblePage(0);
-    if (p !== perspective) setPerspective(p);
-  }, [kidId, perspective, setPerspective]);
-
-  /* ── 单一手势：先锁轴，横向→分页切视角，纵向→翻 feed/下拉刷新 ──
-     合成一个 Pan 而不是两个 Race，避免 Fabric 下嵌套手势仲裁不稳。 */
-  const pagerGesture = useMemo(() =>
+  const feedGesture = useMemo(() =>
     Gesture.Pan()
-      .activeOffsetX([-14, 14])
       .activeOffsetY([-12, 12])
+      .failOffsetX([-24, 24])
       .onStart(() => {
         'worklet';
-        axis.value = 0;
         gestureCtx.value = translateY.value;
-        pagerCtx.value = pagerX.value;
         dragVelY.value = 0;
-        dragVelX.value = 0;
-        dragX.value = 0;
       })
       .onUpdate((event) => {
         'worklet';
-        // 锁轴：哪个方向位移大就归哪个轴，本次手势不再改
-        if (axis.value === 0) {
-          const ax = Math.abs(event.translationX);
-          const ay = Math.abs(event.translationY);
-          if (ax < 6 && ay < 6) return;
-          axis.value = ax > ay ? 1 : 2;
-        }
-
-        if (axis.value === 1) {
-          // 横向分页：跟手，越界回弹阻尼
-          dragX.value = event.translationX;
-          dragVelX.value = event.velocityX;
-          const minX = -(nPagesSV.value - 1) * SCREEN_W;
-          let raw = pagerCtx.value + event.translationX;
-          if (raw > 0) raw = raw * 0.3;
-          else if (raw < minX) raw = minX + (raw - minX) * 0.3;
-          pagerX.value = raw;
-          return;
-        }
-
         // 纵向 feed
         dragVelY.value = event.velocityY;
         const raw = gestureCtx.value + event.translationY;
@@ -726,21 +542,6 @@ export default function HomeFeed({ navigation, onOpenDrawer, perspective, setPer
       })
       .onEnd(() => {
         'worklet';
-        // ── 横向：吸附到目标视角页 ──
-        if (axis.value === 1) {
-          const startPage = hPage.value;
-          const draggedBy = dragX.value;   // 负 = 左滑（去下一页）
-          const velX = dragVelX.value;
-          let target = startPage;
-          const threshold = SCREEN_W * 0.18;
-          if (Math.abs(velX) > SWIPE_VELOCITY) target += velX < 0 ? 1 : -1;
-          else if (Math.abs(draggedBy) > threshold) target += draggedBy < 0 ? 1 : -1;
-          target = Math.max(0, Math.min(nPagesSV.value - 1, target));
-          pagerX.value = withSpring(-target * SCREEN_W, SPRING_CONFIG);
-          if (target !== startPage) runOnJS(commitPager)(target);
-          return;
-        }
-
         // ── 纵向：抖音式下拉刷新 / 翻页 ──
         if (pageIndex.value === 0 && translateY.value > REFRESH_TRIGGER) {
           pullReady.value = 0;
@@ -768,19 +569,13 @@ export default function HomeFeed({ navigation, onOpenDrawer, perspective, setPer
         translateY.value = withSpring(-target * cardHeight, SPRING_CONFIG);
         runOnJS(setVisiblePage)(target);
       }),
-    [cardHeight, triggerRefresh, commitPager],
+    [cardHeight, triggerRefresh],
   );
 
-  // 横向整行的位移
-  const pagerRowStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: pagerX.value }],
+  const feedStyle = useAnimatedStyle(() => ({
+    width: SCREEN_W,
+    transform: [{ translateY: translateY.value }],
   }));
-
-  // 各视角列各自的纵向位移：只有「当前提交页」那一列跟着 translateY 滚动，其余固定在顶部
-  const vSlot0 = useAnimatedStyle(() => ({ width: SCREEN_W, transform: [{ translateY: hPage.value === 0 ? translateY.value : 0 }] }));
-  const vSlot1 = useAnimatedStyle(() => ({ width: SCREEN_W, transform: [{ translateY: hPage.value === 1 ? translateY.value : 0 }] }));
-  const vSlot2 = useAnimatedStyle(() => ({ width: SCREEN_W, transform: [{ translateY: hPage.value === 2 ? translateY.value : 0 }] }));
-  const vSlotStyles = [vSlot0, vSlot1, vSlot2];
 
   // 刷新提示：跟着第一条的下拉量从 0 渐显到 1，并轻微下滑入场
   const refreshHeaderStyle = useAnimatedStyle(() => {
@@ -788,46 +583,35 @@ export default function HomeFeed({ navigation, onOpenDrawer, perspective, setPer
     return { opacity: t, transform: [{ translateY: (1 - t) * -8 }] };
   });
 
-  /* ── 视角 / 孩子 / 换一批 变化时复位 ── */
-  // 横向：把整行吸附到当前视角页（tab 点选、横滑提交、换孩子都走这里）；
-  // 纵向：当前视角列回到顶部（切视角即回到第一条，符合预期）。
+  /* ── 推荐批次变化时复位到第一条 ── */
   useEffect(() => {
-    const order = kidId === 'all' ? ['together'] : ['parent', 'child', 'together'];
-    nPagesSV.value = order.length;
-    const idx = Math.max(0, order.indexOf(perspective));
-    hPage.value = idx;
-    pagerX.value = withSpring(-idx * SCREEN_W, SPRING_CONFIG);
     pageIndex.value = 0;
     translateY.value = 0;
     setVisiblePage(0);
-  }, [perspective, kidId, shuffleKey]);
+  }, [kidKey, shuffleKey]);
 
   /* ── actions ── */
-  const reshuffle = useCallback(() => {
-    setShuffleKey(k => k + 1);
-  }, []);
+  const handleOpenLevel = useCallback((level, targetKidId) => {
+    if (!level.custom) markRecommendationFeedback(targetKidId, level.num, 'chosen').catch(() => {});
+    if (navigation) navigation.navigate('LevelDetail', { level, kidId: targetKidId, me });
+  }, [navigation, me, markRecommendationFeedback]);
 
-  const handleOpenLevel = useCallback((level) => {
-    if (!level.custom) markRecommendationFeedback(kidId, level.num, 'chosen').catch(() => {});
-    if (navigation) navigation.navigate('LevelDetail', { level, kidId, me });
-  }, [navigation, kidId, me, markRecommendationFeedback]);
-
-  const handleSkipLevel = useCallback((level) => {
-    if (!level.custom) markRecommendationFeedback(kidId, level.num, 'skipped').catch(() => {});
+  const handleSkipLevel = useCallback((level, targetKidId) => {
+    if (!level.custom) markRecommendationFeedback(targetKidId, level.num, 'skipped').catch(() => {});
     goNext();
-  }, [kidId, markRecommendationFeedback, goNext]);
+  }, [markRecommendationFeedback, goNext]);
 
   const handleOpenBook = useCallback(() => {
-    if (navigation) navigation.navigate('MemoryBook', { kidId });
-  }, [navigation, kidId]);
+    if (navigation) navigation.navigate('MemoryBook', { kidId: 'all' });
+  }, [navigation]);
 
   const handleCreated = useCallback(() => {
     setShuffleKey(k => k + 1);
   }, []);
 
   const handleAddOwn = useCallback(() => {
-    if (navigation) navigation.navigate('AddOwnLevel', { kidId, me, onCreated: handleCreated });
-  }, [navigation, kidId, me, handleCreated]);
+    if (navigation) navigation.navigate('AddOwnLevel', { me, onCreated: handleCreated });
+  }, [navigation, me, handleCreated]);
 
   /* ── render card content ── */
   const renderCard = useCallback((item) => {
@@ -845,48 +629,30 @@ export default function HomeFeed({ navigation, onOpenDrawer, perspective, setPer
     return (
       <LevelCard
         level={item.level}
-        onOpen={handleOpenLevel}
-        onSkip={() => handleSkipLevel(item.level)}
-        kidId={kidId}
+        onOpen={() => handleOpenLevel(item.level, item.kidId)}
+        onSkip={() => handleSkipLevel(item.level, item.kidId)}
+        kidId={item.kidId}
         meLabel={meLabel}
         cardHeight={cardHeight}
       />
     );
-  }, [kidId, empty, cardHeight, meLabel, handleSkipLevel, handleOpenLevel, handleOpenBook, reshuffle, handleAddOwn]);
+  }, [cardHeight, meLabel, handleSkipLevel, handleOpenLevel, handleOpenBook, handleAddOwn]);
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.cream }}>
-      <GestureDetector gesture={pagerGesture}>
+      <GestureDetector gesture={feedGesture}>
         <Animated.View style={{ flex: 1, overflow: 'hidden' }}>
-          {/* 横向整行：N 个视角列并排，跟着 pagerX 左右滑 */}
-          <Animated.View
-            style={[
-              { flexDirection: 'row', width: psOrder.length * SCREEN_W, height: SCREEN_H },
-              pagerRowStyle,
-            ]}
-          >
-            {columns.map((col, pi) => {
-              const isActive = pi === activeIdx;
-              const vp = isActive ? visiblePage : 0;
-              // 非当前列固定在顶部，只渲染头两条够横滑预览即可；成为当前列时再渲染整叠
-              const items = isActive ? col.data : col.data.slice(0, 2);
-              return (
-                <View key={col.perspective} style={{ width: SCREEN_W, height: SCREEN_H, overflow: 'hidden' }}>
-                  <Animated.View style={vSlotStyles[pi]}>
-                    {items.map((item, index) => (
-                      <View key={item.key} style={{ height: cardHeight, width: SCREEN_W }}>
-                        {Math.abs(index - vp) <= 1 ? renderCard(item) : null}
-                      </View>
-                    ))}
-                  </Animated.View>
-                </View>
-              );
-            })}
+          <Animated.View style={feedStyle}>
+            {activeData.map((item, index) => (
+              <View key={item.key} style={{ height: cardHeight, width: SCREEN_W }}>
+                {Math.abs(index - visiblePage) <= 1 ? renderCard(item) : null}
+              </View>
+            ))}
           </Animated.View>
         </Animated.View>
       </GestureDetector>
 
-      {/* 抖音式刷新提示：固定在视角标签（为你/为我/一起）下方，随第一条下拉渐显 */}
+      {/* 下拉刷新提示固定在顶部导航下方，随第一条下拉渐显。 */}
       <Animated.View
         pointerEvents="none"
         style={[{
@@ -900,13 +666,7 @@ export default function HomeFeed({ navigation, onOpenDrawer, perspective, setPer
         </Text>
       </Animated.View>
 
-      <TopBar
-        perspective={perspective}
-        setPerspective={setPerspective}
-        onMore={onOpenDrawer}
-        kidId={kidId}
-        onSelectKid={setKidId}
-      />
+      <TopBar onMore={onOpenDrawer} />
     </View>
   );
 }

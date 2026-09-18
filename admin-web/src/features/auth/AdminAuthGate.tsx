@@ -1,4 +1,4 @@
-import { useState, type FormEvent, type ReactNode } from 'react';
+import { useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { AlertCircleIcon, LoaderCircleIcon, LogInIcon, RefreshCwIcon, ShieldCheckIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -61,7 +61,7 @@ function AuthShell({
       <div className="mx-auto flex w-full max-w-[440px] flex-col justify-center">
         <div className="mb-6 flex flex-col items-center gap-3 text-center">
           <div className="grid size-11 place-items-center rounded-lg border bg-card text-foreground shadow-xs">
-            <ShieldCheckIcon className="size-5" />
+            <ShieldCheckIcon className="size-5" aria-hidden="true" />
           </div>
           <div className="space-y-1">
             <p className="text-xl font-medium leading-none">一百件事</p>
@@ -86,6 +86,7 @@ function LoginForm() {
   const [password, setPassword] = useState('');
   const [pending, setPending] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -98,6 +99,7 @@ function LoginForm() {
     } catch (signInError) {
       setPassword('');
       setSubmitError(signInError instanceof Error ? signInError.message : '管理员登录失败。');
+      requestAnimationFrame(() => passwordRef.current?.focus());
     } finally {
       setPending(false);
     }
@@ -112,9 +114,13 @@ function LoginForm() {
           <Label htmlFor="admin-email">邮箱</Label>
           <Input
             id="admin-email"
+            name="email"
             autoComplete="email"
             inputMode="email"
-            placeholder="name@example.com"
+            spellCheck={false}
+            placeholder="例如：admin@example.com…"
+            aria-invalid={Boolean(visibleError)}
+            aria-describedby={visibleError ? "admin-login-error" : undefined}
             required
             type="email"
             value={email}
@@ -125,9 +131,13 @@ function LoginForm() {
         <div className="grid gap-1.5">
           <Label htmlFor="admin-password">密码</Label>
           <Input
+            ref={passwordRef}
             id="admin-password"
+            name="password"
             autoComplete="current-password"
-            placeholder="输入密码"
+            placeholder="输入管理员密码…"
+            aria-invalid={Boolean(visibleError)}
+            aria-describedby={visibleError ? "admin-login-error" : undefined}
             required
             type="password"
             value={password}
@@ -136,14 +146,14 @@ function LoginForm() {
           />
         </div>
         {visibleError ? (
-          <div className="flex gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-            <AlertCircleIcon className="mt-0.5 size-4 shrink-0" />
+          <div id="admin-login-error" role="alert" aria-live="assertive" className="flex gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <AlertCircleIcon className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
             <span>{displayAuthError(visibleError)}</span>
           </div>
         ) : null}
         <Button type="submit" className="mt-1 w-full" disabled={pending}>
-          {pending ? <LoaderCircleIcon className="animate-spin" /> : <LogInIcon />}
-          {pending ? '登录中...' : '登录'}
+          {pending ? <LoaderCircleIcon className="animate-spin" aria-hidden="true" /> : <LogInIcon aria-hidden="true" />}
+          {pending ? '登录中…' : '登录'}
         </Button>
       </form>
     </AuthShell>
@@ -157,9 +167,9 @@ export function AdminAuthGate() {
   if (status === 'loading') {
     return (
       <AuthShell title="正在检查登录状态" description="请稍候，系统正在恢复你的管理会话。">
-        <div className="flex items-center gap-2 rounded-md border bg-muted/35 px-3 py-2 text-sm text-muted-foreground">
-          <LoaderCircleIcon className="size-4 animate-spin" />
-          <span>正在载入...</span>
+        <div role="status" aria-live="polite" className="flex items-center gap-2 rounded-md border bg-muted/35 px-3 py-2 text-sm text-muted-foreground">
+          <LoaderCircleIcon className="size-4 animate-spin" aria-hidden="true" />
+          <span>正在载入…</span>
         </div>
       </AuthShell>
     );
@@ -179,8 +189,8 @@ export function AdminAuthGate() {
     return (
       <AuthShell title="无法进入管理后台" description="请重试，或联系系统维护人员确认访问状态。">
         <div className="grid gap-4">
-          <div className="flex gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-            <AlertCircleIcon className="mt-0.5 size-4 shrink-0" />
+          <div id="admin-login-error" role="alert" aria-live="assertive" className="flex gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <AlertCircleIcon className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
             <span>{displayAuthError(error, '暂时无法进入管理后台。')}</span>
           </div>
           <Button type="button" variant="outline" onClick={handleRetry} disabled={retrying}>

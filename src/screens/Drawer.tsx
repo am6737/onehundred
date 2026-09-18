@@ -643,6 +643,31 @@ export default function Drawer({ visible, onClose, onNavigate, kidId = 'all', me
         >
           <TouchableOpacity
             activeOpacity={0.65}
+            onPress={() => go('scanLogin')}
+            accessibilityRole="button"
+            accessibilityLabel={t('drawer.scanLoginQr')}
+            style={drawerStyles.settingsRow}
+          >
+            <View
+              style={[
+                drawerStyles.settingsIcon,
+                { backgroundColor: theme.sand },
+              ]}
+            >
+              {Icon.scanLine(theme.accent, 20)}
+            </View>
+            <Text
+              style={[
+                drawerStyles.settingsLabel,
+                { fontFamily: theme.fonts.body, color: theme.ink },
+              ]}
+            >
+              {t('drawer.scanLoginQr')}
+            </Text>
+            {Icon.chevR(theme.inkSoft, 17)}
+          </TouchableOpacity>
+          <TouchableOpacity
+            activeOpacity={0.65}
             onPress={() => go('settings')}
             accessibilityRole="button"
             accessibilityLabel={t('drawer.settings')}

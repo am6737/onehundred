@@ -189,9 +189,7 @@ export default function YearReview({ navigation, route }) {
         <TouchableOpacity
           onPress={() => navigation.goBack()}
           style={{
-            width: 40, height: 40, borderRadius: 20,
-            backgroundColor: 'rgba(255,253,247,0.7)',
-            borderWidth: 1, borderColor: theme.line,
+            width: 40, height: 40,
             justifyContent: 'center', alignItems: 'center',
           }}
         >

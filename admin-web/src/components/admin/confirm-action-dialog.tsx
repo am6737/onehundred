@@ -77,10 +77,11 @@ export function ConfirmActionDialog({
           <Button
             type="button"
             variant={destructive ? "destructive" : "default"}
+            aria-live="polite"
             onClick={onConfirm}
             disabled={disabled || loading}
           >
-            {loading ? "处理中" : confirmLabel}
+            {loading ? "处理中…" : confirmLabel}
           </Button>
         </DialogFooter>
       </DialogContent>

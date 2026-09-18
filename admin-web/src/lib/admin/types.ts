@@ -377,6 +377,14 @@ export interface Database {
         Args: { p_family_id: string; p_patch: Json; governance_reason: string };
         Returns: Json;
       };
+      admin_v2_get_feature_flag: {
+        Args: { p_key: string };
+        Returns: Json;
+      };
+      admin_v2_update_feature_flag: {
+        Args: { p_key: string; p_enabled: boolean };
+        Returns: Json;
+      };
       admin_v2_list_moderation_cases: {
         Args: { p_options?: Json };
         Returns: Json[];
@@ -673,6 +681,13 @@ export interface RoleCapabilitySummary {
   capabilities: AdminCapability[];
 }
 
+export interface FeatureFlag {
+  key: string;
+  enabled: boolean;
+  description: string;
+  updatedAt: string;
+}
+
 export interface CreateActivityDraftCommand {
   sourceType: Extract<ActivitySourceType, 'system' | 'family'>;
   familyId?: string | null;
@@ -819,6 +834,8 @@ export interface AdminRepository {
   readonly mode: AdminRepositoryMode;
   readonly reason?: string;
   getPermissionSummary(role?: AdminRole): Promise<RoleCapabilitySummary>;
+  getFeatureFlag(key: string): Promise<FeatureFlag>;
+  updateFeatureFlag(key: string, enabled: boolean): Promise<FeatureFlag>;
   getDashboardSummary(): Promise<DashboardSummary>;
   listActivities(options?: ActivityListOptions): Promise<AdminReadModel<ActivityListItem>>;
   getActivityDetail(activityId: string, options?: GovernanceInput): Promise<ActivityDetail>;

@@ -241,6 +241,28 @@ export const Icon = {
     </Svg>
   ),
 
+  qrCode: (c = '#3A332B', s = 22) => (
+    <Svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <Rect x={3} y={3} width={6} height={6} rx={1} />
+      <Rect x={15} y={3} width={6} height={6} rx={1} />
+      <Rect x={3} y={15} width={6} height={6} rx={1} />
+      <Path d="M15 15h3v3h3" />
+      <Path d="M21 15v1" />
+      <Path d="M15 21h1" />
+      <Path d="M19 21h2" />
+    </Svg>
+  ),
+
+  scanLine: (c = '#3A332B', s = 22) => (
+    <Svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M3 8V5a2 2 0 0 1 2-2h3" />
+      <Path d="M16 3h3a2 2 0 0 1 2 2v3" />
+      <Path d="M21 16v3a2 2 0 0 1-2 2h-3" />
+      <Path d="M8 21H5a2 2 0 0 1-2-2v-3" />
+      <Line x1={5} y1={12} x2={19} y2={12} />
+    </Svg>
+  ),
+
   logout: (c = '#3A332B', s = 22) => (
     <Svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
       <Path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
