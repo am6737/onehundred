@@ -35,8 +35,6 @@ import JoinFamily from './src/screens/JoinFamily';
 import PhotobookSheet, { BookFlip } from './src/screens/BookPreview';
 import { LoginWelcome, PhoneLogin, ForgotPassword } from './src/screens/Login';
 import EmailLogin from './src/screens/EmailLogin';
-import QRLogin from './src/screens/QRLogin';
-import ApproveQRLogin from './src/screens/ApproveQRLogin';
 import SettingsScreen from './src/screens/Settings';
 import Agreement from './src/screens/Agreement';
 import OnboardingScreen from './src/screens/Onboarding';
@@ -150,9 +148,6 @@ function HomeWithDrawer({ navigation }) {
         break;
       case 'settings':
         navigation.navigate('Settings');
-        break;
-      case 'scanLogin':
-        navigation.navigate('ApproveQRLogin');
         break;
       case 'invite':
         navigation.navigate('Invite', params);
@@ -293,8 +288,6 @@ function AppNavigator() {
         <Stack.Screen name="PhoneLogin" component={PhoneLogin} />
         <Stack.Screen name="ForgotPassword" component={ForgotPassword} />
         <Stack.Screen name="EmailLogin" component={EmailLogin} />
-        <Stack.Screen name="QRLogin" component={QRLogin} options={{ animation: 'fade' }} />
-        <Stack.Screen name="ApproveQRLogin" component={ApproveQRLogin} options={{ animation: 'fade' }} />
         <Stack.Screen name="Agreement" component={Agreement} />
         <Stack.Screen name="Onboarding" component={OnboardingScreen} />
         <Stack.Screen name="Home" component={HomeWithDrawer} />
