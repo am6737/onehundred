@@ -133,7 +133,14 @@ export async function getSession() {
 export async function getValidSession() {
   const session = await getSession();
   if (!session) return null;
-  const { error } = await supabase.auth.getUser();
+  // Session validation is a best-effort startup check. A captive/slow network must
+  // not keep the app on its launch screen indefinitely; getSession already gave us
+  // a locally persisted session that can be used while the app starts.
+  const validation = supabase.auth.getUser();
+  const timeout = new Promise<{ error: null }>((resolve) => {
+    setTimeout(() => resolve({ error: null }), 5000);
+  });
+  const { error } = await Promise.race([validation, timeout]);
   if (error) {
     const status = (error as any).status;
     if (status === 401 || status === 403) {

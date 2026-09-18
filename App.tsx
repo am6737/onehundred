@@ -35,6 +35,8 @@ import JoinFamily from './src/screens/JoinFamily';
 import PhotobookSheet, { BookFlip } from './src/screens/BookPreview';
 import { LoginWelcome, PhoneLogin, ForgotPassword } from './src/screens/Login';
 import EmailLogin from './src/screens/EmailLogin';
+import QRLogin from './src/screens/QRLogin';
+import ApproveQRLogin from './src/screens/ApproveQRLogin';
 import SettingsScreen from './src/screens/Settings';
 import Agreement from './src/screens/Agreement';
 import OnboardingScreen from './src/screens/Onboarding';
@@ -42,6 +44,13 @@ import InviteRecord from './src/screens/InviteRecord';
 
 const Stack = createNativeStackNavigator();
 export const navigationRef = createNavigationContainerRef();
+
+function withStartupTimeout<T>(promise: Promise<T>, fallback: T, timeoutMs: number): Promise<T> {
+  return Promise.race([
+    promise.catch(() => fallback),
+    new Promise<T>((resolve) => setTimeout(() => resolve(fallback), timeoutMs)),
+  ]);
+}
 
 async function requestAndroidNotificationPermission() {
   if (Platform.OS !== 'android') return true;
@@ -104,17 +113,9 @@ class ErrorBoundary extends React.Component<
 
 function HomeWithDrawer({ navigation }) {
   const { theme, setTheme } = useTheme();
-  const { kids, kidDone, profile, loading, loaded } = useData();
+  const { kids, profile, loading, loaded } = useData();
   const [drawerVisible, setDrawerVisible] = useState(false);
-  const [perspective, setPerspective] = useState('parent');
-  const [kidId, setKidId] = useState('all');
   const [me, setMeState] = useState(DEFAULT_ME);
-
-  useEffect(() => {
-    if (kids.length > 0 && kidId === 'all') {
-      setKidId(kids[0].id);
-    }
-  }, [kids]);
 
   useEffect(() => {
     if (loaded && !loading && kids.length === 0) {
@@ -130,7 +131,7 @@ function HomeWithDrawer({ navigation }) {
 
   const handleDrawerNavigate = useCallback((route) => {
     setDrawerVisible(false);
-    const params = { kidId, me };
+    const params = { kidId: 'all', me };
     switch (route) {
       case 'records':
         navigation.navigate('RecordsCalendar', params);
@@ -150,37 +151,29 @@ function HomeWithDrawer({ navigation }) {
       case 'settings':
         navigation.navigate('Settings');
         break;
+      case 'scanLogin':
+        navigation.navigate('ApproveQRLogin');
+        break;
       case 'invite':
         navigation.navigate('Invite', params);
         break;
       default:
         break;
     }
-  }, [navigation, kidId, me]);
-
-  const selectKid = useCallback((id) => {
-    setKidId(id);
-    if (id === 'all') setPerspective('together');
-  }, []);
-
-  const empty = kidDone(kidId) === 0;
+  }, [navigation, me]);
 
   return (
     <View style={{ flex: 1 }}>
       <HomeFeed
         navigation={navigation}
         onOpenDrawer={() => setDrawerVisible(true)}
-        perspective={perspective}
-        setPerspective={setPerspective}
-        kidId={kidId}
-        setKidId={selectKid}
         me={me}
       />
       <Drawer
         visible={drawerVisible}
         onClose={() => setDrawerVisible(false)}
         onNavigate={handleDrawerNavigate}
-        kidId={kidId}
+        kidId="all"
         me={me}
       />
     </View>
@@ -300,6 +293,8 @@ function AppNavigator() {
         <Stack.Screen name="PhoneLogin" component={PhoneLogin} />
         <Stack.Screen name="ForgotPassword" component={ForgotPassword} />
         <Stack.Screen name="EmailLogin" component={EmailLogin} />
+        <Stack.Screen name="QRLogin" component={QRLogin} options={{ animation: 'fade' }} />
+        <Stack.Screen name="ApproveQRLogin" component={ApproveQRLogin} options={{ animation: 'fade' }} />
         <Stack.Screen name="Agreement" component={Agreement} />
         <Stack.Screen name="Onboarding" component={OnboardingScreen} />
         <Stack.Screen name="Home" component={HomeWithDrawer} />
@@ -457,19 +452,29 @@ function AuthGate() {
 }
 
 export default function App() {
-  const [fontsLoaded] = useFonts({
+  const [fontsLoaded, fontError] = useFonts({
     ZCOOLKuaiLe: require('./assets/fonts/ZCOOLKuaiLe-Regular.ttf'),
     NotoSerifSC: require('./assets/fonts/NotoSerifSC-Regular.ttf'),
     MaShanZheng: require('./assets/fonts/MaShanZheng-Regular.ttf'),
   });
+  const [fontTimedOut, setFontTimedOut] = useState(false);
+
+  useEffect(() => {
+    if (fontsLoaded || fontError) return;
+    const timer = setTimeout(() => {
+      console.warn('[startup] font loading exceeded 4s; continuing with system fonts');
+      setFontTimedOut(true);
+    }, 4000);
+    return () => clearTimeout(timer);
+  }, [fontsLoaded, fontError]);
 
   // 首帧前确定语言（已保存的偏好；没有则跟随系统），避免文案闪烁
   const [lang, setLang] = useState<Lang | null>(null);
   useEffect(() => {
-    loadSavedLang().then(setLang);
+    void withStartupTimeout(loadSavedLang(), isZh() ? 'zh' : 'en', 4000).then(setLang);
   }, []);
 
-  if (!fontsLoaded || !lang) {
+  if ((!fontsLoaded && !fontError && !fontTimedOut) || !lang) {
     return (
       <View style={{ flex: 1, backgroundColor: '#FAF3E6', justifyContent: 'center', alignItems: 'center' }}>
         <ActivityIndicator color="#DE8C57" />

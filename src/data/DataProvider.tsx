@@ -18,13 +18,18 @@ import { t } from '../i18n';
 import { supabase } from '../lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const MAX_RETRIES = 3;
-const RETRY_DELAYS = [1000, 2000, 4000];
+const MAX_RETRIES = 2;
+const RETRY_DELAYS = [1000];
 
 async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     try {
-      return await fn();
+      // Supabase requests otherwise inherit an unbounded fetch timeout. A failed
+      // startup load should leave the user at a usable onboarding/login screen.
+      return await Promise.race([
+        fn(),
+        new Promise<T>((_, reject) => setTimeout(() => reject(new Error('startup data request timed out')), 5000)),
+      ]);
     } catch (e) {
       if (attempt === MAX_RETRIES - 1) throw e;
       await new Promise(r => setTimeout(r, RETRY_DELAYS[attempt]));
