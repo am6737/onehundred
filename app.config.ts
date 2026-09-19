@@ -131,14 +131,6 @@ const config: ExpoConfig = {
   web: {
     favicon: "./assets/favicon.png",
   },
-  // DooPush is intentionally Android-only. Excluding it from Apple
-  // autolinking keeps its AppDelegate subscriber and notification proxy out
-  // of iOS builds entirely.
-  autolinking: {
-    ios: {
-      exclude: ["doopush-react-native-sdk"],
-    },
-  },
   plugins: [
     [
       "expo-font",

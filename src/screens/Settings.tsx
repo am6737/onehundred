@@ -14,7 +14,6 @@ import * as Network from 'expo-network';
 import * as Updates from 'expo-updates';
 import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { DooPush } from 'doopush-react-native-sdk';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme, COLORS } from '../theme/tokens';
 import { useI18n, useT } from '../i18n';
@@ -22,7 +21,7 @@ import { ROLES, DEFAULT_ME, meName, meChar, roleLabel, NOW_YM, fetchNotification
 import { useData } from '../data/DataProvider';
 import { signOut, isAnonymous, bindEmail, deleteAccount, getCurrentUserPhone, maskPhone, updatePhone, verifyPhoneChange, signInWithApple, bindApple, isAppleSignInAvailable, getLinkedProviders, unbindProvider } from '../lib/auth';
 import { getInviteExpiryHours, setInviteExpiryHours, INVITE_EXPIRY_OPTIONS, DEFAULT_INVITE_EXPIRY } from '../lib/yaoji';
-import { safeDooPushRegister } from '../lib/doopushRegister';
+import { getDooPush, safeDooPushRegister } from '../lib/doopushRegister';
 import { supabase } from '../lib/supabase';
 import { Icon, KidAvatar } from '../components/Icons';
 import { LayerHeader, Sheet, Chip, PrimaryButton, SecondaryButton, Section, WheelColumn } from '../components/common';
@@ -2125,6 +2124,11 @@ function DevToolsSheet({ onClose, onLock }: any) {
   const [tested, setTested] = useState<{ scene: string; ok: boolean; sent?: number; targets?: number } | null>(null);
   const [sealUnlockAll, setSealUnlockAll] = useState(getSealTestUnlockAll());
 
+  // DooPush is Android-only. Do not resolve its native module while the
+  // Settings screen module is evaluated, otherwise iOS can fail before the
+  // root component gets a chance to hide the native splash screen.
+  const dooPush = Platform.OS === 'android' ? getDooPush() : null;
+
   // 封存·忽略解封时间：立即生效（内存 flag）+ 落 AsyncStorage 供重启恢复。翻到封存相关页会按新状态重算。
   const toggleSealUnlockAll = (on: boolean) => {
     setSealUnlockAll(on);
@@ -2135,8 +2139,8 @@ function DevToolsSheet({ onClose, onLock }: any) {
   const refresh = useCallback(async () => {
     try {
       const [tk, did, userRes, sessRes, net, ip, installTime, vendorId, deviceType] = await Promise.all([
-        DooPush.getDeviceToken(),
-        DooPush.getDeviceId(),
+        dooPush?.getDeviceToken() ?? Promise.resolve(null),
+        dooPush?.getDeviceId() ?? Promise.resolve(null),
         supabase.auth.getUser().catch(() => null),
         supabase.auth.getSession().catch(() => null),
         Network.getNetworkStateAsync().catch(() => null),
@@ -2190,14 +2194,14 @@ function DevToolsSheet({ onClose, onLock }: any) {
     if (testing) return;
     // 实时重取最新 token：iOS token 会轮换，缓存的旧 token 在 DooPush 那边会「找不到设备」。
     let tk = token;
-    try { tk = (await DooPush.getDeviceToken()) || token; } catch {}
+    try { tk = (await dooPush?.getDeviceToken()) || token; } catch {}
     if (tk !== token) setToken(tk);
     if (!tk) { Alert.alert(t('settings.devSecPushTest'), t('settings.devPushTestNoToken')); return; }
     setTesting(scene);
     setTested(null);
     // 先断开网关：让 DooPush server 把本机标记为离线，否则前台在线设备会被 /push/single 跳过。
     // 短等让服务端 MarkOffline 落库后再发，避免竞态（App 保持前台，前台收到走 addMessageListener，无横幅）。
-    try { await DooPush.disconnectGateway(); } catch {}
+    try { await dooPush?.disconnectGateway(); } catch {}
     await new Promise((r) => setTimeout(r, 1200));
     try {
       const r = await sendTestNotification({ scene, deviceToken: tk, lang, species });
@@ -2212,7 +2216,7 @@ function DevToolsSheet({ onClose, onLock }: any) {
     } finally {
       setTesting(null);
       // 推送已发出，恢复网关连接（App 在后台时此调用会在回到前台后生效）
-      DooPush.connectGateway().catch(() => {});
+      dooPush?.connectGateway().catch(() => {});
     }
   };
 
