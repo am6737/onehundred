@@ -131,7 +131,12 @@ export async function getSession() {
 // 外键报错（families_created_by_fkey）。getUser 向服务端确认这个用户是否真的存在；
 // 服务端明确否认（401/403）才清掉死会话，网络错误则保守沿用本地会话，避免离线误登出。
 export async function getValidSession() {
-  const session = await getSession();
+  // AsyncStorage can be stalled by a restored/corrupt iOS keychain state. Keep
+  // startup bounded and let the app render the signed-out path instead.
+  const session = await Promise.race([
+    getSession(),
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000)),
+  ]);
   if (!session) return null;
   // Session validation is a best-effort startup check. A captive/slow network must
   // not keep the app on its launch screen indefinitely; getSession already gave us

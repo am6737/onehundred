@@ -76,7 +76,9 @@ export function DataProvider({ children, userId }) {
           fetchCustomLevels(), fetchProfile(), fetchMyFamily(),
         ])
       );
-      const lv = await fetchLevelsByNums(me.map((m: any) => m.levelNum).filter(Boolean));
+      const lv = await withRetry(() =>
+        fetchLevelsByNums(me.map((m: any) => m.levelNum).filter(Boolean)),
+      );
       setLevels(lv);
       setKids(ki);
       setMemories(me);

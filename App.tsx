@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { View, Text, ActivityIndicator, Linking, Pressable, Platform, PermissionsAndroid } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import * as SplashScreen from 'expo-splash-screen';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -42,11 +43,18 @@ import InviteRecord from './src/screens/InviteRecord';
 const Stack = createNativeStackNavigator();
 export const navigationRef = createNavigationContainerRef();
 
+// Keep native splash visible until the JS root renders, but bound startup waits.
+void SplashScreen.preventAutoHideAsync().catch(() => {});
+
 function withStartupTimeout<T>(promise: Promise<T>, fallback: T, timeoutMs: number): Promise<T> {
   return Promise.race([
     promise.catch(() => fallback),
     new Promise<T>((resolve) => setTimeout(() => resolve(fallback), timeoutMs)),
   ]);
+}
+
+function getSessionWithTimeout() {
+  return withStartupTimeout(getSession(), null, 5000);
 }
 
 async function requestAndroidNotificationPermission() {
@@ -236,7 +244,7 @@ function AppNavigator() {
 
   useEffect(() => {
     if (loading || initialRoute) return;
-    getSession().then(session => {
+    getSessionWithTimeout().then(session => {
       if (!session) {
         setInitialRoute('LoginWelcome');
       } else if (kids.length === 0) {
@@ -449,6 +457,10 @@ export default function App() {
   useEffect(() => {
     void withStartupTimeout(loadSavedLang(), isZh() ? 'zh' : 'en', 4000).then(setLang);
   }, []);
+
+  useEffect(() => {
+    if (lang) void SplashScreen.hideAsync().catch(() => {});
+  }, [lang]);
 
   if (!lang) {
     return (
