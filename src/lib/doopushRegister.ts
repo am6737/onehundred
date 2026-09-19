@@ -1,19 +1,8 @@
 import * as Network from 'expo-network';
+import { DooPush } from 'doopush-react-native-sdk';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 type PushRegistration = { token: string; deviceId: string; vendor?: string };
-type DooPushApi = typeof import('doopush-react-native-sdk').DooPush;
-
-// Do not load the native module at JS bundle evaluation time. On iOS the SDK
-// installs its notification delegate from the module's OnCreate hook, so an
-// eager import can interfere with the first React/Splash frame.
-let dooPushApi: DooPushApi | null = null;
-export function getDooPush(): DooPushApi {
-  if (!dooPushApi) {
-    dooPushApi = require('doopush-react-native-sdk').DooPush as DooPushApi;
-  }
-  return dooPushApi;
-}
 
 let registerInFlight: Promise<PushRegistration> | null = null;
 let configured = false;
@@ -73,8 +62,8 @@ function logDooPushRuntimeState(stage: string) {
 
 async function getCachedRegistration(): Promise<PushRegistration | null> {
   const [token, deviceId] = await Promise.all([
-    getDooPush().getDeviceToken().catch(() => null),
-    getDooPush().getDeviceId().catch(() => null),
+    DooPush.getDeviceToken().catch(() => null),
+    DooPush.getDeviceId().catch(() => null),
   ]);
 
   if (!token || !deviceId) return null;
@@ -105,10 +94,10 @@ export async function safeDooPushRegister(): Promise<PushRegistration> {
   if (!configured) {
     const cfg = getRuntimeDooPushConfig();
     if (!cfg.appId || !cfg.appKey) {
-      throw new Error('DooPush 尚未初始化，请先检查 EXPO_PUBLIC_DOOPUSH_APP_ID / EXPO_PUBLIC_DOOPUSH_APP_KEY 是否已注入并成功 configure');
+      throw new Error('DooPush 尚未初始化，请先检查 EXPO_PUBLIC_DOOPUSH_APP_ID / EXPO_PUBLIC_DOOPUSH_API_KEY 是否已注入并成功 configure');
     }
     try {
-      getDooPush().configure({ appId: cfg.appId, appKey: cfg.appKey });
+      DooPush.configure({ appId: cfg.appId, appKey: cfg.appKey });
       markDooPushConfigured();
       logDooPushRuntimeState('safeDooPushRegister:configured-fallback');
     } catch (e) {
@@ -131,7 +120,7 @@ export async function safeDooPushRegister(): Promise<PushRegistration> {
     await assertNetworkAvailable();
     console.log('[DooPush] calling native register');
     try {
-      const result = await getDooPush().register();
+      const result = await DooPush.register();
       console.log('[DooPush] native register resolved', { deviceId: result.deviceId, vendor: result.vendor, hasToken: Boolean(result.token) });
       return result;
     } catch (e) {

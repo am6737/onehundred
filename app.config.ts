@@ -11,10 +11,9 @@ const APP_VERSION = (process.env.APP_VERSION || "1.0.0").replace(/^v/, "");
 const DOOPUSH_APP_ID = IS_DEV
   ? process.env.EXPO_PUBLIC_DOOPUSH_APP_ID_DEV
   : process.env.EXPO_PUBLIC_DOOPUSH_APP_ID;
-// The SDK calls this credential appKey.
-const DOOPUSH_APP_KEY = IS_DEV
-  ? process.env.EXPO_PUBLIC_DOOPUSH_APP_KEY_DEV
-  : process.env.EXPO_PUBLIC_DOOPUSH_APP_KEY;
+const DOOPUSH_API_KEY = IS_DEV
+  ? process.env.EXPO_PUBLIC_DOOPUSH_API_KEY_DEV
+  : process.env.EXPO_PUBLIC_DOOPUSH_API_KEY;
 const DOOPUSH_OPPO_APP_KEY = IS_DEV
   ? process.env.DOOPUSH_OPPO_APP_KEY_DEV
   : process.env.DOOPUSH_OPPO_APP_KEY;
@@ -218,7 +217,7 @@ const config: ExpoConfig = {
     // 把按环境选好的 DooPush 凭据带到运行时（APP_VARIANT 不会进 JS bundle）
     doopush: {
       appId: DOOPUSH_APP_ID,
-      appKey: DOOPUSH_APP_KEY,
+      appKey: DOOPUSH_API_KEY,
     },
     asrProviderName:
       process.env.EXPO_PUBLIC_ASR_PROVIDER_NAME || "一百件事语音识别服务",
@@ -227,7 +226,7 @@ const config: ExpoConfig = {
 
 // DooPush 插件要求 appId/appKey 必填。构建时这些值由 EAS 环境变量注入，
 // 但在 eas env:push 等引导阶段尚未就绪——缺失时跳过插件以免 config 解析失败。
-if (DOOPUSH_APP_ID && DOOPUSH_APP_KEY) {
+if (DOOPUSH_APP_ID && DOOPUSH_API_KEY) {
   const androidVendors: Record<string, unknown> = {};
 
   // Android 按 DooPush React Native 文档接 OEM 厂商通道；不配置 FCM。
@@ -279,7 +278,7 @@ if (DOOPUSH_APP_ID && DOOPUSH_APP_KEY) {
     "doopush-react-native-sdk",
     {
       appId: DOOPUSH_APP_ID,
-      appKey: DOOPUSH_APP_KEY,
+      appKey: DOOPUSH_API_KEY,
       baseURL: "https://doopush.com/api/v1",
       ios: {
         mode: IS_DEV ? "development" : "production",

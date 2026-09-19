@@ -8,6 +8,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { getLocales } from 'expo-localization';
 import Constants from 'expo-constants';
+import { DooPush } from 'doopush-react-native-sdk';
 
 import { ThemeProvider, useTheme } from './src/theme/tokens';
 import { I18nProvider, loadSavedLang, useT, type Lang } from './src/i18n';
@@ -15,7 +16,7 @@ import { DataProvider, useData } from './src/data/DataProvider';
 import { DEFAULT_ME, meName, upsertPushDevice, markNotificationClicked } from './src/data';
 import { getSession, getValidSession, onAuthStateChange } from './src/lib/auth';
 import { parseInviteCode } from './src/lib/invite';
-import { formatDooPushError, getDooPush, markDooPushConfigured, markDooPushUnconfigured, safeDooPushRegister } from './src/lib/doopushRegister';
+import { formatDooPushError, markDooPushConfigured, markDooPushUnconfigured, safeDooPushRegister } from './src/lib/doopushRegister';
 
 import HomeFeed from './src/screens/HomeFeed';
 import Drawer from './src/screens/Drawer';
@@ -349,13 +350,6 @@ function AuthGate() {
   const [pushInfo, setPushInfo] = useState<{ token: string | null; deviceId: string } | null>(null);
 
   useEffect(() => {
-    // Keep the iOS launch path independent from DooPush. Its native module
-    // installs a notification delegate during creation; loading/configuring it
-    // before the first frame can leave the app on the native splash screen.
-    // Android push remains enabled and can be re-enabled on iOS after a verified
-    // SDK release by removing this guard.
-    if (Platform.OS !== 'android') return;
-
     const doopush = (Constants.expoConfig?.extra?.doopush ?? {}) as {
       appId?: string;
       appKey?: string;
@@ -366,9 +360,8 @@ function AuthGate() {
       console.warn('[DooPush] 缺少 appId/appKey，跳过推送初始化（检查 .env 的 EXPO_PUBLIC_DOOPUSH_* 是否齐全）');
       return;
     }
-    const dooPush = getDooPush();
     try {
-      dooPush.configure({
+      DooPush.configure({
         appId: doopush.appId,
         appKey: doopush.appKey,
       });
@@ -379,15 +372,15 @@ function AuthGate() {
       return;
     }
 
-    const msgSub = dooPush.addMessageListener((m) => {
+    const msgSub = DooPush.addMessageListener((m) => {
       console.log('[DooPush] 收到推送', m);
     });
-    const clickSub = dooPush.addNotificationClickListener((m) => {
+    const clickSub = DooPush.addNotificationClickListener((m) => {
       console.log('[DooPush] 点击推送', m);
       routeFromNotification(m?.data);
     });
     // 冷启动：从通知点开 App
-    const openSub = dooPush.addNotificationOpenListener((m) => {
+    const openSub = DooPush.addNotificationOpenListener((m) => {
       routeFromNotification(m?.data);
     });
 
