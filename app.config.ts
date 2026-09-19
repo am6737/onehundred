@@ -131,7 +131,34 @@ const config: ExpoConfig = {
     favicon: "./assets/favicon.png",
   },
   plugins: [
-    "expo-font",
+    [
+      "expo-font",
+      {
+        android: {
+          fonts: [
+            {
+              fontFamily: "ZCOOLKuaiLe",
+              fontDefinitions: [{ path: "./assets/fonts/ZCOOLKuaiLe-Regular.ttf", weight: 400 }],
+            },
+            {
+              fontFamily: "NotoSerifSC",
+              fontDefinitions: [{ path: "./assets/fonts/NotoSerifSC-Regular.ttf", weight: 400 }],
+            },
+            {
+              fontFamily: "MaShanZheng",
+              fontDefinitions: [{ path: "./assets/fonts/MaShanZheng-Regular.ttf", weight: 400 }],
+            },
+          ],
+        },
+        ios: {
+          fonts: [
+            "./assets/fonts/ZCOOLKuaiLe-Regular.ttf",
+            "./assets/fonts/NotoSerifSC-Regular.ttf",
+            "./assets/fonts/MaShanZheng-Regular.ttf",
+          ],
+        },
+      },
+    ],
     [
       "expo-image-picker",
       {

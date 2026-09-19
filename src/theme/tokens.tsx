@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useMemo } from 'react';
-import { useColorScheme } from 'react-native';
+import { Platform, useColorScheme } from 'react-native';
 
 /* ── colour presets ── */
 
@@ -26,9 +26,9 @@ export const TONE = {
 };
 
 export const FONTS = {
-  head: 'ZCOOLKuaiLe',
-  body: 'NotoSerifSC',
-  hand: 'MaShanZheng',
+  head: Platform.OS === 'ios' ? 'ZCOOL KuaiLe' : 'ZCOOLKuaiLe',
+  body: Platform.OS === 'ios' ? 'Noto Serif SC' : 'NotoSerifSC',
+  hand: Platform.OS === 'ios' ? 'Ma Shan Zheng' : 'MaShanZheng',
 };
 
 /* ── createTheme ── */

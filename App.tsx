@@ -1,7 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { View, Text, ActivityIndicator, Linking, Pressable, Platform, PermissionsAndroid } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { useFonts } from 'expo-font';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -445,29 +444,13 @@ function AuthGate() {
 }
 
 export default function App() {
-  const [fontsLoaded, fontError] = useFonts({
-    ZCOOLKuaiLe: require('./assets/fonts/ZCOOLKuaiLe-Regular.ttf'),
-    NotoSerifSC: require('./assets/fonts/NotoSerifSC-Regular.ttf'),
-    MaShanZheng: require('./assets/fonts/MaShanZheng-Regular.ttf'),
-  });
-  const [fontTimedOut, setFontTimedOut] = useState(false);
-
-  useEffect(() => {
-    if (fontsLoaded || fontError) return;
-    const timer = setTimeout(() => {
-      console.warn('[startup] font loading exceeded 4s; continuing with system fonts');
-      setFontTimedOut(true);
-    }, 4000);
-    return () => clearTimeout(timer);
-  }, [fontsLoaded, fontError]);
-
   // 首帧前确定语言（已保存的偏好；没有则跟随系统），避免文案闪烁
   const [lang, setLang] = useState<Lang | null>(null);
   useEffect(() => {
     void withStartupTimeout(loadSavedLang(), isZh() ? 'zh' : 'en', 4000).then(setLang);
   }, []);
 
-  if ((!fontsLoaded && !fontError && !fontTimedOut) || !lang) {
+  if (!lang) {
     return (
       <View style={{ flex: 1, backgroundColor: '#FAF3E6', justifyContent: 'center', alignItems: 'center' }}>
         <ActivityIndicator color="#DE8C57" />
