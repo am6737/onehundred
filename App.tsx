@@ -39,6 +39,8 @@ import SettingsScreen from './src/screens/Settings';
 import Agreement from './src/screens/Agreement';
 import OnboardingScreen from './src/screens/Onboarding';
 import InviteRecord from './src/screens/InviteRecord';
+import QRLogin from './src/screens/QRLogin';
+import ApproveQRLogin from './src/screens/ApproveQRLogin';
 
 const Stack = createNativeStackNavigator();
 export const navigationRef = createNavigationContainerRef();
@@ -296,6 +298,8 @@ function AppNavigator() {
         <Stack.Screen name="ForgotPassword" component={ForgotPassword} />
         <Stack.Screen name="EmailLogin" component={EmailLogin} />
         <Stack.Screen name="Agreement" component={Agreement} />
+        <Stack.Screen name="QRLogin" component={QRLogin} />
+        <Stack.Screen name="ApproveQRLogin" component={ApproveQRLogin} />
         <Stack.Screen name="Onboarding" component={OnboardingScreen} />
         <Stack.Screen name="Home" component={HomeWithDrawer} />
         <Stack.Screen name="LevelDetail" component={LevelDetail} />

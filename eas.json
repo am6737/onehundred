@@ -10,7 +10,7 @@
       "channel": "development",
       "autoIncrement": true,
       "env": {
-        "APP_VARIANT": "production"
+        "APP_VARIANT": "development"
       },
       "android": {
         "buildType": "apk"
