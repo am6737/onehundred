@@ -1,0 +1,4 @@
+interface:
+  display_name: "Crayon Storybook Image"
+  short_description: "Generate matching crayon storybook scenes"
+  default_prompt: "Use $crayon-storybook-image to generate a warm crayon storybook illustration of a new family scene."
